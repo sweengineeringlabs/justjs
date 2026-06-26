@@ -39,10 +39,11 @@ packages/
 docs/adr/   — architecture decisions
 ```
 
-### SAF pattern (every package)
-- `src/api/`  — TypeScript interfaces only, zero dependencies
-- `src/core/` — implementations (never imported by consumers)
-- `src/saf/`  — factory surface (only thing re-exported from package root)
+### SAF — Service Abstraction Framework (every package)
+- `src/api/`  — contracts: interfaces, errors, types — zero dependencies
+- `src/core/` — implementations — never imported by consumers
+- `src/saf/`  — Service Abstraction Facade — sole public export surface
+- `src/spi/`  — Service Provider Implementation — extension hooks, providers self-register
 
 ## Commands
 

@@ -26,6 +26,17 @@ Network  →  Transport  →  Application  →  Data
 | `@justjs/mobile` | Mobile adapter | Blocked |
 | `@justjs/desktop` | Desktop adapter | Blocked |
 
+## Layer pattern (SAF — Service Abstraction Framework)
+
+Every package follows four layers:
+
+| Directory | Name | Role |
+|---|---|---|
+| `api/` | Contracts | Interfaces, errors, types — zero dependencies |
+| `core/` | Implementations | Business logic — never imported by consumers |
+| `saf/` | Service Abstraction Facade | Only public surface — the sole import entry point |
+| `spi/` | Service Provider Implementation | Extension hooks — external providers self-register here |
+
 ## App layout
 
 `★` = hand-written input · `⚙` = generated output · `◎` = generated once, then owned by the developer.
@@ -124,6 +135,6 @@ JustJS.boot({
 })
 ```
 
-- `strategy` is resolved through the SPI `AspectRegistry` — never imported directly
+- `strategy` is resolved through the SPI (Service Provider Implementation) `AspectRegistry` — never imported directly
 - All targets validated at boot time against `routes.gen.json` and `registry.gen.ts`
 - Unknown strategy, route, or component tag = `BootError` before any layer starts
