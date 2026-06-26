@@ -48,13 +48,14 @@ justjs/
   application/scm/main/src/{api,core,saf,spi}
   data/scm/main/src/{api,core,saf,spi}
 
-  security/scm/main/src/{api,core,saf,spi}
-  observability/scm/main/src/{api,core,saf,spi}
-  i18n/scm/main/src/{api,core,saf,spi}
-  flags/scm/main/src/{api,core,saf,spi}
-  analytics/scm/main/src/{api,core,saf,spi}
-  theming/scm/main/src/{api,core,saf,spi}
-  error-handling/scm/main/src/{api,core,saf,spi}
+  aop/
+    security/scm/main/src/{api,core,saf,spi}
+    observability/scm/main/src/{api,core,saf,spi}
+    i18n/scm/main/src/{api,core,saf,spi}
+    flags/scm/main/src/{api,core,saf,spi}
+    analytics/scm/main/src/{api,core,saf,spi}
+    theming/scm/main/src/{api,core,saf,spi}
+    error-handling/scm/main/src/{api,core,saf,spi}
 
   platform/
     native/scm/main/src/{api,core,saf,spi}    ← blocked: justweb#43
