@@ -33,39 +33,45 @@ Network  →  Transport  →  Application  →  Data
 
 ## App layout
 
-`src/features/` is the default output directory justweb writes to for both
-`by-feature` and `by-kind` presets (configurable via `features_dir` in
-`justweb.toml`). Full layout in justweb ADR-0004.
+The canonical layout is the `full-stack` preset defined in justweb ADR-0001
+(`docs/3-design/adr/ADR-0001-edgescript-backend-codegen.md`). Theme is the
+top-level organiser under `scm/`. JustJS consumes artifacts from each theme's
+`components/` and the shared wiring in `shared/core/`.
 
 ```
-my-app/
-├── index.html                          ★ hand-written — place HTML tags
-├── src/
-│   ├── app.ts                          ◎ edited once — JustJS.boot() config
-│   ├── registry.gen.ts                 ⚙ custom element registration
-│   ├── routes.gen.json                 ⚙ route → component map
-│   ├── importmap.gen.json              ⚙ ES module import map
-│   ├── install_mocks.gen.ts            ⚙ mock adapter wiring
-│   └── features/
-│       └── checkout/
-│           ├── checkout_component.yaml       ★ hand-written
-│           ├── checkout_api.yaml             ★ hand-written
-│           ├── index.ts                      ◎ scaffolded once — feature barrel
-│           ├── checkout_component.gen.ts     ⚙ Web Component class
-│           ├── checkout_component.gen.css    ⚙ scoped CSS
-│           ├── checkout_types.gen.ts         ⚙ domain types
-│           ├── checkout_api.gen.ts           ⚙ typed HTTP client
-│           ├── checkout_api_mock.gen.ts      ⚙ mock HTTP client
-│           ├── checkout_mock.gen.ts          ⚙ mock data fixtures
-│           ├── checkout_browser_test.gen.ts  ⚙ browser test stub
-│           ├── checkout_int_test.gen.ts      ⚙ integration test stub
-│           └── checkout_e2e_test.gen.ts      ⚙ e2e test stub
-└── public/
-    └── openapi.json                    ⚙ merged OpenAPI spec (→ edge-domain)
+scm/
+├── pub/
+│   ├── openapi.json                  ⚙ merged OpenAPI spec (→ edge-domain)
+│   ├── dom-address-map.json          ⚙ stable DOM addresses (→ webagent)
+│   └── api.html                      ⚙ generated API docs
+├── main/config/
+│   ├── justweb.architecture.toml     ◎ codegen + structure config
+│   └── application.toml              ◎ runtime config
+├── <theme>/
+│   ├── components/
+│   │   ├── <theme>_component.yaml    ★ hand-written
+│   │   ├── <theme>_component.gen.ts  ⚙ Web Component class
+│   │   └── <theme>_component.gen.css ⚙ scoped CSS
+│   ├── api/types/
+│   │   ├── <theme>_api.yaml          ★ hand-written
+│   │   ├── <theme>_types.gen.ts      ⚙ domain types
+│   │   ├── <theme>_api.gen.ts        ⚙ typed HTTP client
+│   │   └── <theme>_api_mock.gen.ts   ⚙ mock HTTP client
+│   ├── api/traits/ vo/ errors/ events/
+│   ├── handler/                      ◎ generated once per operationId
+│   ├── core/                         ◎ hand-written domain logic
+│   ├── spi/                          ◎ hand-written infra adapters
+│   └── tests/
+└── shared/core/
+    ├── app.ts                        ◎ generated once — JustJS.boot() lives here
+    ├── inbound.ts                    ⚙ operationId → Handler wiring
+    ├── registry.gen.ts               ⚙ custom element registration
+    └── install_mocks.gen.ts          ⚙ dev-mode mock bootstrap
 ```
 
 The developer writes `*_component.yaml` and places HTML tags. The platform
-author edits `app.ts` once. Everything else is generated.
+author edits `shared/core/app.ts` once to add `JustJS.boot()` config.
+Everything else is generated.
 
 ## Boot contract
 
