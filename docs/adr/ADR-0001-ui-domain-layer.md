@@ -33,8 +33,44 @@ Network  →  Transport  →  Application  →  Data
 
 ## App layout
 
-See justweb ADR-0004 (`docs/3-design/adr/ADR-0004-justjs.md`) — that document
-is the source of truth for the generated app layout.
+After `justw generate app` the project follows the `full-stack` preset layout.
+Theme is the top-level organiser under `scm/`. JustJS consumes artifacts from
+each theme's `components/` and the shared wiring in `shared/core/`.
+
+```
+scm/
+├── pub/
+│   ├── openapi.json                  ⚙ merged OpenAPI spec
+│   ├── dom-address-map.json          ⚙ stable DOM addresses
+│   └── api.html                      ⚙ generated API docs
+├── main/config/
+│   ├── justweb.architecture.toml     ◎ codegen + structure config
+│   └── application.toml              ◎ runtime config
+├── <theme>/
+│   ├── components/
+│   │   ├── <theme>_component.yaml    ★ hand-written — component spec
+│   │   ├── <theme>_component.gen.ts  ⚙ Web Component class
+│   │   └── <theme>_component.gen.css ⚙ scoped CSS
+│   ├── api/
+│   │   ├── traits/
+│   │   ├── types/
+│   │   │   ├── <theme>_api.yaml          ★ hand-written — API contract
+│   │   │   ├── <theme>_types.gen.ts      ⚙ domain types
+│   │   │   ├── <theme>_api.gen.ts        ⚙ typed HTTP client
+│   │   │   └── <theme>_api_mock.gen.ts   ⚙ mock HTTP client
+│   │   ├── vo/
+│   │   ├── errors/
+│   │   └── events/
+│   ├── handler/                      ◎ generated once per operationId
+│   ├── core/
+│   ├── spi/
+│   └── tests/
+└── shared/core/
+    ├── app.ts                        ◎ generated once — JustJS.boot() lives here
+    ├── inbound.ts                    ⚙ operationId → Handler wiring
+    ├── registry.gen.ts               ⚙ custom element registration
+    └── install_mocks.gen.ts          ⚙ dev-mode mock bootstrap
+```
 
 ## Boot contract
 
