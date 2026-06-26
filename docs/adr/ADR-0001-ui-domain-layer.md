@@ -11,31 +11,70 @@ observability, platform delivery.
 
 ## Layer model
 
+Modelled on the OSI stack — each layer has a single responsibility and depends
+only on layers below it. Aspects are cross-cutting: they span all layers and are
+woven at boot time, never imported directly.
+
 ```
-Network  →  Transport  →  Application  →  Data
-              Aspects woven across all layers via JustJS.boot()
+┌─────────────────────────────────────────────────┐
+│  Data         FeatureStore · Signals · UIEventBus│
+├─────────────────────────────────────────────────┤
+│  Application  Router · ComponentRegistry         │
+│               Lifecycle · InteractionProxy        │
+├─────────────────────────────────────────────────┤
+│  Transport    ApiAdapter · WsAdapter · CacheAdapter│
+├─────────────────────────────────────────────────┤
+│  Network      fetch · WebSocket · Service Worker │
+│               Custom Elements                    │
+└─────────────────────────────────────────────────┘
+         ↕ woven across all layers via JustJS.boot()
+┌─────────────────────────────────────────────────┐
+│  Aspects      Security · Observability · i18n    │
+│  (cross-cutting) Flags · Analytics · Theming     │
+│               Error Handling                     │
+└─────────────────────────────────────────────────┘
 ```
 
-## Package map
+## Workspace layout
 
-| Package | Layer | Status |
-|---|---|---|
-| `@justjs/core` | Domain contracts — zero deps | Active |
-| `@justjs/browser` | All four layers, browser runtime | Active |
-| `@justjs/native` | Native adapter | Blocked |
-| `@justjs/mobile` | Mobile adapter | Blocked |
-| `@justjs/desktop` | Desktop adapter | Blocked |
+Every layer and every aspect is a **standalone workspace** — installable,
+buildable, testable, and runnable in complete isolation. The monorepo
+`bun-workspace.yaml` is a convenience only; nothing depends on it to function.
 
-## Layer pattern (SAF — Service Abstraction Framework)
+```
+justjs/
+  network/scm/main/src/{api,core,saf,spi}
+  transport/scm/main/src/{api,core,saf,spi}
+  application/scm/main/src/{api,core,saf,spi}
+  data/scm/main/src/{api,core,saf,spi}
 
-Every package follows four layers:
+  security/scm/main/src/{api,core,saf,spi}
+  observability/scm/main/src/{api,core,saf,spi}
+  i18n/scm/main/src/{api,core,saf,spi}
+  flags/scm/main/src/{api,core,saf,spi}
+  analytics/scm/main/src/{api,core,saf,spi}
+  theming/scm/main/src/{api,core,saf,spi}
+  error-handling/scm/main/src/{api,core,saf,spi}
+
+  native/scm/main/src/{api,core,saf,spi}      ← blocked: justweb#43
+  mobile/scm/main/src/{api,core,saf,spi}      ← blocked: justweb#43
+  desktop/scm/main/src/{api,core,saf,spi}     ← blocked: justweb#43
+
+  docs/
+  bun-workspace.yaml
+  package.json
+```
+
+## SAF — Service Abstraction Framework
+
+Every workspace follows the same four-directory layout under `scm/main/src/`:
 
 | Directory | Name | Role |
 |---|---|---|
 | `api/` | Contracts | Interfaces, errors, types — zero dependencies |
 | `core/` | Implementations | Business logic — never imported by consumers |
-| `saf/` | Service Abstraction Facade | Only public surface — the sole import entry point |
-| `spi/` | Service Provider Implementation | Extension hooks — external providers self-register here |
+| `saf/` | Service Abstraction Facade | Sole public export surface |
+| `spi/` | Service Provider Implementation | Extension hooks — providers self-register here |
 
 ## App layout
 
@@ -135,6 +174,6 @@ JustJS.boot({
 })
 ```
 
-- `strategy` is resolved through the SPI (Service Provider Implementation) `AspectRegistry` — never imported directly
+- `strategy` is resolved through the SPI `AspectRegistry` — never imported directly
 - All targets validated at boot time against `routes.gen.json` and `registry.gen.ts`
 - Unknown strategy, route, or component tag = `BootError` before any layer starts
