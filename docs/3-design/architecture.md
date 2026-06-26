@@ -8,71 +8,105 @@ JustJS is the UI domain layer. The developer writes a `*_component.yaml` and pla
 
 ---
 
-## Package structure
+## Workspace structure
+
+Every layer, every AOP concern, and every platform adapter is a **standalone workspace** — installable, buildable, testable, and runnable in complete isolation. `bun-workspace.yaml` at the repo root is a convenience only; nothing depends on it to function.
 
 ```mermaid
 graph TD
-  Core["@justjs/core\nDomain contracts · zero deps\nInterfaces only"]
-  Browser["@justjs/browser\nBrowser runtime\nAll four layers + aspects"]
-  Native["@justjs/native\niOS / Android\n(blocked: justweb#43)"]
-  Mobile["@justjs/mobile\nCapacitor / React Native\n(blocked: justweb#43)"]
-  Desktop["@justjs/desktop\nElectron / Tauri\n(blocked: justweb#43)"]
+  subgraph osi[OSI Layers]
+    N[network]
+    T[transport]
+    A[application]
+    D[data]
+    N --> T --> A --> D
+  end
 
-  Core --> Browser
-  Core --> Native
-  Core --> Mobile
-  Core --> Desktop
+  subgraph aop[AOP — cross-cutting]
+    Sec[security]
+    Obs[observability]
+    I18n[i18n]
+    Fl[flags]
+    An[analytics]
+    Th[theming]
+  end
+
+  subgraph platform[platform/]
+    Na[native\nblocked]
+    Mo[mobile\nblocked]
+    De[desktop\nblocked]
+  end
+
+  aop -.->|woven across| osi
 ```
 
 ---
 
 ## Layer model
 
+Modelled on the OSI stack — each layer has a single responsibility and depends only on layers below it.
+
 ```mermaid
 flowchart LR
-  subgraph layers[" "]
-    direction LR
-    N["Network\nfetch · WebSocket\nService Worker · Custom Elements"]
-    T["Transport\nApiAdapter · WsAdapter\nCacheAdapter"]
-    A["Application\nRouter · ComponentRegistry\nLifecycle · InteractionProxy"]
-    D["Data\nFeatureStore · Signals\nUIEventBus"]
+  subgraph osi[OSI Layers]
+    direction TB
+    D["data\nFeatureStore · Signals · UIEventBus"]
+    A["application\nRouter · ComponentRegistry\nLifecycle · InteractionProxy"]
+    T["transport\nApiAdapter · WsAdapter · CacheAdapter"]
+    N["network\nfetch · WebSocket · Service Worker\nCustom Elements"]
+    D --- A --- T --- N
   end
 
-  subgraph aspects["Aspects — woven across all layers via JustJS.boot()"]
-    direction LR
-    Sec[Security]
-    Obs[Observability]
+  subgraph aop[AOP — woven via JustJS.boot()]
+    direction TB
+    Sec[security]
+    Obs[observability]
     I18n[i18n]
-    Flags[Feature Flags]
-    Ana[Analytics]
-    Theme[Theming]
-    Err[Error Handling]
-    Custom["Custom SPI"]
+    Fl[flags]
+    An[analytics]
+    Th[theming]
   end
 
-  N --> T --> A --> D
-  D -.->|signals| A
-
-  aspects -.->|weave| N
-  aspects -.->|weave| T
-  aspects -.->|weave| A
-  aspects -.->|weave| D
+  aop -.->|weave| D
+  aop -.->|weave| A
+  aop -.->|weave| T
+  aop -.->|weave| N
 ```
+
+---
+
+## AOP — Aspect-Oriented Programming
+
+Concerns that do not belong to any single OSI layer are modelled as **aspects**. They are declared at boot time by strategy name, resolved through the SPI `AspectRegistry`, and woven onto their targets — never imported directly.
+
+Each AOP workspace is standalone and ships its own strategy implementations. Third-party strategies are separate repos that self-register before `JustJS.boot()` is called.
+
+```
+aop/
+  security/       — authentication, authorisation, route guards
+  observability/  — logging, performance marks, error capture
+  i18n/           — translation, locale switching
+  flags/          — feature flag evaluation
+  analytics/      — event tracking
+  theming/        — design tokens, CSS custom properties
+```
+
+Errors are **not** an AOP concern — each layer's `api/` defines its own specific error types.
 
 ---
 
 ## SAF — Service Abstraction Framework
 
-Every package follows the same four-directory layout:
+Every workspace follows the same four-directory layout under `scm/main/src/`:
 
 | Directory | Name | Role |
 |---|---|---|
-| `src/api/` | Contracts | Interfaces, errors, types — zero dependencies |
-| `src/core/` | Implementations | Business logic — never imported by consumers |
-| `src/saf/` | Service Abstraction Facade | Sole public export surface |
-| `src/spi/` | Service Provider Implementation | Extension hooks — providers self-register |
+| `api/` | Contracts | Interfaces, errors, types — zero dependencies |
+| `core/` | Implementations | Business logic — never imported by consumers |
+| `saf/` | Service Abstraction Facade | Sole public export surface |
+| `spi/` | Service Provider Implementation | Extension hooks — providers self-register here |
 
-Consumers import only from the SAF surface (`@justjs/core` or `@justjs/browser`). The `core/` implementations are an internal detail.
+Consumers import only from a workspace's SAF surface. The `core/` implementations are an internal detail.
 
 ---
 
@@ -94,15 +128,15 @@ sequenceDiagram
     Boot-->>App: throw BootError (UNKNOWN_ROUTE · UNKNOWN_COMPONENT · UNKNOWN_STRATEGY)
   end
 
-  loop each declared aspect
+  loop each declared AOP concern
     Boot->>SPI: resolve(concern, strategy)
     SPI-->>Boot: AspectProvider
-    Boot->>SPI: provider.factory(config)
+    Boot->>SPI: provider.create(config)
     SPI-->>Boot: JustJSAspect
     Boot->>Boot: aspect.weave(target)
   end
 
-  Boot->>L: wire Network → Transport → Application → Data
+  Boot->>L: wire network → transport → application → data
   Boot-->>App: ready — app never starts in invalid state
 ```
 
@@ -185,9 +219,9 @@ flowchart TD
   Boot -->|"observability:\nstrategy: 'datadog'"| AR
   Boot -->|"aspects[0]:\nstrategy: 'my-plugin'"| AR
 
-  AR --> P1["OAuthProvider.factory()"]
-  AR --> P2["DatadogProvider.factory()"]
-  AR --> P3["MyPluginProvider.factory()"]
+  AR --> P1["OAuthProvider.create()"]
+  AR --> P2["DatadogProvider.create()"]
+  AR --> P3["MyPluginProvider.create()"]
 
   P1 --> A1["OAuthAspect\n.weave({ on: ['/dashboard'] })"]
   P2 --> A2["DatadogAspect\n.weave({ all: true })"]
@@ -198,33 +232,68 @@ flowchart TD
 
 ## Interface inventory
 
-### `@justjs/core`
+Interfaces are organised by the workspace they belong to. Each workspace's `api/` defines its own contracts and error types.
 
-| Interface | File | Layer |
-|---|---|---|
-| `Component<Props, State, Events>` | `api/component.ts` | Application |
-| `ComponentContext` | `api/component.ts` | Application |
-| `MountHandle` | `api/component.ts` | Application |
-| `LifecycleStep`, `Lifecycle` | `api/lifecycle.ts` | Application |
-| `LifecycleEvent`, `LifecycleEventType` | `api/lifecycle.ts` | Application |
-| `Signal<T>`, `WritableSignal<T>` | `api/store.ts` | Data |
-| `FeatureStore<T, Selector>` | `api/store.ts` | Data |
-| `Action`, `UIEventBus`, `UIEvent` | `api/store.ts` | Data |
-| `Principal`, `UISecurityContext` | `api/security.ts` | Cross-cutting |
-| `RouteGuard` | `api/security.ts` | Cross-cutting |
-| `Route`, `RouteMatch`, `Router` | `api/router.ts` | Application |
-| `ComponentRegistry` | `api/router.ts` | Application |
-| `InteractionProxy`, `InteractionEvent` | `api/router.ts` | Application |
-| `ApiAdapter` | `api/transport.ts` | Transport |
-| `WsAdapter`, `WsConnection` | `api/transport.ts` | Transport |
-| `CacheAdapter` | `api/transport.ts` | Transport |
-| `RuntimeAdapter` | `api/runtime.ts` | Network |
-| `UIObserverContext`, `LogDrain` | `api/observer.ts` | Cross-cutting |
-| `I18nContext` | `api/i18n.ts` | Cross-cutting |
-| `FlagsContext` | `api/flags.ts` | Cross-cutting |
-| `ErrorBoundary`, `ComponentErrorPhase` | `api/error_boundary.ts` | Cross-cutting |
-| `JustJSAspect`, `AspectProvider` | `api/aspect.ts` | SPI |
-| `AspectRegistry` | `api/aspect.ts` | SPI |
-| `AspectTarget`, `AspectConfig`, `AspectDeclaration` | `api/aspect.ts` | SPI |
-| `BootConfig`, `BootError` | `api/boot.ts` | Boot |
-| `RoutesManifest`, `RegistryManifest`, `ImportMap` | `api/boot.ts` | Boot |
+### network/
+
+| Interface | File |
+|---|---|
+| `RuntimeAdapter` | `api/runtime.ts` |
+
+### transport/
+
+| Interface | File |
+|---|---|
+| `ApiAdapter` | `api/transport.ts` |
+| `WsAdapter`, `WsConnection` | `api/transport.ts` |
+| `CacheAdapter` | `api/transport.ts` |
+
+### application/
+
+| Interface | File |
+|---|---|
+| `Component<Props, State, Events>` | `api/component.ts` |
+| `ComponentContext` | `api/component.ts` |
+| `MountHandle` | `api/component.ts` |
+| `LifecycleStep`, `Lifecycle` | `api/lifecycle.ts` |
+| `LifecycleEvent`, `LifecycleEventType` | `api/lifecycle.ts` |
+| `Route`, `RouteMatch`, `Router` | `api/router.ts` |
+| `ComponentRegistry` | `api/router.ts` |
+| `InteractionProxy`, `InteractionEvent` | `api/router.ts` |
+| `JustJSAspect`, `AspectProvider`, `AspectRegistry` | `api/aspect.ts` |
+| `AspectTarget`, `AspectConfig`, `AspectDeclaration` | `api/aspect.ts` |
+| `BootConfig`, `BootError` | `api/boot.ts` |
+| `RoutesManifest`, `RegistryManifest`, `ImportMap` | `api/boot.ts` |
+
+### data/
+
+| Interface | File |
+|---|---|
+| `Signal<T>`, `WritableSignal<T>` | `api/store.ts` |
+| `FeatureStore<T, Selector>` | `api/store.ts` |
+| `Action`, `UIEventBus`, `UIEvent` | `api/store.ts` |
+
+### aop/security/
+
+| Interface | File |
+|---|---|
+| `Principal`, `UISecurityContext` | `api/security.ts` |
+| `RouteGuard` | `api/security.ts` |
+
+### aop/observability/
+
+| Interface | File |
+|---|---|
+| `UIObserverContext`, `LogDrain` | `api/observer.ts` |
+
+### aop/i18n/
+
+| Interface | File |
+|---|---|
+| `I18nContext` | `api/i18n.ts` |
+
+### aop/flags/
+
+| Interface | File |
+|---|---|
+| `FlagsContext` | `api/flags.ts` |

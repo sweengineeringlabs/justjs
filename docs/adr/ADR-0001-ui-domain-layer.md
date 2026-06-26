@@ -29,9 +29,8 @@ woven at boot time, never imported directly.
 └─────────────────────────────────────────────────┘
          ↕ woven across all layers via JustJS.boot()
 ┌─────────────────────────────────────────────────┐
-│  Aspects      Security · Observability · i18n    │
+│  AOP          Security · Observability · i18n    │
 │  (cross-cutting) Flags · Analytics · Theming     │
-│               Error Handling                     │
 └─────────────────────────────────────────────────┘
 ```
 
