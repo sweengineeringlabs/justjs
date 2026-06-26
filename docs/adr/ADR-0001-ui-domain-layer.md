@@ -49,10 +49,17 @@ my-app/
 │   └── features/
 │       └── checkout/
 │           ├── checkout_component.yaml       ★ hand-written
+│           ├── checkout_api.yaml             ★ hand-written
+│           ├── index.ts                      ◎ scaffolded once — feature barrel
 │           ├── checkout_component.gen.ts     ⚙ Web Component class
 │           ├── checkout_component.gen.css    ⚙ scoped CSS
+│           ├── checkout_types.gen.ts         ⚙ domain types
 │           ├── checkout_api.gen.ts           ⚙ typed HTTP client
-│           └── checkout_types.gen.ts         ⚙ domain types
+│           ├── checkout_api_mock.gen.ts      ⚙ mock HTTP client
+│           ├── checkout_mock.gen.ts          ⚙ mock data fixtures
+│           ├── checkout_browser_test.gen.ts  ⚙ browser test stub
+│           ├── checkout_int_test.gen.ts      ⚙ integration test stub
+│           └── checkout_e2e_test.gen.ts      ⚙ e2e test stub
 └── public/
     └── openapi.json                    ⚙ merged OpenAPI spec (→ edge-domain)
 ```
