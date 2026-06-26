@@ -1,4 +1,5 @@
 import type { RouteGuard } from "./security.js"
+import type { Signal }    from "./store.js"
 
 export interface Route {
   readonly path:        string
@@ -14,6 +15,7 @@ export interface RouteMatch {
 export interface Router {
   resolve(url: URL): RouteMatch | null
   navigate(url: URL): Promise<void>
+  readonly current: Signal<RouteMatch | null>
   readonly guards: RouteGuard[]
 }
 

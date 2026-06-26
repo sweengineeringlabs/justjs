@@ -7,14 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "build":   "pnpm -r build",
-    "test":    "pnpm -r test",
-    "lint":    "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "build":     "bun run --filter '*' build",
+    "test":      "bun run --filter '*' test",
+    "lint":      "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck"
   },
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "bun": ">=1.0"
   },
-  "packageManager": "pnpm@9.0.0"
+  "packageManager": "bun@1.3.5"
 }

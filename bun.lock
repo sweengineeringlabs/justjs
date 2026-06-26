@@ -1,0 +1,60 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "justjs",
+    },
+    "packages/browser": {
+      "name": "@justjs/browser",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/core": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "packages/core": {
+      "name": "@justjs/core",
+      "version": "0.1.0",
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "packages/desktop": {
+      "name": "@justjs/desktop",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/core": "workspace:*",
+      },
+    },
+    "packages/mobile": {
+      "name": "@justjs/mobile",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/core": "workspace:*",
+      },
+    },
+    "packages/native": {
+      "name": "@justjs/native",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/core": "workspace:*",
+      },
+    },
+  },
+  "packages": {
+    "@justjs/browser": ["@justjs/browser@workspace:packages/browser"],
+
+    "@justjs/core": ["@justjs/core@workspace:packages/core"],
+
+    "@justjs/desktop": ["@justjs/desktop@workspace:packages/desktop"],
+
+    "@justjs/mobile": ["@justjs/mobile@workspace:packages/mobile"],
+
+    "@justjs/native": ["@justjs/native@workspace:packages/native"],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+  }
+}

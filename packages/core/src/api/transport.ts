@@ -1,5 +1,7 @@
 export interface ApiAdapter {
-  get<T>(featureId: string): T
+  get<T>(featureId: string):                        Promise<T | null>
+  mutate<T>(featureId: string, payload: unknown):   Promise<T>
+  upload<T>(featureId: string, data: Blob | ArrayBuffer): Promise<T>
 }
 
 export interface WsAdapter {

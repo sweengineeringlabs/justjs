@@ -11,3 +11,6 @@ export type { RuntimeAdapter }                            from "../api/runtime.j
 export type { UIObserverContext, LogDrain }               from "../api/observer.js"
 export type { AspectTarget, AspectConfig, AspectDeclaration, JustJSAspect, AspectProvider, AspectRegistry } from "../api/aspect.js"
 export type { RoutesManifest, RegistryManifest, ImportMap, BootConfig, BootError } from "../api/boot.js"
+export type { I18nContext }                                   from "../api/i18n.js"
+export type { FlagsContext }                                  from "../api/flags.js"
+export type { ComponentErrorPhase, ErrorBoundary }            from "../api/error_boundary.js"
