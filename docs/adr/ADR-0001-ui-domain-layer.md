@@ -56,9 +56,10 @@ justjs/
   theming/scm/main/src/{api,core,saf,spi}
   error-handling/scm/main/src/{api,core,saf,spi}
 
-  native/scm/main/src/{api,core,saf,spi}      ← blocked: justweb#43
-  mobile/scm/main/src/{api,core,saf,spi}      ← blocked: justweb#43
-  desktop/scm/main/src/{api,core,saf,spi}     ← blocked: justweb#43
+  platform/
+    native/scm/main/src/{api,core,saf,spi}    ← blocked: justweb#43
+    mobile/scm/main/src/{api,core,saf,spi}    ← blocked: justweb#43
+    desktop/scm/main/src/{api,core,saf,spi}   ← blocked: justweb#43
 
   docs/
   bun-workspace.yaml
