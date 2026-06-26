@@ -1,0 +1,9 @@
+{
+  "name": "@justjs/desktop",
+  "version": "0.1.0",
+  "description": "JustJS desktop adapter — Electron/Tauri (blocked on sweengineeringlabs/justweb#43)",
+  "type": "module",
+  "dependencies": {
+    "@justjs/core": "workspace:*"
+  }
+}

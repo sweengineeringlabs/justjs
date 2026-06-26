@@ -1,0 +1,22 @@
+{
+  "name": "@justjs/browser",
+  "version": "0.1.0",
+  "description": "JustJS browser adapter — Network, Transport, Application, Data layers for the browser",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types":  "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build":     "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@justjs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@justjs/native",
+  "version": "0.1.0",
+  "description": "JustJS native adapter — iOS/Android (blocked on sweengineeringlabs/justweb#43)",
+  "type": "module",
+  "dependencies": {
+    "@justjs/core": "workspace:*"
+  }
+}
