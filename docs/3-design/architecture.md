@@ -4,7 +4,7 @@
 
 JustJS is the UI domain layer. The developer writes a `*_component.yaml` and places an HTML tag. Everything else flows — routing, auth, state, API transport, lifecycle, CSS, observability, platform delivery.
 
-**Core principle:** all wiring is declared at boot time by strategy name, resolved through SPI, never by direct import. Swap a strategy name; nothing else changes.
+**Core principle:** all wiring is declared at boot time by strategy name, resolved through SPI, never by direct import. Swap a strategy name — nothing else changes.
 
 ---
 
@@ -13,8 +13,19 @@ JustJS is the UI domain layer. The developer writes a `*_component.yaml` and pla
 Every layer, every AOP concern, and every platform adapter is a **standalone workspace** — installable, buildable, testable, and runnable in complete isolation. `bun-workspace.yaml` at the repo root is a convenience only; nothing depends on it to function.
 
 ```mermaid
-graph TD
-  subgraph osi[OSI Layers]
+flowchart LR
+  subgraph aop["aop/ — cross-cutting workspaces"]
+    direction TB
+    Sec[security]
+    Obs[observability]
+    I18n[i18n]
+    Fl[flags]
+    An[analytics]
+    Th[theming]
+  end
+
+  subgraph osi["OSI layer workspaces"]
+    direction BT
     N[network]
     T[transport]
     A[application]
@@ -22,42 +33,78 @@ graph TD
     N --> T --> A --> D
   end
 
-  subgraph aop[AOP — cross-cutting]
-    Sec[security]
-    Obs[observability]
-    I18n[i18n]
-    Fl[flags]
-    An[analytics]
-    Th[theming]
+  subgraph plat["platform/ workspaces\n(blocked: justweb#43)"]
+    Na[native]
+    Mo[mobile]
+    De[desktop]
   end
 
-  subgraph platform[platform/]
-    Na[native\nblocked]
-    Mo[mobile\nblocked]
-    De[desktop\nblocked]
-  end
+  aop -.->|"woven at boot time\nstrategy names — never imports"| osi
+```
 
-  aop -.->|woven across| osi
+```
+justjs/
+  network/scm/main/src/{api,core,saf,spi}
+  transport/scm/main/src/{api,core,saf,spi}
+  application/scm/main/src/{api,core,saf,spi}
+  data/scm/main/src/{api,core,saf,spi}
+
+  aop/
+    security/scm/main/src/{api,core,saf,spi}
+    observability/scm/main/src/{api,core,saf,spi}
+    i18n/scm/main/src/{api,core,saf,spi}
+    flags/scm/main/src/{api,core,saf,spi}
+    analytics/scm/main/src/{api,core,saf,spi}
+    theming/scm/main/src/{api,core,saf,spi}
+
+  platform/
+    native/scm/main/src/{api,core,saf,spi}    blocked: justweb#43
+    mobile/scm/main/src/{api,core,saf,spi}    blocked: justweb#43
+    desktop/scm/main/src/{api,core,saf,spi}   blocked: justweb#43
+
+  docs/
+  bun-workspace.yaml
+  package.json
 ```
 
 ---
 
 ## Layer model
 
-Modelled on the OSI stack — each layer has a single responsibility and depends only on layers below it.
+Modelled on the OSI stack — each layer has a single responsibility and depends only on layers below it. Data flows upward from `network` to `data`.
+
+```mermaid
+flowchart BT
+  N["network\nfetch · WebSocket · Service Worker · Custom Elements"]
+  T["transport\nApiAdapter · WsAdapter · CacheAdapter"]
+  A["application\nRouter · ComponentRegistry · Lifecycle · InteractionProxy"]
+  D["data\nFeatureStore · Signals · UIEventBus"]
+
+  N --> T --> A --> D
+```
+
+`application/` is the consumer-facing layer — what developers plug and play into the system. The framework concerns (security, observability, i18n, flags, analytics, theming) do not live here; they are woven from outside.
+
+---
+
+## AOP — cross-cutting concerns
+
+A concern lives in `aop/` when it must **operate at more than one layer**. Placing it inside a single layer would either leak implementation upward or force other layers to depend on concerns they should not know about — violating the OSI constraint.
+
+| Concern | network | transport | application | data |
+|---|---|---|---|---|
+| security | token refresh | auth headers | route guards | — |
+| observability | request timing | call logs | lifecycle events | state change tracking |
+| i18n | — | locale file loading | render-time translation | locale state |
+| flags | — | config fetch | component / route gating | flag state |
+| analytics | — | event dispatch | interaction capture | — |
+| theming | — | token file loading | CSS application | theme state |
+
+Each concern is declared at boot time by strategy name, resolved through the SPI `AspectRegistry`, and woven onto its targets. No layer imports an AOP concern directly.
 
 ```mermaid
 flowchart LR
-  subgraph osi[OSI Layers]
-    direction TB
-    D["data\nFeatureStore · Signals · UIEventBus"]
-    A["application\nRouter · ComponentRegistry\nLifecycle · InteractionProxy"]
-    T["transport\nApiAdapter · WsAdapter · CacheAdapter"]
-    N["network\nfetch · WebSocket · Service Worker\nCustom Elements"]
-    D --- A --- T --- N
-  end
-
-  subgraph aop[AOP — woven via JustJS.boot()]
+  subgraph concerns["aop/ concerns"]
     direction TB
     Sec[security]
     Obs[observability]
@@ -67,28 +114,17 @@ flowchart LR
     Th[theming]
   end
 
-  aop -.->|weave| D
-  aop -.->|weave| A
-  aop -.->|weave| T
-  aop -.->|weave| N
-```
+  N[network]
+  T[transport]
+  A[application]
+  D[data]
 
----
-
-## AOP — Aspect-Oriented Programming
-
-Concerns that do not belong to any single OSI layer are modelled as **aspects**. They are declared at boot time by strategy name, resolved through the SPI `AspectRegistry`, and woven onto their targets — never imported directly.
-
-Each AOP workspace is standalone and ships its own strategy implementations. Third-party strategies are separate repos that self-register before `JustJS.boot()` is called.
-
-```
-aop/
-  security/       — authentication, authorisation, route guards
-  observability/  — logging, performance marks, error capture
-  i18n/           — translation, locale switching
-  flags/          — feature flag evaluation
-  analytics/      — event tracking
-  theming/        — design tokens, CSS custom properties
+  Sec -.-> N & T & A
+  Obs -.-> N & T & A & D
+  I18n -.-> T & A & D
+  Fl  -.-> T & A & D
+  An  -.-> T & A
+  Th  -.-> T & A & D
 ```
 
 Errors are **not** an AOP concern — each layer's `api/` defines its own specific error types.
@@ -106,7 +142,7 @@ Every workspace follows the same four-directory layout under `scm/main/src/`:
 | `saf/` | Service Abstraction Facade | Sole public export surface |
 | `spi/` | Service Provider Implementation | Extension hooks — providers self-register here |
 
-Consumers import only from a workspace's SAF surface. The `core/` implementations are an internal detail.
+Consumers import only from a workspace's `saf/` surface. The `core/` implementations are an internal detail.
 
 ---
 
@@ -139,6 +175,8 @@ sequenceDiagram
   Boot->>L: wire network → transport → application → data
   Boot-->>App: ready — app never starts in invalid state
 ```
+
+Boot-time validation is a hard invariant: every route path and component tag in `.on([])` / `.except([])` is validated against `routes.gen.json` and `registry.gen.ts` before any layer starts. Unknown target = `BootError`.
 
 ---
 
@@ -182,7 +220,7 @@ sequenceDiagram
 
 ---
 
-## User interaction data flow
+## User interaction — data flow
 
 ```mermaid
 sequenceDiagram
@@ -228,11 +266,13 @@ flowchart TD
   P3 --> A3["MyPluginAspect\n.weave({ on: ['js-checkout'] })"]
 ```
 
+Third-party strategies are separate repos that self-register before `JustJS.boot()` is called. The consumer never imports the strategy implementation.
+
 ---
 
 ## Interface inventory
 
-Interfaces are organised by the workspace they belong to. Each workspace's `api/` defines its own contracts and error types.
+Interfaces are organised by the workspace they belong to. Each workspace's `api/` also defines its own error types.
 
 ### network/
 
@@ -297,3 +337,15 @@ Interfaces are organised by the workspace they belong to. Each workspace's `api/
 | Interface | File |
 |---|---|
 | `FlagsContext` | `api/flags.ts` |
+
+### aop/analytics/
+
+| Interface | File |
+|---|---|
+| `AnalyticsContext` | `api/analytics.ts` |
+
+### aop/theming/
+
+| Interface | File |
+|---|---|
+| `ThemeContext` | `api/theming.ts` |

@@ -11,34 +11,49 @@ observability, platform delivery.
 
 ## Layer model
 
-Modelled on the OSI stack — each layer has a single responsibility and depends
-only on layers below it. Aspects are cross-cutting: they span all layers and are
-woven at boot time, never imported directly.
+Modelled on the OSI stack. Each layer has a single responsibility and depends
+only on layers below it. Data flows upward: network → transport → application → data.
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Data         FeatureStore · Signals · UIEventBus│
-├─────────────────────────────────────────────────┤
-│  Application  Router · ComponentRegistry         │
-│               Lifecycle · InteractionProxy        │
-├─────────────────────────────────────────────────┤
-│  Transport    ApiAdapter · WsAdapter · CacheAdapter│
-├─────────────────────────────────────────────────┤
-│  Network      fetch · WebSocket · Service Worker │
-│               Custom Elements                    │
-└─────────────────────────────────────────────────┘
-         ↕ woven across all layers via JustJS.boot()
-┌─────────────────────────────────────────────────┐
-│  AOP          Security · Observability · i18n    │
-│  (cross-cutting) Flags · Analytics · Theming     │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  data         FeatureStore · Signals · UIEventBus     │
+├──────────────────────────────────────────────────────┤
+│  application  Router · ComponentRegistry              │
+│               Lifecycle · InteractionProxy            │
+├──────────────────────────────────────────────────────┤
+│  transport    ApiAdapter · WsAdapter · CacheAdapter   │
+├──────────────────────────────────────────────────────┤
+│  network      fetch · WebSocket · Service Worker      │
+│               Custom Elements                         │
+└──────────────────────────────────────────────────────┘
 ```
+
+## AOP — cross-cutting concerns
+
+A concern lives in `aop/` when it must operate at **more than one layer**. Placing
+it inside a single layer would either leak implementation upward or force layers
+to depend on concerns they should not know about — violating the OSI constraint.
+
+| Concern | network | transport | application | data |
+|---|---|---|---|---|
+| security | token refresh | auth headers | route guards | — |
+| observability | request timing | call logs | lifecycle events | state change tracking |
+| i18n | — | locale file loading | render-time translation | locale state |
+| flags | — | config fetch | component / route gating | flag state |
+| analytics | — | event dispatch | interaction capture | — |
+| theming | — | token file loading | CSS application | theme state |
+
+Each AOP concern is woven at boot time by strategy name via the SPI `AspectRegistry`.
+No layer imports an AOP concern directly — the concern is injected from the outside.
+
+Errors are **not** an AOP concern. Each layer's `api/` defines its own specific
+error types.
 
 ## Workspace layout
 
-Every layer and every aspect is a **standalone workspace** — installable,
-buildable, testable, and runnable in complete isolation. The monorepo
-`bun-workspace.yaml` is a convenience only; nothing depends on it to function.
+Every layer and every AOP concern is a **standalone workspace** — installable,
+buildable, testable, and runnable in complete isolation. `bun-workspace.yaml` at
+the repo root is a convenience only; nothing depends on it to function.
 
 ```
 justjs/
@@ -166,14 +181,22 @@ scm/
 ```typescript
 JustJS.boot({
   routes, importmap, registry,
-  security:     { strategy: "oauth", on: ["/dashboard"] },
+
+  // AOP — declared by strategy name, resolved via SPI, never imported directly
+  security:     { strategy: "oauth",   on: ["/dashboard"] },
   observability:{ strategy: "datadog", all: true },
+  i18n:         { strategy: "fluent",  all: true },
+  flags:        { strategy: "launchdarkly", all: true },
+  analytics:    { strategy: "segment", all: true },
+  theming:      { strategy: "tokens",  all: true },
+
+  // Custom AOP — open SPI contract
   aspects: [
     { strategy: "my-plugin", on: ["js-checkout"] }
   ]
 })
 ```
 
-- `strategy` is resolved through the SPI `AspectRegistry` — never imported directly
+- Each strategy is resolved through the SPI `AspectRegistry` — never imported directly
 - All targets validated at boot time against `routes.gen.json` and `registry.gen.ts`
 - Unknown strategy, route, or component tag = `BootError` before any layer starts
