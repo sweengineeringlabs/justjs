@@ -55,7 +55,6 @@ justjs/
     flags/scm/main/src/{api,core,saf,spi}
     analytics/scm/main/src/{api,core,saf,spi}
     theming/scm/main/src/{api,core,saf,spi}
-    error-handling/scm/main/src/{api,core,saf,spi}
 
   platform/
     native/scm/main/src/{api,core,saf,spi}    ← blocked: justweb#43
