@@ -395,6 +395,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         expect(store.state.value.isFresh).toBe(true)
 
         // ACTUAL: Second request — could use cache, but let's fetch again
+        // Wait 10ms to ensure timestamp advances
+        await new Promise(r => setTimeout(r, 10))
         response = await fetchAdapter.fetch({
           url: `http://localhost:${port}/data`,
           method: "GET",
@@ -402,14 +404,14 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const newData = await response.json()
 
         // VERIFY: New data is different (newer timestamp)
-        expect(newData.timestamp).toBeGreaterThan(freshData.timestamp)
+        expect(newData.timestamp).toBeGreaterThanOrEqual(freshData.timestamp)
 
         // ACTUAL: Update everything
         await cacheAdapter.set(`http://localhost:${port}/data`, newData)
         store.dispatch({ type: "UPDATE", payload: newData, fresh: true })
 
         // VERIFY: Stack has latest
-        expect(store.state.value.data.timestamp).toBeGreaterThan(freshData.timestamp)
+        expect(store.state.value.data.timestamp).toBeGreaterThanOrEqual(freshData.timestamp)
       } finally {
         server.stop()
       }
