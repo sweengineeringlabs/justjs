@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultSecurityProvider }           from "../core/default_security.js"
-import { NoopSecurityContext }               from "../api/provider.js"
+import { NoopSecurityContext }               from "../api/api_provider.js"
 
 describe("DefaultSecurityProvider", () => {
   it("test_concern_is_security", () => {
