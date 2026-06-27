@@ -19,6 +19,12 @@ describe("DefaultI18nProvider", () => {
     const aspect   = provider.factory()
     expect(aspect.concern).toBe("i18n")
   })
+
+  it("test_factory_returns_aspect_with_noop_strategy", () => {
+    const provider = new DefaultI18nProvider()
+    const aspect   = provider.factory()
+    expect(aspect.strategy).toBe("noop")
+  })
 })
 
 describe("NoopI18nContext", () => {
@@ -26,28 +32,30 @@ describe("NoopI18nContext", () => {
 
   beforeEach(() => { ctx = new NoopI18nContext() })
 
-  it("test_t_returns_key_as_translation_when_no_catalog", () => {
-    expect(ctx.t("greeting.hello")).toBe("greeting.hello")
+  it("test_translate_returns_key_as_fallback", () => {
+    expect(ctx.translate("greeting.hello")).toBe("greeting.hello")
   })
 
-  it("test_t_returns_key_even_with_params", () => {
-    expect(ctx.t("user.name", { name: "Alice" })).toBe("user.name")
+  it("test_translate_with_params_returns_key", () => {
+    expect(ctx.translate("user.name", { name: "Alice" })).toBe("user.name")
   })
 
-  it("test_locale_returns_en_as_default", () => {
-    expect(ctx.locale()).toBe("en")
+  it("test_getLocale_returns_en_default", () => {
+    expect(ctx.getLocale()).toBe("en")
   })
 
-  it("test_change_locale_does_not_throw", async () => {
-    await expect(ctx.changeLocale("fr")).resolves.toBeUndefined()
+  it("test_setLocale_does_not_throw", () => {
+    expect(() => ctx.setLocale("fr")).not.toThrow()
   })
 })
 
 describe("i18n SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const resolved = JustJS.providers.resolve("i18n", "noop")
+    const justjs = JustJS.getInstance()
+    const resolved = justjs.providers.resolve("i18n", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("i18n")
+    expect(resolved!.strategy).toBe("noop")
   })
 })
