@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultThemingProvider }            from "../core/default_theming.js"
-import { NoopThemingContext }                from "../api/provider.js"
+import { NoopThemingContext }                from "../api/api_provider.js"
 
 describe("DefaultThemingProvider", () => {
   it("test_concern_is_theming", () => {
