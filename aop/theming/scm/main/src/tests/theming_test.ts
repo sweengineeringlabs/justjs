@@ -19,6 +19,12 @@ describe("DefaultThemingProvider", () => {
     const aspect   = provider.factory()
     expect(aspect.concern).toBe("theming")
   })
+
+  it("test_factory_returns_aspect_with_noop_strategy", () => {
+    const provider = new DefaultThemingProvider()
+    const aspect   = provider.factory()
+    expect(aspect.strategy).toBe("noop")
+  })
 })
 
 describe("NoopThemingContext", () => {
@@ -26,34 +32,31 @@ describe("NoopThemingContext", () => {
 
   beforeEach(() => { ctx = new NoopThemingContext() })
 
-  it("test_active_theme_returns_default", () => {
-    expect(ctx.activeTheme()).toBe("default")
+  it("test_getTheme_returns_light_default", () => {
+    expect(ctx.getTheme()).toBe("light")
   })
 
-  it("test_tokens_returns_empty_object", () => {
-    expect(ctx.tokens()).toEqual({})
-  })
-
-  it("test_set_theme_does_not_throw", () => {
+  it("test_setTheme_does_not_throw", () => {
     expect(() => ctx.setTheme("dark")).not.toThrow()
   })
 
-  it("test_on_theme_change_returns_unsubscribe_function", () => {
-    const unsub = ctx.onThemeChange(() => {})
-    expect(typeof unsub).toBe("function")
+  it("test_getCSSVariable_returns_null", () => {
+    expect(ctx.getCSSVariable("--primary-color")).toBeNull()
+    expect(ctx.getCSSVariable("--bg-color")).toBeNull()
   })
 
-  it("test_unsubscribe_does_not_throw", () => {
-    const unsub = ctx.onThemeChange(() => {})
-    expect(() => unsub()).not.toThrow()
+  it("test_getCSSVariable_with_any_var_name_returns_null", () => {
+    expect(ctx.getCSSVariable("custom-var")).toBeNull()
   })
 })
 
 describe("theming SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const resolved = JustJS.providers.resolve("theming", "noop")
+    const justjs = JustJS.getInstance()
+    const resolved = justjs.providers.resolve("theming", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("theming")
+    expect(resolved!.strategy).toBe("noop")
   })
 })
