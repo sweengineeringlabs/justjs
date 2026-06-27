@@ -1,6 +1,6 @@
 import type { Plugin } from "vite"
-import { readFileSync, writeFileSync } from "fs"
-import { resolve } from "path"
+import { readFileSync, writeFileSync, mkdirSync } from "fs"
+import { resolve, dirname } from "path"
 import { ConfigParser } from "./config_parser.js"
 
 export interface VitePluginOptions {
@@ -67,11 +67,18 @@ export function justjsPlugin(options: VitePluginOptions = {}): Plugin {
         const result = ConfigParser.generateAppCode(config, routes, {}, registry, domMap)
         const appCode = generateAppFile(result)
 
-        writeFileSync(appPath, appCode)
-      } catch (error) {
-        if (process.env.DEBUG) {
-          console.error("[justjs-vite] Error generating app.ts:", error)
+        try {
+          mkdirSync(dirname(appPath), { recursive: true })
+          writeFileSync(appPath, appCode)
+        } catch (writeError) {
+          throw new Error(
+            `[justjs-vite] Failed to write app.ts to ${appPath}: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+          )
         }
+      } catch (error) {
+        throw new Error(
+          `[justjs-vite] Error generating app.ts: ${error instanceof Error ? error.message : String(error)}`
+        )
       }
     }
   }

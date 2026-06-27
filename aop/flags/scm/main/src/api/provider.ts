@@ -1,6 +1,7 @@
 import type { AspectProvider, JustJSAspect } from "@justjs/application"
 
 export interface UIFlagsContext {
+  fetchConfig(): Promise<Record<string, unknown>>
   isEnabled(flagKey: string): boolean
   getVariant(flagKey: string): string | null
 }
@@ -20,6 +21,7 @@ export interface FlagsProvider extends AspectProvider<FlagsProviderConfig> {
 }
 
 export class NoopFlagsContext implements UIFlagsContext {
+  async fetchConfig(): Promise<Record<string, unknown>> { return {} }
   isEnabled(): boolean { return false }
   getVariant(): string | null { return null }
 }
