@@ -46,8 +46,11 @@ class BootValidator {
       throw new BootError("MISSING_REGISTRY")
     }
 
-    const routes = config.routes as unknown[]
+    const routes = config.routes as readonly unknown[]
     const registry = config.registry as Record<string, any>
+    const domAddressMap = config.domAddressMap as Record<string, readonly string[]> | undefined
+    const providers = config.providers as Record<string, unknown> | undefined
+    const aspects = config.aspects as Record<string, any> | undefined
 
     // Validate routes format
     const validRoutes: string[] = []
@@ -154,6 +157,113 @@ class BootValidator {
           nearest,
           `Registry entry "${tag}" path "${entry.path}" not found in routes${nearest ? ` (did you mean "${nearest}"?)` : ""}`
         )
+      }
+    }
+
+    // AC 4: Validate DDAS entries if provided
+    if (domAddressMap) {
+      for (const [tag] of registryEntries) {
+        if (!(tag in domAddressMap)) {
+          const known = Object.keys(domAddressMap)
+          throw new BootError(
+            "MISSING_DDAS_ENTRY",
+            tag,
+            known,
+            undefined,
+            `Component tag "${tag}" missing DDAS entry in dom-address-map`
+          )
+        }
+      }
+    }
+
+    // AC 1: Validate providers if aspects use them
+    if (aspects && providers) {
+      const validProviderStrategies = Object.keys(providers)
+      for (const [aspectName, aspectConfig] of Object.entries(aspects)) {
+        // Check for strategy references in aspect config
+        if (typeof aspectConfig === "string") {
+          if (!validProviderStrategies.includes(aspectConfig)) {
+            throw new BootError(
+              "PROVIDER_NOT_REGISTERED",
+              aspectConfig,
+              validProviderStrategies,
+              this.findNearest(aspectConfig, validProviderStrategies),
+              `Aspect "${aspectName}" references provider strategy "${aspectConfig}" which is not registered`
+            )
+          }
+        }
+      }
+    }
+
+    // AC 2 & 3: Validate aspect routes and components
+    if (aspects) {
+      const registryTags = Object.keys(registry)
+      for (const [aspectName, aspectConfig] of Object.entries(aspects)) {
+        if (aspectConfig.routes) {
+          // Check .on() routes
+          if (aspectConfig.routes.on) {
+            for (const route of aspectConfig.routes.on) {
+              if (!validRoutes.includes(route)) {
+                const nearest = this.findNearest(route, validRoutes)
+                throw new BootError(
+                  "ASPECT_ROUTE_NOT_FOUND",
+                  route,
+                  validRoutes,
+                  nearest,
+                  `Aspect "${aspectName}" .on([]) contains route "${route}" which not in routes${nearest ? ` (did you mean "${nearest}"?)` : ""}`
+                )
+              }
+            }
+          }
+          // Check .except() routes
+          if (aspectConfig.routes.except) {
+            for (const route of aspectConfig.routes.except) {
+              if (!validRoutes.includes(route)) {
+                const nearest = this.findNearest(route, validRoutes)
+                throw new BootError(
+                  "ASPECT_ROUTE_NOT_FOUND",
+                  route,
+                  validRoutes,
+                  nearest,
+                  `Aspect "${aspectName}" .except([]) contains route "${route}" which not in routes${nearest ? ` (did you mean "${nearest}"?)` : ""}`
+                )
+              }
+            }
+          }
+        }
+
+        if (aspectConfig.components) {
+          // Check .on() components
+          if (aspectConfig.components.on) {
+            for (const tag of aspectConfig.components.on) {
+              if (!registryTags.includes(tag)) {
+                const nearest = this.findNearest(tag, registryTags)
+                throw new BootError(
+                  "ASPECT_COMPONENT_NOT_FOUND",
+                  tag,
+                  registryTags,
+                  nearest,
+                  `Aspect "${aspectName}" .on([]) contains component "${tag}" which is not registered${nearest ? ` (did you mean "${nearest}"?)` : ""}`
+                )
+              }
+            }
+          }
+          // Check .except() components
+          if (aspectConfig.components.except) {
+            for (const tag of aspectConfig.components.except) {
+              if (!registryTags.includes(tag)) {
+                const nearest = this.findNearest(tag, registryTags)
+                throw new BootError(
+                  "ASPECT_COMPONENT_NOT_FOUND",
+                  tag,
+                  registryTags,
+                  nearest,
+                  `Aspect "${aspectName}" .except([]) contains component "${tag}" which is not registered${nearest ? ` (did you mean "${nearest}"?)` : ""}`
+                )
+              }
+            }
+          }
+        }
       }
     }
   }

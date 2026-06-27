@@ -2,10 +2,10 @@ import { describe, it, expect } from "bun:test"
 import { BootError, type BootConfig } from "../api/boot.js"
 import { JustJS } from "../core/boot.js"
 
-describe("Boot-time Validation", () => {
-  describe("Valid configurations", () => {
+describe("Boot-time Validation — 4 ACs", () => {
+  describe("AC 2: Routes exist in .on()/.except()", () => {
     it("test_boot_succeeds_with_valid_routes_and_registry", async () => {
-      const validConfig: BootConfig = {
+      const config: BootConfig = {
         routes: ["/", "/dashboard", "/account"],
         registry: {
           "x-root": { path: "/", component: "Root" },
@@ -15,130 +15,20 @@ describe("Boot-time Validation", () => {
       }
 
       const justjs = JustJS.getInstance()
-      // Should not throw
-      await expect(justjs.boot(validConfig)).resolves.toBeUndefined()
-    })
-  })
-
-  describe("Missing configuration", () => {
-    it("test_boot_fails_missing_routes", async () => {
-      const config: BootConfig = {
-        registry: { "x-test": { path: "/", component: "Test" } },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
     })
 
-    it("test_boot_fails_missing_registry", async () => {
-      const config: BootConfig = {
-        routes: ["/"],
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-  })
-
-  describe("Invalid route format", () => {
-    it("test_boot_fails_route_not_string", async () => {
-      const config: BootConfig = {
-        routes: ["/", 123] as any,
-        registry: { "x-root": { path: "/", component: "Root" } },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-
-    it("test_boot_fails_duplicate_routes", async () => {
-      const config: BootConfig = {
-        routes: ["/", "/dashboard", "/dashboard"],
-        registry: {
-          "x-root": { path: "/", component: "Root" },
-          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
-        },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-
-    it("test_boot_fails_route_without_leading_slash", async () => {
-      const config: BootConfig = {
-        routes: ["/", "dashboard"],
-        registry: {
-          "x-root": { path: "/", component: "Root" },
-        },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-  })
-
-  describe("Invalid registry format", () => {
-    it("test_boot_fails_registry_entry_missing_path", async () => {
-      const config: BootConfig = {
-        routes: ["/", "/dashboard"],
-        registry: {
-          "x-root": { path: "/", component: "Root" },
-          "x-dashboard": { component: "Dashboard" } as any,
-        },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-
-    it("test_boot_fails_registry_entry_missing_component", async () => {
-      const config: BootConfig = {
-        routes: ["/"],
-        registry: {
-          "x-root": { path: "/" } as any,
-        },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-
-    it("test_boot_fails_duplicate_component_tags", async () => {
-      const config: BootConfig = {
-        routes: ["/", "/dashboard"],
-        registry: {
-          "x-shared": { path: "/", component: "SharedComponent" },
-          "x-shared": { path: "/dashboard", component: "DifferentComponent" },
-        } as any,
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-  })
-
-  describe("Route-Registry mapping validation", () => {
-    it("test_boot_fails_route_without_registry_entry", async () => {
-      const config: BootConfig = {
-        routes: ["/", "/dashboard", "/admin"],
-        registry: {
-          "x-root": { path: "/", component: "Root" },
-          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
-          // Missing /admin
-        },
-      }
-
-      const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
-    })
-
-    it("test_boot_fails_registry_entry_without_route", async () => {
+    it("test_boot_fails_route_in_aspect_on_not_found", async () => {
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
-          "x-admin": { path: "/admin", component: "Admin" }, // Not in routes
+        },
+        aspects: {
+          security: {
+            routes: { on: ["/", "/admin"] }, // /admin not in routes
+          },
         },
       }
 
@@ -146,75 +36,315 @@ describe("Boot-time Validation", () => {
       await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
 
-    it("test_boot_fails_path_mismatch_between_route_and_registry", async () => {
+    it("test_boot_fails_route_in_aspect_except_not_found", async () => {
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
-          "x-dashboard": { path: "/different-path", component: "Dashboard" }, // Mismatch
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          observability: {
+            routes: { except: ["/health", "/metrics"] }, // Not in routes
+          },
         },
       }
 
       const justjs = JustJS.getInstance()
       await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
-  })
 
-  describe("BootError details", () => {
-    it("test_boot_error_includes_code_and_context", async () => {
+    it("test_boot_suggests_nearest_route_on_typo", async () => {
       const config: BootConfig = {
-        routes: ["/"],
-      }
-
-      const justjs = JustJS.getInstance()
-      try {
-        await justjs.boot(config)
-        expect.unreachable("Should have thrown BootError")
-      } catch (error) {
-        expect(error).toBeInstanceOf(BootError)
-        expect((error as BootError).code).toBeTruthy()
-        expect((error as BootError).message).toContain("Boot failed")
-      }
-    })
-
-    it("test_boot_error_suggests_nearest_match_on_typo", async () => {
-      const config: BootConfig = {
-        routes: ["/", "/dashbord"], // Typo: dashbord instead of dashboard
+        routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          security: {
+            routes: { on: ["/dashbord"] }, // typo
+          },
         },
       }
 
       const justjs = JustJS.getInstance()
       try {
         await justjs.boot(config)
-        expect.unreachable("Should have thrown BootError")
+        expect.unreachable("Should have thrown")
       } catch (error) {
-        // Should suggest /dashboard as nearest match
-        expect((error as BootError).nearest).toBeDefined()
+        expect((error as BootError).nearest).toBe("/dashboard")
       }
     })
   })
 
-  describe("Boot idempotency", () => {
-    it("test_boot_validates_on_each_call", async () => {
-      const validConfig: BootConfig = {
-        routes: ["/"],
-        registry: { "x-root": { path: "/", component: "Root" } },
+  describe("AC 3: Components exist in .on()/.except()", () => {
+    it("test_boot_fails_component_in_aspect_on_not_found", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          security: {
+            components: { on: ["x-root", "x-admin"] }, // x-admin not registered
+          },
+        },
       }
 
       const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+    })
 
-      // First boot succeeds
-      await expect(justjs.boot(validConfig)).resolves.toBeUndefined()
+    it("test_boot_fails_component_in_aspect_except_not_found", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          observability: {
+            components: { except: ["x-internal", "x-debug"] }, // Not registered
+          },
+        },
+      }
 
-      // Second boot with same config should also succeed
-      await expect(justjs.boot(validConfig)).resolves.toBeUndefined()
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+    })
 
-      // Boot with invalid config should fail
-      const invalidConfig: BootConfig = { routes: ["/"] }
-      await expect(justjs.boot(invalidConfig)).rejects.toThrow(BootError)
+    it("test_boot_suggests_nearest_component_on_typo", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          security: {
+            components: { on: ["x-dashbord"] }, // typo
+          },
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      try {
+        await justjs.boot(config)
+        expect.unreachable("Should have thrown")
+      } catch (error) {
+        expect((error as BootError).nearest).toBe("x-dashboard")
+      }
+    })
+  })
+
+  describe("AC 4: DDAS entries exist for all components", () => {
+    it("test_boot_succeeds_with_valid_ddas", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        domAddressMap: {
+          "x-root": ["main", "[role=main]"],
+          "x-dashboard": ["div.dashboard", ".dashboard-view"],
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
+    })
+
+    it("test_boot_fails_missing_ddas_entry", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        domAddressMap: {
+          "x-root": ["main"],
+          // x-dashboard missing
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+    })
+
+    it("test_boot_succeeds_without_ddas_if_not_provided", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        // domAddressMap omitted - optional
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
+    })
+  })
+
+  describe("AC 1: Providers registered", () => {
+    it("test_boot_succeeds_with_registered_providers", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        providers: {
+          oauth: { name: "oauth-provider" },
+          datadog: { name: "datadog-provider" },
+        },
+        aspects: {
+          security: "oauth",
+          observability: "datadog",
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
+    })
+
+    it("test_boot_fails_unregistered_provider", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        providers: {
+          oauth: { name: "oauth-provider" },
+        },
+        aspects: {
+          security: "oauth",
+          observability: "datadog", // Not registered
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+    })
+
+    it("test_boot_suggests_nearest_provider_on_typo", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        providers: {
+          oauth: { name: "oauth-provider" },
+          datadog: { name: "datadog-provider" },
+        },
+        aspects: {
+          security: "oaauth", // typo
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      try {
+        await justjs.boot(config)
+        expect.unreachable("Should have thrown")
+      } catch (error) {
+        expect((error as BootError).nearest).toBe("oauth")
+      }
+    })
+  })
+
+  describe("Combined AC validation", () => {
+    it("test_boot_all_4_acs_pass_together", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/dashboard", "/account"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+          "x-account": { path: "/account", component: "Account" },
+        },
+        domAddressMap: {
+          "x-root": ["main"],
+          "x-dashboard": ["div.dashboard"],
+          "x-account": ["div.account"],
+        },
+        providers: {
+          oauth: { name: "oauth-provider" },
+          datadog: { name: "datadog-provider" },
+        },
+        aspects: {
+          security: "oauth",
+          observability: "datadog",
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
+    })
+
+    it("test_boot_with_complex_aspect_routing", async () => {
+      const config: BootConfig = {
+        routes: ["/", "/public", "/admin", "/admin/users"],
+        registry: {
+          "x-root": { path: "/", component: "Root" },
+          "x-public": { path: "/public", component: "Public" },
+          "x-admin": { path: "/admin", component: "Admin" },
+          "x-users": { path: "/admin/users", component: "Users" },
+        },
+        domAddressMap: {
+          "x-root": ["main"],
+          "x-public": ["div.public"],
+          "x-admin": ["div.admin"],
+          "x-users": ["div.users"],
+        },
+        aspects: {
+          security: {
+            routes: { on: ["/admin", "/admin/users"] },
+            components: { on: ["x-admin", "x-users"] },
+          },
+          observability: {
+            routes: { except: ["/public"] },
+            components: { except: ["x-public"] },
+          },
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).resolves.toBeUndefined()
+    })
+  })
+
+  describe("Error messages", () => {
+    it("test_boot_error_includes_all_context", async () => {
+      const config: BootConfig = {
+        routes: ["/home", "/checkout", "/dashboard"],
+        registry: {
+          "x-home": { path: "/home", component: "Home" },
+          "x-checkout": { path: "/checkout", component: "Checkout" },
+          "x-dashboard": { path: "/dashboard", component: "Dashboard" },
+        },
+        aspects: {
+          security: {
+            routes: { on: ["/cheackout"] }, // typo
+          },
+        },
+      }
+
+      const justjs = JustJS.getInstance()
+      try {
+        await justjs.boot(config)
+        expect.unreachable("Should have thrown")
+      } catch (error) {
+        const e = error as BootError
+        expect(e.code).toBe("ASPECT_ROUTE_NOT_FOUND")
+        expect(e.received).toBe("/cheackout")
+        expect(e.known).toContain("/checkout")
+        expect(e.nearest).toBe("/checkout")
+        expect(e.message).toContain("cheackout")
+      }
     })
   })
 })

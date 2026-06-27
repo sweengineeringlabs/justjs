@@ -1,8 +1,25 @@
+export interface RouteConfig {
+  readonly on?: readonly string[]
+  readonly except?: readonly string[]
+}
+
+export interface ComponentConfig {
+  readonly on?: readonly string[]
+  readonly except?: readonly string[]
+}
+
+export interface AspectConfig {
+  readonly routes?: RouteConfig
+  readonly components?: ComponentConfig
+}
+
 export interface BootConfig {
-  readonly routes?: Record<string, unknown>
+  readonly routes?: readonly string[]
   readonly registry?: Record<string, unknown>
   readonly importmap?: Record<string, unknown>
-  readonly domMap?: Record<string, unknown>
+  readonly domAddressMap?: Record<string, readonly string[]>
+  readonly providers?: Record<string, unknown>
+  readonly aspects?: Record<string, AspectConfig>
   readonly [key: string]: unknown
 }
 

@@ -116,6 +116,17 @@
         "typescript": "^5.5.0",
       },
     },
+    "osi-layers-integration": {
+      "name": "@justjs/osi-layers-integration",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@justjs/application": "*",
+        "@justjs/data": "*",
+        "@justjs/network": "*",
+        "@justjs/transport": "*",
+        "@types/node": "^20.10.0",
+      },
+    },
     "platform/desktop/scm/main": {
       "name": "@justjs/platform-desktop",
       "version": "0.1.0",
@@ -212,6 +223,8 @@
 
     "@justjs/network": ["@justjs/network@workspace:network/scm/main"],
 
+    "@justjs/osi-layers-integration": ["@justjs/osi-layers-integration@workspace:osi-layers-integration"],
+
     "@justjs/platform-desktop": ["@justjs/platform-desktop@workspace:platform/desktop/scm/main"],
 
     "@justjs/platform-mobile": ["@justjs/platform-mobile@workspace:platform/mobile/scm/main"],
@@ -244,6 +257,8 @@
 
     "@justjs/network/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
 
+    "@justjs/osi-layers-integration/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
+
     "@justjs/ssr/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
 
     "@justjs/transport/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
@@ -257,6 +272,8 @@
     "@justjs/data/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "@justjs/network/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+
+    "@justjs/osi-layers-integration/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "@justjs/ssr/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
