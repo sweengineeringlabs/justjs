@@ -311,9 +311,11 @@ justscript/
         api/        — type definitions only — zero dependencies
         core/       — constructors and combinators — never imported by consumers
         saf/        — sole public export surface
+        spi/        — MeasurementProvider self-registration
         benchmarks/ — micro-benchmark suite, CI baseline
       package.json
       tsconfig.json
+      README.md     — scope statement required on day one
 ```
 
 Consumers import from the `saf/` surface only:
