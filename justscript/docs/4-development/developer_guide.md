@@ -99,6 +99,95 @@ const apiUrl = `/users/${unwrapNewtype(id)}`
 
 ---
 
+## Coexistence: JustScript + Normal TypeScript
+
+**JustScript is opt-in and doesn't restrict normal TypeScript.** You use it only where it helps. Everything else stays normal.
+
+### Complete Application Example
+
+```typescript
+// Module 1: Hot algorithmic code — NO JustScript, raw values only
+function quickSort(arr: number[]): number[] {
+  if (arr.length <= 1) return arr
+  const pivot = arr[0]
+  const left = arr.slice(1).filter((x) => x < pivot)
+  const right = arr.slice(1).filter((x) => x >= pivot)
+  return [...quickSort(left), pivot, ...quickSort(right)]
+}
+
+// Module 2: Business logic — NO JustScript, normal functions
+function calculateStats(numbers: number[]): { mean: number; median: number } {
+  const sorted = [...numbers].sort((a, b) => a - b)
+  const mean = sorted.reduce((a, b) => a + b) / sorted.length
+  const median = sorted[Math.floor(sorted.length / 2)]
+  return { mean, median }
+}
+
+// Module 3: Validation — NO JustScript, exceptions OK
+function validateNumbers(input: unknown): number[] {
+  if (!Array.isArray(input)) throw new Error("Expected array")
+  if (!input.every((x) => typeof x === "number")) throw new Error("Expected numbers")
+  return input as number[]
+}
+
+// Module 4: API boundary — USES JustScript
+import { ok, err, Result, matchResult } from "@justscript/core"
+
+async function handleSortRequest(req: Request): Promise<Result<Response, Error>> {
+  try {
+    const { numbers } = await req.json()
+    
+    // Call hot code with raw values
+    const validated = validateNumbers(numbers)
+    const sorted = quickSort(validated)
+    const stats = calculateStats(sorted)
+    
+    // Return via Result at boundary
+    return ok(new Response(JSON.stringify({ sorted, stats })))
+  } catch (error) {
+    return err(error as Error)
+  }
+}
+
+// Module 5: Caller — USES JustScript
+async function main() {
+  const result = await handleSortRequest(req)
+  
+  // Handle the Result
+  matchResult(result, {
+    ok: (response) => {
+      console.log("Success:", response)
+    },
+    err: (error) => {
+      console.error("Failed:", error.message)
+    }
+  })
+}
+```
+
+**Key points:**
+- ✅ 3 modules are pure TypeScript (no JustScript imports)
+- ✅ 2 modules use JustScript (only where it helps)
+- ✅ Hot loop (`quickSort`) uses raw values, no wrapper overhead
+- ✅ Business logic (`calculateStats`) is just normal functions
+- ✅ Validation throws exceptions normally
+- ✅ Only the boundary returns `Result`
+- ✅ Everything coexists seamlessly
+
+**The flexibility grid:**
+
+| Your Code | JustScript Needed? | Example |
+|---|---|---|
+| Hot loops | ❌ No | `for (let i = 0; i < 1M; i++)` — raw values |
+| Business logic | ❌ No | `calculateStats()` — normal functions |
+| Validation | ❌ No | `if (!x)` or throw exceptions normally |
+| Recursion | ❌ No | `quickSort()` — returns `number[]` directly |
+| API handlers | ✅ Yes | Returns `Result<Response, Error>` |
+| Middleware | ✅ Yes | Returns `Result<NextState, Error>` |
+| Database calls | ✅ Yes | Returns `Result<Data, DbError>` |
+
+---
+
 ## Cost-Benefit Analysis
 
 ### Absolute Latency
