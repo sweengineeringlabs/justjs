@@ -266,6 +266,12 @@ using conn = openConnection()  // conn[Symbol.dispose]() called at scope exit
 
 ## Workspace layout
 
+`justscript/scm/main/` is a **standalone workspace** — installable, buildable,
+testable, and runnable in complete isolation. Its presence inside `justjs/` is
+temporary; it will move to its own repo (`swelabs/justscript`) once contracts
+stabilise. `bun-workspace.yaml` at the `justjs/` root is a convenience only —
+nothing depends on it to function.
+
 ```
 justscript/
   docs/
@@ -274,9 +280,10 @@ justscript/
   scm/
     main/
       src/
-        api/     — type definitions only — zero dependencies
-        core/    — constructors and combinators — never imported by consumers
-        saf/     — sole public export surface
+        api/        — type definitions only — zero dependencies
+        core/       — constructors and combinators — never imported by consumers
+        saf/        — sole public export surface
+        benchmarks/ — micro-benchmark suite, CI baseline
       package.json
       tsconfig.json
 ```
