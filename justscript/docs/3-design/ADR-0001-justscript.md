@@ -3,6 +3,34 @@
 - **Status:** Active
 - **Date:** 2026-06-27
 
+## Problem
+
+TypeScript's type system does not enforce correctness at the boundaries where things
+actually go wrong.
+
+- **Silent failures** — a function throws and the caller has no idea from the type
+  signature. The error path is invisible and therefore unhandled.
+
+- **Invisible absence** — `null` and `undefined` leak through unchecked. Absence is
+  not part of the contract; it is a surprise at runtime.
+
+- **Stringly-typed domains** — `FeatureId`, `RouteId`, `ComponentTag` are all `string`
+  at runtime. Nothing prevents passing one where the other is expected.
+
+- **Unhandled union arms** — discriminated unions with no exhaustive check silently
+  fall through. The compiler does not reject unhandled cases.
+
+- **Resource leaks** — no guarantee a connection, handle, or lock is released at scope
+  exit. Cleanup is convention, not enforcement.
+
+- **Use-after-move** — consuming a one-shot resource and using it again is a silent
+  bug. The compiler has no way to reject it.
+
+The common thread: bugs that are invisible at compile time and only surface at runtime
+— or not at all. JustScript moves that detection to the compiler.
+
+---
+
 ## Summary
 
 JustScript ports the Rust principles that translate cleanly to TypeScript — type-safe
