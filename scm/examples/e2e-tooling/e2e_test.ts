@@ -1,26 +1,12 @@
 import { describe, it, expect } from "bun:test"
 import { readFileSync, writeFileSync } from "fs"
 import { resolve } from "path"
-
-// TODO: Import the three tools once Issues #11, #12, #13 are implemented
-// import {
-//   generateCodeWithStrategies,
-//   readAvailableStrategies,
-// } from "../tooling/vite/scm/main/dist/saf/index.js"
-// import {
-//   renderComponent,
-//   renderDeclarativeShadowDom,
-// } from "../tooling/ssr/scm/main/dist/saf/index.js"
-// import {
-//   inlineImportmap,
-//   validateTreeShaking,
-// } from "../tooling/build/scm/main/dist/saf/index.js"
-// import type { ComponentDefinition, ComponentProps } from "../tooling/ssr/scm/main/dist/saf/index.js"
+import { ConfigParser } from "../../tooling/vite/scm/main/dist/saf/index.js"
 
 const E2E_DIR = resolve(import.meta.dir, "../e2e-demo")
 
 describe("e2e: config + ssr + build", () => {
-  it.skip("test_e2e_config_codegen_reads_real_toml", () => {
+  it("test_e2e_config_codegen_reads_real_toml", () => {
     const configPath = resolve(E2E_DIR, "justjs.config.toml")
     const configContent = readFileSync(configPath, "utf-8")
 
@@ -29,12 +15,35 @@ describe("e2e: config + ssr + build", () => {
     expect(configContent).toContain("strategy = \"datadog\"")
   })
 
+  it("test_e2e_config_codegen_parses_and_generates", () => {
+    const configPath = resolve(E2E_DIR, "justjs.config.toml")
+    const configContent = readFileSync(configPath, "utf-8")
+
+    const config = ConfigParser.parseToml(configContent)
+    expect(config.security).toBeDefined()
+    expect(config.security!.strategy).toBe("oauth")
+    expect(config.observability!.strategy).toBe("datadog")
+  })
+
+  it("test_e2e_config_codegen_generates_app_imports", () => {
+    const configPath = resolve(E2E_DIR, "justjs.config.toml")
+    const configContent = readFileSync(configPath, "utf-8")
+
+    const config = ConfigParser.parseToml(configContent)
+    const result = ConfigParser.generateAppCode(config, {}, {}, {}, {})
+
+    expect(result.imports).toContain("import \"@justjs/security-oauth\"")
+    expect(result.imports).toContain("import \"@justjs/observability-datadog\"")
+    expect(result.bootCall).toContain("strategy: \"oauth\"")
+    expect(result.bootCall).toContain("strategy: \"datadog\"")
+  })
+
   it.skip("test_e2e_importmap_has_all_strategies", () => {
-    // Blocked: e2e-demo generated files not created (depends on Vite plugin #11)
+    // Blocked: e2e-demo generated files not created (depends on full Vite integration #11)
   })
 
   it.skip("test_e2e_routes_defines_valid_paths", () => {
-    // Blocked: e2e-demo generated files not created (depends on Vite plugin #11)
+    // Blocked: e2e-demo generated files not created (depends on full Vite integration #11)
   })
 
   it.skip("test_e2e_ssr_renders_button_to_html", () => {

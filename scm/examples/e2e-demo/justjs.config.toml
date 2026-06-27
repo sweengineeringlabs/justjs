@@ -1,0 +1,25 @@
+# JustJS Configuration Example
+
+[security]
+strategy = "oauth"
+on = ["/dashboard", "/account"]
+
+[observability]
+strategy = "datadog"
+all = true
+
+[i18n]
+strategy = "fluent"
+all = true
+
+[flags]
+strategy = "launchdarkly"
+all = true
+
+[analytics]
+strategy = "segment"
+all = true
+
+[theming]
+strategy = "tokens"
+all = true
