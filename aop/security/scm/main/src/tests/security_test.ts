@@ -57,7 +57,8 @@ describe("NoopSecurityContext", () => {
 describe("security SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const resolved = JustJS.providers.resolve("security", "noop")
+    const justjs = JustJS.getInstance()
+    const resolved = justjs.providers.resolve("security", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("security")
     expect(resolved!.strategy).toBe("noop")

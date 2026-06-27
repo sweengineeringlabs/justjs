@@ -3,29 +3,29 @@ import { BootError } from "../api/boot.js"
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
-    const matrix: number[][] = []
+    const matrix: number[][] = Array.from({ length: b.length + 1 }, () => [])
     for (let i = 0; i <= b.length; i++) {
       matrix[i] = [i]
     }
     for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j
+      matrix[0]![j] = j
     }
     for (let i = 1; i <= b.length; i++) {
       for (let j = 1; j <= a.length; j++) {
         const cost = a[j - 1] === b[i - 1] ? 0 : 1
-        matrix[i][j] = Math.min(
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1,
-          matrix[i - 1][j - 1] + cost
+        matrix[i]![j] = Math.min(
+          matrix[i]![j - 1]! + 1,
+          matrix[i - 1]![j]! + 1,
+          matrix[i - 1]![j - 1]! + cost
         )
       }
     }
-    return matrix[b.length][a.length]
+    return matrix[b.length]![a.length]!
   }
 
   private findNearest(target: string, candidates: string[]): string | undefined {
     if (candidates.length === 0) return undefined
-    let nearest = candidates[0]
+    let nearest = candidates[0]!
     let minDistance = this.levenshtein(target, nearest)
     for (const candidate of candidates.slice(1)) {
       const distance = this.levenshtein(target, candidate)
@@ -309,7 +309,11 @@ export class JustJS implements JustJSBoot {
     strategiesFor: (concern: string): string[] => {
       return Array.from(this.registeredStrategies.keys())
         .filter((key) => key.startsWith(`${concern}:`))
-        .map((key) => key.split(":")[1])
+        .map((key) => {
+          const strategy = key.split(":")[1]
+          return strategy ?? ""
+        })
+        .filter((s) => s.length > 0)
     },
     clear: (): void => {
       this.registeredStrategies.clear()
