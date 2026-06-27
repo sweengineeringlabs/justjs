@@ -236,7 +236,73 @@ ID grammar: each segment matches `^[a-z0-9][a-z0-9-]*$`. `DomProcessor.load()` r
 
 `FeatureStore` and `Signal<T>` are implemented with `@preact/signals-core`. When TC39 native signals ship, only the import in generated component files changes — the `FeatureStore` and `Signal` contracts stay the same.
 
+## Strategy configuration
+
+**Decision:** strategy wiring is TOML-driven. The developer never writes `JustJS.boot()` or provider import statements by hand.
+
+The developer authors `justjs.config.toml` in the app root:
+
+```toml
+[security]
+strategy = "oauth"
+on       = ["/dashboard"]
+
+[observability]
+strategy = "datadog"
+all      = true
+
+[i18n]
+strategy = "fluent"
+all      = true
+
+[flags]
+strategy = "launchdarkly"
+all      = true
+
+[analytics]
+strategy = "segment"
+all      = true
+
+[theming]
+strategy = "tokens"
+all      = true
+
+[[aspects]]
+strategy = "my-plugin"
+on       = ["js-checkout"]
+```
+
+At build time the Vite plugin reads `justjs.config.toml` and generates `core/app.ts` — the file that imports every named strategy provider and calls `JustJS.boot()`:
+
+```typescript
+// core/app.ts — ⚙ generated from justjs.config.toml — do not edit by hand
+import "@justjs/aop-security-oauth"
+import "@justjs/aop-observability-datadog"
+// ... one import per strategy
+
+JustJS.boot({
+  routes, importmap, registry, domMap,
+  security:      { strategy: "oauth",        on: ["/dashboard"] },
+  observability: { strategy: "datadog",      all: true },
+  i18n:          { strategy: "fluent",       all: true },
+  flags:         { strategy: "launchdarkly", all: true },
+  analytics:     { strategy: "segment",      all: true },
+  theming:       { strategy: "tokens",       all: true },
+  aspects: [{ strategy: "my-plugin", on: ["js-checkout"] }]
+})
+```
+
+**Consequences:**
+- `core/app.ts` changes from `◎` (generated-once, developer-owned) to `⚙` (always generated) — developers edit `justjs.config.toml` only
+- Strategy swap = one TOML line change, no TypeScript edited, no import added
+- Tree-shaking is preserved — only the strategies listed in the TOML are imported into the bundle
+- The Vite plugin is the authoritative transformer; this expands its scope beyond HMR (see §Build-time tooling)
+
+Each provider package still self-registers via `JustJS.providers.register()` in its own `spi/` entry point — the generated import is what triggers that self-registration.
+
 ## Boot contract
+
+The generated `core/app.ts` produces this runtime call. Shown here for reference — developers do not write this directly:
 
 ```typescript
 JustJS.boot({
@@ -245,28 +311,18 @@ JustJS.boot({
   registry,  // registry.gen.ts   — valid component tags
   domMap,    // dom-address-map.json — DdasMap (valid DOM addresses)
 
-  // AOP — declared by strategy name, resolved via SPI, never imported directly
-  security:     { strategy: "oauth",   on: ["/dashboard"] },
-  observability:{ strategy: "datadog", all: true },
-  i18n:         { strategy: "fluent",  all: true },
+  // AOP — declared by strategy name, resolved via SPI
+  // Values driven by justjs.config.toml — never hand-authored
+  security:     { strategy: "oauth",        on: ["/dashboard"] },
+  observability:{ strategy: "datadog",      all: true },
+  i18n:         { strategy: "fluent",       all: true },
   flags:        { strategy: "launchdarkly", all: true },
-  analytics:    { strategy: "segment", all: true },
-  theming:      { strategy: "tokens",  all: true },
+  analytics:    { strategy: "segment",      all: true },
+  theming:      { strategy: "tokens",       all: true },
 
-  // Custom AOP — open SPI contract
   aspects: [
     { strategy: "my-plugin", on: ["js-checkout"] }
   ]
-})
-```
-
-AOP providers self-register before `boot()` is called:
-
-```typescript
-JustJS.providers.register({
-  concern:  "security",
-  strategy: "oauth",
-  factory:  (config) => new OAuthProvider(config)
 })
 ```
 
@@ -291,13 +347,13 @@ Unknown strategy, route, component tag, or DDAS address = `BootError` before any
 
 ## Build-time tooling
 
-The following features require a build-time tooling workspace not yet defined in the workspace layout. Their location is an open decision:
+The workspace location for build-time tooling is an open decision. The Vite plugin scope now includes TOML config generation (see §Strategy configuration).
 
-| Feature | Candidate location |
-|---|---|
-| Vite plugin + HMR | separate `tooling/vite/` workspace |
-| SSR — Declarative Shadow DOM + client hydration | application layer or separate `tooling/ssr/` |
-| Build pipeline — bundle + inline `importmap.gen.json` | separate `tooling/build/` workspace |
-| Semver contract with justweb artifact shape | spec document, not a workspace |
+| Feature | Candidate location | Notes |
+|---|---|---|
+| Vite plugin + HMR + config codegen | separate `tooling/vite/` workspace | reads `justjs.config.toml`, generates `core/app.ts` |
+| SSR — Declarative Shadow DOM + client hydration | application layer or separate `tooling/ssr/` | |
+| Build pipeline — bundle + inline `importmap.gen.json` | separate `tooling/build/` workspace | |
+| Semver contract with justweb artifact shape | spec document, not a workspace | |
 
 These are tracked in issues #11–#14. The workspace location must be decided before implementation begins.
