@@ -140,6 +140,17 @@
         "typescript": "^5.5.0",
       },
     },
+    "tooling/ssr/scm/main": {
+      "name": "@justjs/ssr",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^20.10.0",
+        "typescript": "^5.5.0",
+      },
+    },
     "tooling/vite/scm/main": {
       "name": "@justjs/vite",
       "version": "0.1.0",
@@ -186,6 +197,8 @@
     "@justjs/platform-mobile": ["@justjs/platform-mobile@workspace:platform/mobile/scm/main"],
 
     "@justjs/platform-native": ["@justjs/platform-native@workspace:platform/native/scm/main"],
+
+    "@justjs/ssr": ["@justjs/ssr@workspace:tooling/ssr/scm/main"],
 
     "@justjs/transport": ["@justjs/transport@workspace:transport/scm/main"],
 

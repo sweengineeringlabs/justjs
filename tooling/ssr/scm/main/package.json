@@ -1,0 +1,24 @@
+{
+  "name": "@justjs/ssr",
+  "version": "0.1.0",
+  "description": "JustJS SSR — server-side component rendering with Declarative Shadow DOM",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.5.0"
+  }
+}
