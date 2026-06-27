@@ -8,7 +8,6 @@
     "transport/scm/main",
     "application/scm/main",
     "data/scm/main",
-    "data/scm/main",
     "aop/security/scm/main",
     "aop/observability/scm/main",
     "aop/i18n/scm/main",
@@ -23,10 +22,7 @@
     "tooling/vite/scm/main",
     "tooling/ssr/scm/main",
     "tooling/build/scm/main",
-    "network/scm/main",
-    "transport/scm/main",
-    "application/scm/main",
-    "data/scm/main"
+    "osi-layers-integration"
   ],
   "scripts": {
     "build": "bun run --filter '*' build",

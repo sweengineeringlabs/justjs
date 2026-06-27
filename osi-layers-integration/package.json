@@ -1,0 +1,16 @@
+{
+  "name": "@justjs/osi-layers-integration",
+  "version": "0.1.0",
+  "description": "OSI layers integration tests — real implementations working together",
+  "type": "module",
+  "scripts": {
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@justjs/network": "*",
+    "@justjs/transport": "*",
+    "@justjs/application": "*",
+    "@justjs/data": "*",
+    "@types/node": "^20.10.0"
+  }
+}
