@@ -37,7 +37,7 @@ class BootValidator {
     return minDistance < 3 ? nearest : undefined
   }
 
-  validate(config: BootConfig): void {
+  validate(config: BootConfig, registeredProviders: Map<string, unknown>): void {
     // Check for missing required config
     if (!config.routes) {
       throw new BootError("MISSING_ROUTES")
@@ -49,7 +49,6 @@ class BootValidator {
     const routes = config.routes as readonly unknown[]
     const registry = config.registry as Record<string, any>
     const domAddressMap = config.domAddressMap as Record<string, readonly string[]> | undefined
-    const providers = config.providers as Record<string, unknown> | undefined
     const aspects = config.aspects as Record<string, any> | undefined
 
     // Validate routes format
@@ -176,19 +175,19 @@ class BootValidator {
       }
     }
 
-    // AC 1: Validate providers if aspects use them
-    if (aspects && providers) {
-      const validProviderStrategies = Object.keys(providers)
+    // AC 1: Validate providers registered in JustJS.providers
+    if (aspects) {
+      const validProviderStrategies = Array.from(registeredProviders.keys())
       for (const [aspectName, aspectConfig] of Object.entries(aspects)) {
         // Check for strategy references in aspect config
         if (typeof aspectConfig === "string") {
-          if (!validProviderStrategies.includes(aspectConfig)) {
+          if (!registeredProviders.has(aspectConfig)) {
             throw new BootError(
               "PROVIDER_NOT_REGISTERED",
               aspectConfig,
               validProviderStrategies,
               this.findNearest(aspectConfig, validProviderStrategies),
-              `Aspect "${aspectName}" references provider strategy "${aspectConfig}" which is not registered`
+              `Aspect "${aspectName}" references provider strategy "${aspectConfig}" which is not registered in JustJS.providers`
             )
           }
         }
@@ -272,6 +271,7 @@ class BootValidator {
 export class JustJS implements JustJSBoot {
   private static instance: JustJS | null = null
   private validator = new BootValidator()
+  private registeredProviders = new Map<string, unknown>()
 
   static getInstance(): JustJS {
     if (!JustJS.instance) {
@@ -280,8 +280,28 @@ export class JustJS implements JustJSBoot {
     return JustJS.instance
   }
 
+  registerProvider(strategy: string, provider: unknown): void {
+    this.registeredProviders.set(strategy, provider)
+  }
+
+  hasProvider(strategy: string): boolean {
+    return this.registeredProviders.has(strategy)
+  }
+
+  getProvider(strategy: string): unknown {
+    return this.registeredProviders.get(strategy)
+  }
+
+  clearProviders(): void {
+    this.registeredProviders.clear()
+  }
+
+  get providers(): Readonly<Map<string, unknown>> {
+    return this.registeredProviders
+  }
+
   async boot(config: BootConfig): Promise<void> {
-    this.validator.validate(config)
+    this.validator.validate(config, this.registeredProviders)
     // Boot logic continues...
   }
 }

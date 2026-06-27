@@ -189,17 +189,18 @@ describe("Boot-time Validation — 4 ACs", () => {
     })
   })
 
-  describe("AC 1: Providers registered", () => {
+  describe("AC 1: Providers registered in JustJS.providers", () => {
     it("test_boot_succeeds_with_registered_providers", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      justjs.registerProvider("oauth", { name: "oauth-provider" })
+      justjs.registerProvider("datadog", { name: "datadog-provider" })
+
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
-        },
-        providers: {
-          oauth: { name: "oauth-provider" },
-          datadog: { name: "datadog-provider" },
         },
         aspects: {
           security: "oauth",
@@ -207,19 +208,20 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      const justjs = JustJS.getInstance()
       await expect(justjs.boot(config)).resolves.toBeUndefined()
     })
 
     it("test_boot_fails_unregistered_provider", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      justjs.registerProvider("oauth", { name: "oauth-provider" })
+      // datadog not registered
+
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
-        },
-        providers: {
-          oauth: { name: "oauth-provider" },
         },
         aspects: {
           security: "oauth",
@@ -227,27 +229,26 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      const justjs = JustJS.getInstance()
       await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
 
     it("test_boot_suggests_nearest_provider_on_typo", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      justjs.registerProvider("oauth", { name: "oauth-provider" })
+      justjs.registerProvider("datadog", { name: "datadog-provider" })
+
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
-        providers: {
-          oauth: { name: "oauth-provider" },
-          datadog: { name: "datadog-provider" },
-        },
         aspects: {
           security: "oaauth", // typo
         },
       }
 
-      const justjs = JustJS.getInstance()
       try {
         await justjs.boot(config)
         expect.unreachable("Should have thrown")
@@ -259,6 +260,11 @@ describe("Boot-time Validation — 4 ACs", () => {
 
   describe("Combined AC validation", () => {
     it("test_boot_all_4_acs_pass_together", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      justjs.registerProvider("oauth", { name: "oauth-provider" })
+      justjs.registerProvider("datadog", { name: "datadog-provider" })
+
       const config: BootConfig = {
         routes: ["/", "/dashboard", "/account"],
         registry: {
@@ -271,17 +277,12 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-dashboard": ["div.dashboard"],
           "x-account": ["div.account"],
         },
-        providers: {
-          oauth: { name: "oauth-provider" },
-          datadog: { name: "datadog-provider" },
-        },
         aspects: {
           security: "oauth",
           observability: "datadog",
         },
       }
 
-      const justjs = JustJS.getInstance()
       await expect(justjs.boot(config)).resolves.toBeUndefined()
     })
 
