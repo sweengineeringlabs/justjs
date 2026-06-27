@@ -6,17 +6,13 @@
   "exports": {
     ".": {
       "import": "./dist/saf/index.js",
-      "types": "./dist/saf/index.d.ts"
+      "types":  "./dist/saf/index.d.ts"
     }
   },
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build":     "tsc --build tsconfig.json",
     "typecheck": "tsc --build tsconfig.json",
-    "test": "bun test",
-    "bench": "bun bench scm/main/src/benchmarks/"
-  },
-  "dependencies": {
-    "@justscript/measurement": "workspace:*"
+    "test":      "bun test"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

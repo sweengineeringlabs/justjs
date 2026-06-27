@@ -2,16 +2,12 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
-    "rootDir": "src",
-    "outDir": "dist"
+    "rootDir":   "src",
+    "outDir":    "dist"
   },
   "include": ["src"],
   "exclude": [
     "src/tests",
-    "src/benchmarks",
     "**/*_test.ts"
-  ],
-  "references": [
-    { "path": "../../../measurement/scm/main" }
   ]
 }

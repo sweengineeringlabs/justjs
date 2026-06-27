@@ -1,0 +1,11 @@
+{
+  "result_ok":       500000,
+  "result_err":      500000,
+  "map_result":      400000,
+  "option_some":     500000,
+  "option_none":     500000,
+  "from_nullable":   400000,
+  "newtype_create":  1000000,
+  "newtype_unwrap":  1000000,
+  "_note": "ops/sec minimums — CI exits non-zero if any primitive falls below its threshold"
+}

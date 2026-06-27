@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test"
-import { AllocationCounter, measurementRegistry }       from "../core/measurement.js"
+import { AllocationCounter }                           from "../core/allocation_counter.js"
+import { NullMeasurementProvider }                     from "../core/null_measurement_provider.js"
+import { measurementRegistry }                         from "../spi/index.js"
 
 describe("AllocationCounter", () => {
   let counter: AllocationCounter
@@ -49,23 +51,49 @@ describe("AllocationCounter", () => {
   })
 })
 
-describe("measurementRegistry", () => {
-  beforeEach(() => measurementRegistry.uninstall())
-  afterEach(() => measurementRegistry.uninstall())
+describe("NullMeasurementProvider", () => {
+  it("test_on_construct_is_a_no_op", () => {
+    const p = new NullMeasurementProvider()
+    expect(() => p.onConstruct("Result.Ok")).not.toThrow()
+  })
 
-  it("test_current_is_null_when_no_provider_installed", () => {
+  it("test_report_returns_empty_allocations", () => {
+    const p = new NullMeasurementProvider()
+    p.onConstruct("Result.Ok")
+    expect(Object.keys(p.report().allocations)).toHaveLength(0)
+  })
+
+  it("test_reset_counter_is_a_no_op", () => {
+    const p = new NullMeasurementProvider()
+    expect(() => p.resetCounter()).not.toThrow()
+  })
+})
+
+describe("measurementRegistry (from @justscript/core)", () => {
+  beforeEach(() => measurementRegistry.unregister())
+  afterEach(() => measurementRegistry.unregister())
+
+  it("test_current_is_null_when_no_provider_registered", () => {
     expect(measurementRegistry.current).toBeNull()
   })
 
-  it("test_install_sets_current_provider", () => {
+  it("test_register_sets_current_provider", () => {
     const counter = new AllocationCounter()
-    measurementRegistry.install(counter)
+    measurementRegistry.register(counter)
     expect(measurementRegistry.current).toBe(counter)
   })
 
-  it("test_uninstall_clears_current_provider", () => {
-    measurementRegistry.install(new AllocationCounter())
-    measurementRegistry.uninstall()
+  it("test_unregister_clears_current_provider", () => {
+    measurementRegistry.register(new AllocationCounter())
+    measurementRegistry.unregister()
     expect(measurementRegistry.current).toBeNull()
+  })
+
+  it("test_register_replaces_existing_provider", () => {
+    const first  = new AllocationCounter()
+    const second = new AllocationCounter()
+    measurementRegistry.register(first)
+    measurementRegistry.register(second)
+    expect(measurementRegistry.current).toBe(second)
   })
 })

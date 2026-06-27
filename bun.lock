@@ -89,9 +89,6 @@
     "justscript/scm/main": {
       "name": "@justscript/core",
       "version": "0.1.0",
-      "dependencies": {
-        "@justscript/measurement": "workspace:*",
-      },
       "devDependencies": {
         "typescript": "^5.5.0",
       },
@@ -99,6 +96,9 @@
     "measurement/scm/main": {
       "name": "@justscript/measurement",
       "version": "0.1.0",
+      "dependencies": {
+        "@justscript/core": "workspace:*",
+      },
       "devDependencies": {
         "typescript": "^5.5.0",
       },

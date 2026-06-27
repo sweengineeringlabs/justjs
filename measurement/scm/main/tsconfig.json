@@ -8,6 +8,10 @@
   "include": ["src"],
   "exclude": [
     "src/tests",
-    "**/*_test.ts"
+    "**/*_test.ts",
+    "benchmarks"
+  ],
+  "references": [
+    { "path": "../../../justscript/scm/main" }
   ]
 }

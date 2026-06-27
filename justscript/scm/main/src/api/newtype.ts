@@ -1,3 +1,3 @@
-declare const _newtypeBrand: unique symbol
+declare const _brand: unique symbol
 
-export type Newtype<T, Brand> = T & { readonly [_newtypeBrand]: Brand }
+export type Newtype<B extends string, T = string> = T & { readonly [_brand]: B }

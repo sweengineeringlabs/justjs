@@ -1,6 +1,6 @@
 export interface Option<T> {
   readonly some:  boolean
-  readonly value: T | undefined
+  readonly value: T | null
 }
 
 export interface Some<T> extends Option<T> {
@@ -8,7 +8,7 @@ export interface Some<T> extends Option<T> {
   readonly value: T
 }
 
-export interface None<T = never> extends Option<T> {
+export interface None extends Option<never> {
   readonly some:  false
-  readonly value: undefined
+  readonly value: null
 }

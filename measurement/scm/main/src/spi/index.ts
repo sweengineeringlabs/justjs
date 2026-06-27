@@ -1,1 +1,1 @@
-export { measurementRegistry } from "../core/measurement.js"
+export { measurementRegistry } from "@justscript/core"

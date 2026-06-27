@@ -1,15 +1,5 @@
-export interface AllocationReport {
-  readonly allocations: Record<string, number>
-}
-
-export interface MeasurementProvider {
-  onConstruct(label: string): void
-  report(): AllocationReport
-  resetCounter(): void
-}
-
-export interface MeasurementRegistry {
-  current: MeasurementProvider | null
-  install(provider: MeasurementProvider): void
-  uninstall(): void
-}
+export type {
+  AllocationReport,
+  MeasurementProvider,
+  MeasurementRegistry,
+} from "@justscript/core"
