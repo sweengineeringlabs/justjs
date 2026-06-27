@@ -15,6 +15,9 @@
     "test": "bun test",
     "bench": "bun bench scm/main/src/benchmarks/"
   },
+  "dependencies": {
+    "@justscript/measurement": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "^5.5.0"
   }

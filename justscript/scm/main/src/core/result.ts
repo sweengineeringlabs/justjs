@@ -1,5 +1,5 @@
 import type { Ok, Err }          from "../api/result.js"
-import { measurementRegistry }   from "./measurement.js"
+import { measurementRegistry }   from "@justscript/measurement"
 
 export function ok<T, E = never>(value: T): Ok<T, E> {
   measurementRegistry.current?.onConstruct("Result.Ok")

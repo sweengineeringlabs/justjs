@@ -89,6 +89,16 @@
     "justscript/scm/main": {
       "name": "@justscript/core",
       "version": "0.1.0",
+      "dependencies": {
+        "@justscript/measurement": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "measurement/scm/main": {
+      "name": "@justscript/measurement",
+      "version": "0.1.0",
       "devDependencies": {
         "typescript": "^5.5.0",
       },
@@ -169,6 +179,8 @@
     "@justjs/transport": ["@justjs/transport@workspace:transport/scm/main"],
 
     "@justscript/core": ["@justscript/core@workspace:justscript/scm/main"],
+
+    "@justscript/measurement": ["@justscript/measurement@workspace:measurement/scm/main"],
 
     "@preact/signals-core": ["@preact/signals-core@1.14.3", "", {}, "sha512-m0K3vnbSLC5rHs2ZVfeAMvBtT1zIyq4mxx5OlNncSgMj5Iz6W5Rn3kPrDxAC+iIKmiVe0lSl6U37t5ZkEWoVAw=="],
 

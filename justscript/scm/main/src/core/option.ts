@@ -1,5 +1,5 @@
 import type { Some, None }       from "../api/option.js"
-import { measurementRegistry }   from "./measurement.js"
+import { measurementRegistry }   from "@justscript/measurement"
 
 export function some<T>(value: T): Some<T> {
   measurementRegistry.current?.onConstruct("Option.Some")

@@ -17,7 +17,8 @@
     "platform/native/scm/main",
     "platform/mobile/scm/main",
     "platform/desktop/scm/main",
-    "justscript/scm/main"
+    "justscript/scm/main",
+    "measurement/scm/main"
   ],
   "scripts": {
     "build":     "bun run --filter '*' build",

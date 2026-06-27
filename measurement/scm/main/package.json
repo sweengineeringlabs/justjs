@@ -1,0 +1,20 @@
+{
+  "name": "@justscript/measurement",
+  "version": "0.1.0",
+  "description": "JustScript measurement SPI — allocation counters and benchmark harness",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types":  "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build":     "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test":      "bun test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
