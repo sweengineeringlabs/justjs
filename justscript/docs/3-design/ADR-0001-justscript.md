@@ -117,6 +117,33 @@ broad. Three distinct sub-concerns:
 The `Disposable` and one-shot patterns are explicitly in scope. Memory ownership
 and the borrow checker are not.
 
+#### What a TypeScript borrow checker would and would not solve
+
+A Rust borrow checker enforces three things:
+
+1. **Memory safety** — already handled by the GC. Irrelevant.
+2. **Data races** — JS is single-threaded. Mostly irrelevant (`SharedArrayBuffer` aside).
+3. **Use-after-move** — this one translates.
+
+The one-shot / type-state pattern already in scope IS a lightweight borrow checker
+for use-after-move: once a value is consumed it becomes a different type and the
+compiler rejects any further use.
+
+The two excluded concerns remain out of reach regardless:
+
+- **Aliasing rules** — a borrow checker needs to track that no two mutable references
+  exist simultaneously. TypeScript's type system is structural, not linear. It cannot
+  track reference counts or aliasing at compile time. No amount of clever typing fixes
+  this without language-level support.
+
+- **Lifetimes** — a borrow checker needs lifetime parameters on functions (`'a`, `'b`).
+  TypeScript has no such concept. Encoding them manually with phantom types is possible
+  in theory but the ergonomic cost makes the code unreadable in practice.
+
+**Conclusion:** JustScript already captures the full intersection of what a TypeScript
+borrow checker can actually enforce. The remainder requires features TypeScript does
+not have.
+
 ---
 
 ## Key contracts
