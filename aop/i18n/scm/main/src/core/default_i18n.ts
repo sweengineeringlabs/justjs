@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { I18nProviderConfig } from "../api/provider.js"
-import { NoopI18nContext } from "../api/provider.js"
+import type { I18nProviderConfig } from "../api/api_provider.js"
+import { NoopI18nContext } from "../api/api_provider.js"
 
 class DefaultI18nAspect implements JustJSAspect {
   readonly concern = "i18n" as const
