@@ -1,4 +1,4 @@
-export type { AllocationReport, MeasurementProvider, MeasurementRegistry } from "../api/measurement.js"
+export type { AllocationReport, MeasurementReport, MeasurementProvider, MeasurementRegistry } from "../api/measurement.js"
 export { AllocationCounter }           from "../core/allocation_counter.js"
 export { NullMeasurementProvider }     from "../core/null_measurement_provider.js"
 export { DefaultMeasurementProvider }  from "../core/default_measurement_provider.js"

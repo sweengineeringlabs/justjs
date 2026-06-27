@@ -1,9 +1,9 @@
 export type { Result, Ok, Err, AsyncResult }            from "../api/result.js"
 export type { Option, Some, None }                      from "../api/option.js"
-export type { Newtype }                                 from "../api/newtype.js"
+export type { Brand, Newtype }                          from "../api/newtype.js"
 export type { Disposable, AsyncDisposable }             from "../api/dispose.js"
 export type { OneShotHandle, Consumed }                 from "../api/control.js"
-export type { AllocationReport, MeasurementProvider, MeasurementRegistry } from "../api/measurement.js"
+export type { AllocationReport, MeasurementReport, MeasurementProvider, MeasurementRegistry } from "../api/measurement.js"
 
 export { ok, err, asyncOk, asyncErr }                  from "../core/result.js"
 export { mapResult, mapErr, andThenResult, orElse, unwrapResultOr, matchResult } from "../core/result_combinators.js"

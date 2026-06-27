@@ -1,7 +1,7 @@
-import { readFileSync }            from "node:fs"
-import { fileURLToPath }           from "node:url"
-import { join, dirname }           from "node:path"
-import { measurementRegistry }     from "@justscript/core"
+import { readFileSync }               from "node:fs"
+import { fileURLToPath }              from "node:url"
+import { join, dirname }              from "node:path"
+import { measurementRegistry }        from "@justscript/core"
 import { DefaultMeasurementProvider } from "../src/core/default_measurement_provider.js"
 import { bench_result_ok, bench_result_ok_raw,
          bench_result_err, bench_result_err_try_catch,
@@ -17,16 +17,15 @@ const base  = JSON.parse(readFileSync(join(__dir, "baseline.json"), "utf-8")) as
 
 const WARMUP = 3
 
-interface BenchResult { name: string; opsPerSec: number; rawOpsPerSec: number; threshold: number; gcEvents: number }
+interface BenchEntry { name: string; opsPerSec: number; rawOpsPerSec: number; threshold: number; gcEvents: number }
 
 const provider = new DefaultMeasurementProvider()
-measurementRegistry.register(provider)
 
 function warmup(fn: () => number, times: number): void {
   for (let i = 0; i < times; i++) fn()
 }
 
-function measure(name: string, fn: () => number, rawFn: () => number, key: string): BenchResult {
+function measure(name: string, fn: () => number, rawFn: () => number, key: string): BenchEntry {
   warmup(fn, WARMUP)
   warmup(rawFn, WARMUP)
   provider.resetCounter()
@@ -37,7 +36,51 @@ function measure(name: string, fn: () => number, rawFn: () => number, key: strin
   return { name, opsPerSec, rawOpsPerSec, threshold, gcEvents }
 }
 
-const results: BenchResult[] = [
+// --- Phase 1: zero-overhead verification (no provider registered) ----------
+//
+// AC: "when no provider is registered, ok/err/some/none have zero measurement overhead"
+// We verify this by checking no-provider ops/sec still meets the baseline threshold.
+// The measurement hook is a single null-check; it must not pull performance below baseline.
+
+console.log("\n=== Zero-overhead verification (no provider) ===\n")
+console.log("Verifies the measurement null-check adds no overhead when no provider is registered.")
+console.log("")
+
+measurementRegistry.unregister()
+
+const fmt = (n: number) => Math.round(n).toLocaleString()
+
+const noProviderOk        = bench_result_ok()
+const noProviderErr       = bench_result_err()
+const noProviderSome      = bench_option_some()
+const noProviderNone      = bench_option_none()
+
+const zeroChecks: Array<{ name: string; opsPerSec: number; threshold: number }> = [
+  { name: "ok() no provider",   opsPerSec: noProviderOk,   threshold: base["result_ok"]  ?? 0 },
+  { name: "err() no provider",  opsPerSec: noProviderErr,  threshold: base["result_err"] ?? 0 },
+  { name: "some() no provider", opsPerSec: noProviderSome, threshold: base["option_some"] ?? 0 },
+  { name: "none() no provider", opsPerSec: noProviderNone, threshold: base["option_none"] ?? 0 },
+]
+
+let zeroFailed = false
+for (const z of zeroChecks) {
+  const pass   = z.opsPerSec >= z.threshold
+  const status = pass ? "PASS" : "FAIL"
+  if (!pass) zeroFailed = true
+  console.log(`  ${z.name.padEnd(22)} ${fmt(z.opsPerSec).padStart(14)} ops/sec  (threshold: ${fmt(z.threshold)})  ${status}`)
+}
+
+if (zeroFailed) {
+  console.error("\nFAIL: no-provider overhead check failed — null-check is too expensive")
+  process.exit(1)
+}
+console.log("")
+
+// --- Phase 2: threshold benchmarks (with DefaultMeasurementProvider) ------
+
+measurementRegistry.register(provider)
+
+const results: BenchEntry[] = [
   measure("result:ok",           bench_result_ok,       bench_result_ok_raw,          "result_ok"),
   measure("result:err",          bench_result_err,      bench_result_err_try_catch,   "result_err"),
   measure("result:mapResult",    bench_map_result,      bench_map_result_raw,         "map_result"),
@@ -52,9 +95,8 @@ measurementRegistry.unregister()
 
 const COL = { name: 24, ops: 14, raw: 14, threshold: 14, gc: 10, status: 8 }
 const pad = (s: string, n: number) => s.slice(0, n).padEnd(n)
-const fmt = (n: number) => Math.round(n).toLocaleString()
 
-console.log("")
+console.log("\n=== Threshold benchmarks (with DefaultMeasurementProvider) ===\n")
 console.log(
   pad("benchmark", COL.name) +
   pad("ops/sec", COL.ops) +
