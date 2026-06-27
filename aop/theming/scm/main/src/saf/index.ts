@@ -1,1 +1,3 @@
-export type { ThemingProvider } from "../api/provider.js"
+export type { ThemeTokens, ThemingContext, ThemingProviderConfig, ThemingAspect, ThemingProvider } from "../api/provider.js"
+export { NoopThemingContext }    from "../api/provider.js"
+export { DefaultThemingProvider } from "../core/default_theming.js"

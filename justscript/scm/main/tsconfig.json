@@ -10,6 +10,7 @@
   ],
   "exclude": [
     "src/tests",
+    "src/benchmarks",
     "**/*_test.ts"
   ]
 }

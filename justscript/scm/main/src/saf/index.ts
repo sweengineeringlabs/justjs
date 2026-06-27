@@ -1,1 +1,11 @@
-// Public surface — see task #4 for full implementation
+export type { Result, Ok, Err }               from "../api/result.js"
+export type { Option, Some, None }            from "../api/option.js"
+export type { Newtype }                       from "../api/newtype.js"
+export type { Disposable }                    from "../api/control.js"
+export type { AllocationReport, MeasurementProvider, MeasurementRegistry } from "../api/measurement.js"
+export { OneShotError }                       from "../api/control.js"
+
+export { ok, err }                            from "../core/result.js"
+export { some, none }                         from "../core/option.js"
+export { exhaust, disposable, newtype, oneShot } from "../core/control.js"
+export { AllocationCounter, measurementRegistry } from "../core/measurement.js"
