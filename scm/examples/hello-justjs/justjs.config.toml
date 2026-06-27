@@ -1,0 +1,35 @@
+[app]
+name = "hello-justjs"
+version = "0.1.0"
+
+[security]
+strategy = "noop"
+
+[observability]
+strategy = "console"
+
+[i18n]
+strategy = "noop"
+
+[flags]
+strategy = "noop"
+
+[analytics]
+strategy = "noop"
+
+[theming]
+strategy = "light"
+
+[routes]
+"/counter" = "counter"
+"/fetch" = "fetch-demo"
+
+[components]
+"x-counter" = "counter"
+"x-fetch" = "fetch-demo"
+
+[registry]
+domAddressMap = {
+  "x-counter" = "#app",
+  "x-fetch" = "#app"
+}
