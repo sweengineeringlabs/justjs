@@ -1,14 +1,11 @@
-export interface Option<T> {
-  readonly some:  boolean
-  readonly value: T | null
-}
-
-export interface Some<T> extends Option<T> {
+export interface Some<T> {
   readonly some:  true
   readonly value: T
 }
 
-export interface None extends Option<never> {
+export interface None {
   readonly some:  false
   readonly value: null
 }
+
+export type Option<T> = Some<T> | None

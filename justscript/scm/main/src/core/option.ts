@@ -18,5 +18,5 @@ export function fromNullable<T>(value: T | null | undefined): Option<T> {
 }
 
 export function toNullable<T>(option: Option<T>): T | null {
-  return option.some ? (option.value as T) : null
+  return option.some ? option.value : null
 }
