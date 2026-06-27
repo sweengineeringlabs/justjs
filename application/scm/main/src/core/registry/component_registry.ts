@@ -1,6 +1,6 @@
-import type { Component, ComponentProps } from "../../api/component.js"
-import { ComponentError } from "../../api/component.js"
-import { RegistryError } from "../../api/registry.js"
+import type { Component, ComponentProps } from "../../api/api_component.js"
+import { ComponentError } from "../../api/api_component.js"
+import { RegistryError } from "../../api/api_registry.js"
 
 export class DefaultComponentRegistry {
   private components = new Map<string, (props?: ComponentProps) => Component | Promise<Component>>()
