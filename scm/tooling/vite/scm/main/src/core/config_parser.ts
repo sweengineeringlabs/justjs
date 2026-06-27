@@ -31,7 +31,9 @@ export class ConfigParser {
 
       if (!currentSection || !trimmed.includes("=")) continue
 
-      const [key, value] = trimmed.split("=").map(s => s.trim())
+      const eqIdx = trimmed.indexOf("=")
+      const key = trimmed.substring(0, eqIdx).trim()
+      let value = trimmed.substring(eqIdx + 1).trim()
       const parsed = this.parseValue(value)
 
       if (currentSection === "aspects") {
@@ -54,8 +56,8 @@ export class ConfigParser {
   }
 
   private static parseValue(value: string): unknown {
-    // Strip inline comments
-    const commentIdx = value.indexOf("#")
+    // Strip inline comments, but only outside of quoted strings
+    const commentIdx = this.findCommentOutsideQuotes(value)
     if (commentIdx > 0) {
       value = value.substring(0, commentIdx).trim()
     }
@@ -74,6 +76,19 @@ export class ConfigParser {
       return value.substring(1, endIdx)
     }
     return value
+  }
+
+  private static findCommentOutsideQuotes(value: string): number {
+    let inQuotes = false
+    for (let i = 0; i < value.length; i++) {
+      if (value[i] === '"' && (i === 0 || value[i - 1] !== "\\")) {
+        inQuotes = !inQuotes
+      }
+      if (value[i] === "#" && !inQuotes) {
+        return i
+      }
+    }
+    return -1
   }
 
   static readConfig(rootDir: string): JustJSConfig {

@@ -159,7 +159,7 @@ class BootValidator {
       }
     }
 
-    // AC 4: Validate DDAS entries if provided
+    // AC 4: Validate DDAS entries
     if (domAddressMap) {
       for (const [tag] of registryEntries) {
         if (!(tag in domAddressMap)) {
@@ -173,6 +173,14 @@ class BootValidator {
           )
         }
       }
+    } else if (registryEntries.length > 0) {
+      throw new BootError(
+        "MISSING_DDAS_MAP",
+        "domAddressMap",
+        [],
+        undefined,
+        "domAddressMap is required when components are registered"
+      )
     }
 
     // AC 1: Validate providers registered in JustJS.providers
@@ -201,6 +209,15 @@ class BootValidator {
     if (aspects) {
       const registryTags = Object.keys(registry)
       for (const [aspectName, aspectConfig] of Object.entries(aspects)) {
+        if (!aspectConfig || typeof aspectConfig !== "object") {
+          throw new BootError(
+            "INVALID_ASPECT_CONFIG",
+            String(aspectConfig),
+            undefined,
+            undefined,
+            `Aspect "${aspectName}" config must be an object, got ${typeof aspectConfig}`
+          )
+        }
         if (aspectConfig.routes) {
           // Check .on() routes
           if (aspectConfig.routes.on) {
