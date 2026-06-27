@@ -1,5 +1,5 @@
-import type { BootConfig, JustJSBoot } from "../api/boot.js"
-import { BootError } from "../api/boot.js"
+import type { BootConfig, JustJSBoot } from "../api/api_boot.js"
+import { BootError } from "../api/api_boot.js"
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
