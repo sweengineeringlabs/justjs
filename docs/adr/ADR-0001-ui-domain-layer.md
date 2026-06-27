@@ -347,13 +347,33 @@ Unknown strategy, route, component tag, or DDAS address = `BootError` before any
 
 ## Build-time tooling
 
-The workspace location for build-time tooling is an open decision. The Vite plugin scope now includes TOML config generation (see §Strategy configuration).
+**Status: DECIDED (2026-06-27)**
 
-| Feature | Candidate location | Notes |
+Build-time tools do not ship with prod code. They run on developer/CI machines and generate artifacts that ship. Their configurations live in `scm/config/` — the source of truth for build and deployment setup.
+
+| Feature | Implementation | Config location |
 |---|---|---|
-| Vite plugin + HMR + config codegen | separate `tooling/vite/` workspace | reads `justjs.config.toml`, generates `core/app.ts` |
-| SSR — Declarative Shadow DOM + client hydration | application layer or separate `tooling/ssr/` | |
-| Build pipeline — bundle + inline `importmap.gen.json` | separate `tooling/build/` workspace | |
-| Semver contract with justweb artifact shape | spec document, not a workspace | |
+| Vite plugin + HMR + config codegen | `@justjs/vite` package (workspace TBD) | `scm/config/dev/vite.toml` |
+| SSR — Declarative Shadow DOM + hydration | `@justjs/ssr` package (workspace TBD) | `scm/config/dev/ssr.toml` |
+| Build pipeline — bundle + inline importmap | `@justjs/build` package (workspace TBD) | `scm/config/dev/build.toml` |
+| Config schemas | JSON Schema definitions (if needed) | `scm/config/schema/` |
+| Semver contract with justweb | Spec document, not a workspace | `docs/` |
 
-These are tracked in issues #11–#14. The workspace location must be decided before implementation begins.
+**Directory structure:**
+```
+scm/config/
+├── arch/policy/          (architecture rules)
+├── dev/                  (development/build tooling configs)
+│   ├── vite.toml
+│   ├── ssr.toml
+│   ├── build.toml
+│   └── justjs.config.example.toml
+└── schema/               (config schemas, if applicable)
+    ├── vite.schema.json
+    ├── ssr.schema.json
+    └── build.schema.json
+```
+
+**Implementation tracked in issues #11–#14.** Package workspace locations are independent decisions; only config locations are fixed.
+
+**Rationale:** Build tools are infrastructure, not domain code. Their configs belong in `scm/config/` alongside architecture policies. This separates build-time concerns from runtime architecture.
