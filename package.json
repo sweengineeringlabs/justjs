@@ -21,15 +21,19 @@
     "measurement/scm/main",
     "tooling/vite/scm/main",
     "tooling/ssr/scm/main",
-    "tooling/build/scm/main"
+    "tooling/build/scm/main",
+    "network/scm/main"
   ],
   "scripts": {
-    "build":     "bun run --filter '*' build",
-    "test":      "bun run --filter '*' test",
+    "build": "bun run --filter '*' build",
+    "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck"
   },
   "engines": {
     "bun": ">=1.0"
   },
-  "packageManager": "bun@1.3.5"
+  "packageManager": "bun@1.3.5",
+  "dependencies": {
+    "@types/node": "^26.0.1"
+  }
 }
