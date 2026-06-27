@@ -2,6 +2,12 @@ import { describe, it, expect } from "bun:test"
 import { BootError, type BootConfig } from "../api/boot.js"
 import { JustJS } from "../core/boot.js"
 
+const DDAS = (tags: string[]): Record<string, readonly string[]> => {
+  const m: Record<string, readonly string[]> = {}
+  tags.forEach(t => { m[t] = [t] })
+  return m
+}
+
 describe("Boot-time Validation — 4 ACs", () => {
   describe("AC 2: Routes exist in .on()/.except()", () => {
     it("test_boot_succeeds_with_valid_routes_and_registry", async () => {
@@ -12,6 +18,7 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
           "x-account": { path: "/account", component: "Account" },
         },
+        domAddressMap: DDAS(["x-root", "x-dashboard", "x-account"]),
       }
 
       const justjs = JustJS.getInstance()
@@ -61,6 +68,7 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
+        domAddressMap: DDAS(["x-root", "x-dashboard"]),
         aspects: {
           security: {
             routes: { on: ["/dashbord"] }, // typo
@@ -122,6 +130,7 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
+        domAddressMap: DDAS(["x-root", "x-dashboard"]),
         aspects: {
           security: {
             components: { on: ["x-dashbord"] }, // typo
@@ -174,18 +183,18 @@ describe("Boot-time Validation — 4 ACs", () => {
       await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
 
-    it("test_boot_succeeds_without_ddas_if_not_provided", async () => {
+    it("test_boot_fails_without_ddas_when_components_registered", async () => {
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
         registry: {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
-        // domAddressMap omitted - optional
+        // domAddressMap omitted - now required when components exist
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
   })
 
@@ -202,9 +211,10 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
+        domAddressMap: DDAS(["x-root", "x-dashboard"]),
         aspects: {
-          security: "oauth",
-          observability: "datadog",
+          security: { strategy: "oauth" },
+          observability: { strategy: "datadog" },
         },
       }
 
@@ -244,6 +254,7 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-root": { path: "/", component: "Root" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
+        domAddressMap: DDAS(["x-root", "x-dashboard"]),
         aspects: {
           security: "oaauth", // typo
         },
@@ -278,8 +289,8 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-account": ["div.account"],
         },
         aspects: {
-          security: "oauth",
-          observability: "datadog",
+          security: { strategy: "oauth" },
+          observability: { strategy: "datadog" },
         },
       }
 
@@ -327,6 +338,7 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-checkout": { path: "/checkout", component: "Checkout" },
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
+        domAddressMap: DDAS(["x-home", "x-checkout", "x-dashboard"]),
         aspects: {
           security: {
             routes: { on: ["/cheackout"] }, // typo
