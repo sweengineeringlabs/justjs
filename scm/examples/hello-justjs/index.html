@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello JustJS — Data Flow Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #app {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+    .nav button {
+      flex: 1;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .nav button:hover {
+      background: #5568d3;
+    }
+    .nav button.active {
+      background: #764ba2;
+    }
+    .content {
+      min-height: 200px;
+    }
+    .log-panel {
+      margin-top: 30px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 12px;
+      font-family: 'Monaco', 'Courier New', monospace;
+    }
+    .log-entry {
+      margin: 4px 0;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+      color: #666;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-layer {
+      color: #667eea;
+      font-weight: 600;
+    }
+    .log-data {
+      color: #764ba2;
+    }
+    .counter-display {
+      font-size: 48px;
+      font-weight: bold;
+      color: #667eea;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .fetch-result {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f0f0f0;
+      border-radius: 6px;
+      border-left: 4px solid #764ba2;
+    }
+    .fetch-result h3 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .fetch-result pre {
+      background: white;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #666;
+    }
+    .loading {
+      color: #667eea;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Hello JustJS</h1>
+    <div class="subtitle">Trace data flow through 4 OSI layers + AOP aspects</div>
+
+    <div class="nav">
+      <button class="nav-btn active" data-page="counter">Counter</button>
+      <button class="nav-btn" data-page="fetch">Fetch Data</button>
+      <button class="nav-btn" data-page="form">Form</button>
+    </div>
+
+    <div class="content">
+      <!-- Counter Component -->
+      <div id="counter-page" class="page">
+        <x-counter></x-counter>
+      </div>
+
+      <!-- Fetch Component -->
+      <div id="fetch-page" class="page" style="display: none;">
+        <x-fetch></x-fetch>
+      </div>
+
+      <!-- Form Component -->
+      <div id="form-page" class="page" style="display: none;">
+        <x-form></x-form>
+      </div>
+    </div>
+
+    <!-- Observability Log Panel -->
+    <div class="log-panel">
+      <div style="font-weight: bold; margin-bottom: 8px; color: #667eea;">📊 Data Flow Log</div>
+      <div id="log-output"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/core/app.js"></script>
+</body>
+</html>
