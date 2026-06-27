@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { BootError, type BootConfig } from "../api/boot.js"
+import { BootError, type BootConfig } from "../api/api_boot.js"
 import { JustJS } from "../core/boot.js"
 
 const DDAS = (tags: string[]): Record<string, readonly string[]> => {

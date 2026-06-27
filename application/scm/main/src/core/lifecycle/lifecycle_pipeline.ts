@@ -1,6 +1,6 @@
-import type { ComponentContext } from "../../api/component.js"
-import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
-import { LifecycleError } from "../../api/lifecycle.js"
+import type { ComponentContext } from "../../api/api_component.js"
+import type { Lifecycle, LifecycleStep } from "../../api/api_lifecycle.js"
+import { LifecycleError } from "../../api/api_lifecycle.js"
 
 export class ResolveStep implements LifecycleStep {
   name(): string {
