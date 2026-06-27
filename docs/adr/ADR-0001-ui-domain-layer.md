@@ -51,7 +51,7 @@ error types.
 
 ## Workspace layout
 
-Every layer and every AOP concern is a **standalone workspace** — installable,
+Every workspace in this repository is a **standalone workspace** — installable,
 buildable, testable, and runnable in complete isolation. `bun-workspace.yaml` at
 the repo root is a convenience only; nothing depends on it to function.
 
@@ -75,6 +75,8 @@ justjs/
     mobile/scm/main/src/{api,core,saf,spi}    ← blocked: justweb#43
     desktop/scm/main/src/{api,core,saf,spi}   ← blocked: justweb#43
 
+  justscript/scm/main/src/{api,core,saf,spi}
+
   docs/
   bun-workspace.yaml
   package.json
@@ -82,7 +84,9 @@ justjs/
 
 ## SAF — Service Abstraction Framework
 
-Every workspace follows the same four-directory layout under `scm/main/src/`:
+Every workspace — OSI layer, AOP concern, platform adapter, or utility library —
+follows the same four-directory layout under `scm/main/src/`. This is a hard
+invariant. No workspace is exempt.
 
 | Directory | Name | Role |
 |---|---|---|
@@ -90,6 +94,30 @@ Every workspace follows the same four-directory layout under `scm/main/src/`:
 | `core/` | Implementations | Business logic — never imported by consumers |
 | `saf/` | Service Abstraction Facade | Sole public export surface |
 | `spi/` | Service Provider Implementation | Extension hooks — providers self-register here |
+
+### Structure invariants
+
+These are the verifiable conditions that must hold for every workspace before sign-off.
+
+| # | Invariant | How to verify |
+|---|---|---|
+| S1 | `package.json` exists at `<workspace>/scm/main/` | file exists |
+| S2 | `tsconfig.json` exists at `<workspace>/scm/main/` | file exists |
+| S3 | `src/` exists at `<workspace>/scm/main/` | dir exists |
+| S4 | `src/api/` exists | dir exists |
+| S5 | `src/core/` exists | dir exists |
+| S6 | `src/saf/` exists | dir exists |
+| S7 | `src/saf/index.ts` exists | file exists — **error** if absent |
+| S8 | `src/spi/` exists | dir exists — warning if absent |
+| S9 | `package.json` name matches `^@justjs/` (or `^@justscript/` for justscript) | json key |
+| S10 | `package.json` declares `"type": "module"` | json key |
+| S11 | `package.json` declares `build`, `typecheck`, `test` scripts | json keys |
+| S12 | `api/` contains no `index.ts` barrel | glob absence |
+| S13 | `core/` contains no `index.ts` barrel | glob absence |
+| S14 | `api/` files contain no imports from `core/`, `saf/`, or `spi/` | grep absence |
+| S15 | `core/` files contain no imports from `saf/` | grep absence |
+| S16 | `spi/` files contain no imports from `saf/` | grep absence |
+| S17 | Workspace builds and tests in isolation: `bun install && bun run build && bun test` | manual run |
 
 ## App layout
 
