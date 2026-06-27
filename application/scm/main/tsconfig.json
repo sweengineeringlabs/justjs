@@ -3,21 +3,9 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "references": [
-    {
-      "path": "../../../transport/scm/main"
-    },
-    {
-      "path": "../../../data/scm/main"
-    }
-  ],
-  "exclude": [
-    "src/tests",
-    "**/*_test.ts"
-  ]
+  "include": ["src"],
+  "exclude": ["src/tests", "**/*_test.ts"]
 }

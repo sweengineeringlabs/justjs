@@ -1,36 +1,25 @@
-import type { Signal, FeatureStore } from "@justjs/data"
-import type { ApiAdapter }           from "@justjs/transport"
-import type { UISecurityContext }    from "./security.js"
-import type { UIObserverContext }    from "./observer.js"
-import type { RuntimeAdapter }       from "./runtime.js"
-import type { Router }               from "./router.js"
-import type { I18nContext }          from "./i18n.js"
-import type { FlagsContext }         from "./flags.js"
+export interface ComponentProps {
+  readonly [key: string]: unknown
+}
 
-export interface Component<Props, State, Events> {
-  id(): string
-  tagName(): string
-  defaultProps(): Props
-  initialState(props: Props): State
-  events(): (keyof Events)[]
+export interface Component<Props extends ComponentProps = ComponentProps> {
+  name: string
+  render(props: Props): void | Promise<void>
 }
 
 export interface ComponentContext {
-  component:  Component<unknown, unknown, unknown>
-  props:      Record<string, unknown>
-  signals:    Record<string, Signal<unknown>>
-  security:   UISecurityContext
-  store:      FeatureStore<unknown, unknown>
-  api:        ApiAdapter
-  observer:   UIObserverContext
-  platform:   RuntimeAdapter
-  router:     Router
-  i18n:       I18nContext
-  flags:      FlagsContext
+  readonly tag: string
+  readonly props: ComponentProps
+  readonly element: Element
 }
 
 export interface MountHandle {
-  readonly componentId: string
-  readonly tagName:     string
-  readonly ddas:        string
+  unmount(): void
+}
+
+export class ComponentError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ComponentError"
+  }
 }

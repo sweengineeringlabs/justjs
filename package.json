@@ -23,7 +23,8 @@
     "tooling/ssr/scm/main",
     "tooling/build/scm/main",
     "network/scm/main",
-    "transport/scm/main"
+    "transport/scm/main",
+    "application/scm/main"
   ],
   "scripts": {
     "build": "bun run --filter '*' build",

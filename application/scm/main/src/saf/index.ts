@@ -1,16 +1,31 @@
-export type { AspectTarget, AspectConfig, AspectDeclaration, JustJSAspect, AspectProvider, AspectRegistry } from "../api/aspect.js"
-export type { BootConfig, BootError, BootErrorCode, RoutesManifest, RegistryManifest, ImportMap, DdasMap, ElementDescriptor, SlotDescriptor } from "../api/boot.js"
-export type { Component, ComponentContext, MountHandle } from "../api/component.js"
-export type { ComponentErrorPhase, ErrorBoundary }       from "../api/error_boundary.js"
-export type { FlagsContext }                              from "../api/flags.js"
-export type { I18nContext }                               from "../api/i18n.js"
-export type { LifecycleStep, Lifecycle, LifecycleEvent, LifecycleEventType } from "../api/lifecycle.js"
-export type { UIObserverContext, LogDrain }               from "../api/observer.js"
-export type { Route, RouteMatch, Router, ComponentRegistry, InteractionProxy, InteractionEvent } from "../api/router.js"
-export type { RuntimeAdapter }                            from "../api/runtime.js"
-export type { Principal, UISecurityContext, RouteGuard }  from "../api/security.js"
+export type {
+  ComponentProps,
+  Component,
+  ComponentContext,
+  MountHandle,
+} from "../api/component.js"
+export { ComponentError } from "../api/component.js"
 
-export { JustJS }                                   from "../core/justjs.js"
-export { DefaultComponentRegistry }                 from "../core/component_registry.js"
-export { DefaultRouter, DefaultInteractionProxy }   from "../core/router.js"
-export { DefaultLifecycle, MountStep, ResolveStep } from "../core/lifecycle.js"
+export type {
+  LifecycleEventType,
+  LifecycleStep,
+  Lifecycle,
+} from "../api/lifecycle.js"
+export { LifecycleError } from "../api/lifecycle.js"
+
+export type {
+  BootConfig,
+  JustJSBoot,
+} from "../api/boot.js"
+export { BootError } from "../api/boot.js"
+
+export type {
+  ComponentRegistry,
+  Router,
+} from "../api/registry.js"
+export { RegistryError } from "../api/registry.js"
+
+export { DefaultComponentRegistry } from "../core/registry/component_registry.js"
+export { DefaultRouter } from "../core/registry/router.js"
+export { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
+export { JustJS } from "../core/boot.js"
