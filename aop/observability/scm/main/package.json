@@ -1,0 +1,23 @@
+{
+  "name": "@justjs/aop-observability",
+  "version": "0.1.0",
+  "description": "JustJS observability concern — request timing, call logs, lifecycle events, state tracking",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@justjs/aop-i18n",
+  "version": "0.1.0",
+  "description": "JustJS i18n concern — locale loading, render-time translation, locale state",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

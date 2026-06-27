@@ -1,0 +1,23 @@
+{
+  "name": "@justjs/transport",
+  "version": "0.1.0",
+  "description": "JustJS transport layer — typed API, cache, and WebSocket adapters",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/network": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

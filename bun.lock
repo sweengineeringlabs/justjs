@@ -5,55 +5,172 @@
     "": {
       "name": "justjs",
     },
-    "packages/browser": {
-      "name": "@justjs/browser",
+    "aop/analytics/scm/main": {
+      "name": "@justjs/aop-analytics",
       "version": "0.1.0",
       "dependencies": {
-        "@justjs/core": "workspace:*",
+        "@justjs/application": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
       },
     },
-    "packages/core": {
-      "name": "@justjs/core",
+    "aop/flags/scm/main": {
+      "name": "@justjs/aop-flags",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "aop/i18n/scm/main": {
+      "name": "@justjs/aop-i18n",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "aop/observability/scm/main": {
+      "name": "@justjs/aop-observability",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "aop/security/scm/main": {
+      "name": "@justjs/aop-security",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "aop/theming/scm/main": {
+      "name": "@justjs/aop-theming",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "application/scm/main": {
+      "name": "@justjs/application",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/data": "workspace:*",
+        "@justjs/transport": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "data/scm/main": {
+      "name": "@justjs/data",
+      "version": "0.1.0",
+      "dependencies": {
+        "@preact/signals-core": "^1.8.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "justscript/scm/main": {
+      "name": "@justscript/core",
       "version": "0.1.0",
       "devDependencies": {
         "typescript": "^5.5.0",
       },
     },
-    "packages/desktop": {
-      "name": "@justjs/desktop",
+    "network/scm/main": {
+      "name": "@justjs/network",
       "version": "0.1.0",
-      "dependencies": {
-        "@justjs/core": "workspace:*",
+      "devDependencies": {
+        "typescript": "^5.5.0",
       },
     },
-    "packages/mobile": {
-      "name": "@justjs/mobile",
+    "platform/desktop/scm/main": {
+      "name": "@justjs/platform-desktop",
       "version": "0.1.0",
       "dependencies": {
-        "@justjs/core": "workspace:*",
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
       },
     },
-    "packages/native": {
-      "name": "@justjs/native",
+    "platform/mobile/scm/main": {
+      "name": "@justjs/platform-mobile",
       "version": "0.1.0",
       "dependencies": {
-        "@justjs/core": "workspace:*",
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "platform/native/scm/main": {
+      "name": "@justjs/platform-native",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
+    "transport/scm/main": {
+      "name": "@justjs/transport",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/network": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
       },
     },
   },
   "packages": {
-    "@justjs/browser": ["@justjs/browser@workspace:packages/browser"],
+    "@justjs/aop-analytics": ["@justjs/aop-analytics@workspace:aop/analytics/scm/main"],
 
-    "@justjs/core": ["@justjs/core@workspace:packages/core"],
+    "@justjs/aop-flags": ["@justjs/aop-flags@workspace:aop/flags/scm/main"],
 
-    "@justjs/desktop": ["@justjs/desktop@workspace:packages/desktop"],
+    "@justjs/aop-i18n": ["@justjs/aop-i18n@workspace:aop/i18n/scm/main"],
 
-    "@justjs/mobile": ["@justjs/mobile@workspace:packages/mobile"],
+    "@justjs/aop-observability": ["@justjs/aop-observability@workspace:aop/observability/scm/main"],
 
-    "@justjs/native": ["@justjs/native@workspace:packages/native"],
+    "@justjs/aop-security": ["@justjs/aop-security@workspace:aop/security/scm/main"],
+
+    "@justjs/aop-theming": ["@justjs/aop-theming@workspace:aop/theming/scm/main"],
+
+    "@justjs/application": ["@justjs/application@workspace:application/scm/main"],
+
+    "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
+
+    "@justjs/network": ["@justjs/network@workspace:network/scm/main"],
+
+    "@justjs/platform-desktop": ["@justjs/platform-desktop@workspace:platform/desktop/scm/main"],
+
+    "@justjs/platform-mobile": ["@justjs/platform-mobile@workspace:platform/mobile/scm/main"],
+
+    "@justjs/platform-native": ["@justjs/platform-native@workspace:platform/native/scm/main"],
+
+    "@justjs/transport": ["@justjs/transport@workspace:transport/scm/main"],
+
+    "@justscript/core": ["@justscript/core@workspace:justscript/scm/main"],
+
+    "@preact/signals-core": ["@preact/signals-core@1.14.3", "", {}, "sha512-m0K3vnbSLC5rHs2ZVfeAMvBtT1zIyq4mxx5OlNncSgMj5Iz6W5Rn3kPrDxAC+iIKmiVe0lSl6U37t5ZkEWoVAw=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
   }

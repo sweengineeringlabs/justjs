@@ -1,0 +1,20 @@
+{
+  "name": "@justjs/network",
+  "version": "0.1.0",
+  "description": "JustJS network layer — raw browser APIs: fetch, WebSocket, Service Worker",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

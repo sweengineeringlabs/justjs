@@ -1,0 +1,24 @@
+{
+  "name": "@justjs/application",
+  "version": "0.1.0",
+  "description": "JustJS application layer — routing, component lifecycle, boot, AOP wiring",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/transport": "workspace:*",
+    "@justjs/data": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

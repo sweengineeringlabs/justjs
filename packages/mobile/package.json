@@ -1,9 +1,0 @@
-{
-  "name": "@justjs/mobile",
-  "version": "0.1.0",
-  "description": "JustJS mobile adapter — Capacitor/React Native (blocked on sweengineeringlabs/justweb#43)",
-  "type": "module",
-  "dependencies": {
-    "@justjs/core": "workspace:*"
-  }
-}

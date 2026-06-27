@@ -1,0 +1,21 @@
+{
+  "name": "@justscript/core",
+  "version": "0.1.0",
+  "description": "JustScript — Rust principles ported to TypeScript: Result, Option, Newtype, exhaust, Disposable",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test",
+    "bench": "bun bench scm/main/src/benchmarks/"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

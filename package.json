@@ -4,12 +4,24 @@
   "version": "0.1.0",
   "description": "JustJS — the UI domain layer",
   "workspaces": [
-    "packages/*"
+    "network/scm/main",
+    "transport/scm/main",
+    "application/scm/main",
+    "data/scm/main",
+    "aop/security/scm/main",
+    "aop/observability/scm/main",
+    "aop/i18n/scm/main",
+    "aop/flags/scm/main",
+    "aop/analytics/scm/main",
+    "aop/theming/scm/main",
+    "platform/native/scm/main",
+    "platform/mobile/scm/main",
+    "platform/desktop/scm/main",
+    "justscript/scm/main"
   ],
   "scripts": {
     "build":     "bun run --filter '*' build",
     "test":      "bun run --filter '*' test",
-    "lint":      "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck"
   },
   "engines": {

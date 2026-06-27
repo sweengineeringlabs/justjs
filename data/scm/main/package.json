@@ -1,0 +1,23 @@
+{
+  "name": "@justjs/data",
+  "version": "0.1.0",
+  "description": "JustJS data layer — signals, feature store, event bus",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@preact/signals-core": "^1.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
