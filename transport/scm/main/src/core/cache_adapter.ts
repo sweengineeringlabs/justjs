@@ -1,31 +1,39 @@
-import type { CacheAdapter } from "../api/adapter.js"
+import type { CacheAdapter, CacheEntry } from "../api/cache_adapter.js"
 
-interface CacheEntry<T> {
-  value:   T
-  expires: number | null
-}
+const DEFAULT_TTL = 5 * 60 * 1000
 
-export class InMemoryCacheAdapter implements CacheAdapter {
-  readonly #store = new Map<string, CacheEntry<unknown>>()
+export class DefaultCacheAdapter implements CacheAdapter {
+  private cache = new Map<string, CacheEntry<unknown>>()
 
-  async get<T>(key: string): Promise<T | null> {
-    const entry = this.#store.get(key)
-    if (entry === undefined) return null
-    if (entry.expires !== null && entry.expires < Date.now()) {
-      this.#store.delete(key)
+  async get<T = unknown>(key: string): Promise<T | null> {
+    const entry = this.cache.get(key)
+
+    if (!entry) {
       return null
     }
-    return entry.value as T
+
+    if (entry.expiresAt < Date.now()) {
+      this.cache.delete(key)
+      return null
+    }
+
+    return entry.data as T
   }
 
-  async set<T>(key: string, value: T, ttlMs?: number): Promise<void> {
-    this.#store.set(key, {
-      value,
-      expires: ttlMs !== undefined ? Date.now() + ttlMs : null,
-    })
+  async set<T = unknown>(key: string, data: T, ttl: number = DEFAULT_TTL): Promise<void> {
+    const entry: CacheEntry<T> = {
+      data,
+      expiresAt: Date.now() + ttl,
+    }
+
+    this.cache.set(key, entry)
   }
 
-  async invalidate(key: string): Promise<void> {
-    this.#store.delete(key)
+  async delete(key: string): Promise<void> {
+    this.cache.delete(key)
+  }
+
+  async clear(): Promise<void> {
+    this.cache.clear()
   }
 }

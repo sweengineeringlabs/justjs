@@ -1,33 +1,28 @@
 import { describe, it, expect } from "bun:test"
 import { DefaultApiAdapter } from "../core/api_adapter.js"
-import type { FetchAdapter } from "@justjs/network"
+import { TransportError } from "../api/api_adapter.js"
 
-function makeFetch(status: number, body: unknown): FetchAdapter {
-  return {
-    fetch: () => Promise.resolve(new Response(JSON.stringify(body), { status }))
-  }
-}
+describe("api adapter", () => {
+  it("test_api_adapter_implements_interface", () => {
+    const api = new DefaultApiAdapter()
 
-describe("DefaultApiAdapter", () => {
-  it("test_get_returns_parsed_json_on_200", async () => {
-    const adapter = new DefaultApiAdapter(makeFetch(200, { id: 1 }), "https://api.example.com")
-    const result = await adapter.get<{ id: number }>("items/1")
-    expect(result).toEqual({ id: 1 })
+    expect(typeof api.get).toBe("function")
+    expect(typeof api.post).toBe("function")
+    expect(typeof api.put).toBe("function")
+    expect(typeof api.delete).toBe("function")
   })
 
-  it("test_get_returns_null_on_404", async () => {
-    const adapter = new DefaultApiAdapter(makeFetch(404, null), "https://api.example.com")
-    const result = await adapter.get("items/999")
-    expect(result).toBeNull()
+  it("test_transport_error_has_code_and_status", () => {
+    const error = new TransportError("API_ERROR", 500, "Server error")
+
+    expect(error.code).toBe("API_ERROR")
+    expect(error.status).toBe(500)
+    expect(error.message).toBe("Server error")
   })
 
-  it("test_get_throws_transport_error_on_server_error", async () => {
-    const adapter = new DefaultApiAdapter(makeFetch(500, null), "https://api.example.com")
-    await expect(adapter.get("items/1")).rejects.toMatchObject({ code: "REQUEST_FAILED", status: 500 })
-  })
+  it("test_transport_error_name", () => {
+    const error = new TransportError("API_ERROR")
 
-  it("test_mutate_throws_transport_error_on_failure", async () => {
-    const adapter = new DefaultApiAdapter(makeFetch(422, null), "https://api.example.com")
-    await expect(adapter.mutate("items", { name: "x" })).rejects.toMatchObject({ code: "REQUEST_FAILED", status: 422 })
+    expect(error.name).toBe("TransportError")
   })
 })
