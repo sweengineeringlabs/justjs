@@ -10,4 +10,7 @@ export type { Route, RouteMatch, Router, ComponentRegistry, InteractionProxy, In
 export type { RuntimeAdapter }                            from "../api/runtime.js"
 export type { Principal, UISecurityContext, RouteGuard }  from "../api/security.js"
 
-export { JustJS } from "../core/justjs.js"
+export { JustJS }                                   from "../core/justjs.js"
+export { DefaultComponentRegistry }                 from "../core/component_registry.js"
+export { DefaultRouter, DefaultInteractionProxy }   from "../core/router.js"
+export { DefaultLifecycle, MountStep, ResolveStep } from "../core/lifecycle.js"
