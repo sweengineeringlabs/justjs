@@ -2,6 +2,13 @@
 name = "hello-justjs"
 version = "0.1.0"
 
+# DDAS enforcement: optional (only for test scenarios)
+# Set enabled=false to skip DDAS validation (production mode)
+# Set onMissing="warn" to log warnings instead of errors
+[ddas]
+enabled = true
+onMissing = "error"  # "error" | "warn" | "ignore"
+
 [security]
 strategy = "noop"
 

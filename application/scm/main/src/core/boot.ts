@@ -159,28 +159,36 @@ class BootValidator {
       }
     }
 
-    // AC 4: Validate DDAS entries
-    if (domAddressMap) {
-      for (const [tag] of registryEntries) {
-        if (!(tag in domAddressMap)) {
-          const known = Object.keys(domAddressMap)
-          throw new BootError(
-            "MISSING_DDAS_ENTRY",
-            tag,
-            known,
-            undefined,
-            `Component tag "${tag}" missing DDAS entry in dom-address-map`
-          )
+    // AC 4: Validate DDAS entries (optional enforcement)
+    const ddasEnforcement = config.ddasEnforcement || { enabled: true, onMissing: "error" }
+
+    if (ddasEnforcement.enabled !== false) {
+      const onMissing = ddasEnforcement.onMissing || "error"
+
+      if (domAddressMap) {
+        for (const [tag] of registryEntries) {
+          if (!(tag in domAddressMap)) {
+            const known = Object.keys(domAddressMap)
+            const message = `Component tag "${tag}" missing DDAS entry in dom-address-map`
+
+            if (onMissing === "error") {
+              throw new BootError("MISSING_DDAS_ENTRY", tag, known, undefined, message)
+            } else if (onMissing === "warn") {
+              console.warn(`[JustJS DDAS] ${message}`)
+            }
+            // else: ignore
+          }
         }
+      } else if (registryEntries.length > 0) {
+        const message = "domAddressMap is required when components are registered"
+
+        if (onMissing === "error") {
+          throw new BootError("MISSING_DDAS_MAP", "domAddressMap", [], undefined, message)
+        } else if (onMissing === "warn") {
+          console.warn(`[JustJS DDAS] ${message}`)
+        }
+        // else: ignore
       }
-    } else if (registryEntries.length > 0) {
-      throw new BootError(
-        "MISSING_DDAS_MAP",
-        "domAddressMap",
-        [],
-        undefined,
-        "domAddressMap is required when components are registered"
-      )
     }
 
     // AC 1: Validate providers registered in JustJS.providers
