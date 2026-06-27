@@ -146,6 +146,56 @@ not have.
 
 ---
 
+### 5. Measurement and observability
+
+The boundary-only rule (section 2) is an assertion — `Result` and `Option` belong at
+layer boundaries, not hot-path internals. The measurement system is what verifies that
+assertion holds in production. It is built in from day one, not bolted on after a
+performance complaint.
+
+**Micro-benchmark suite**
+
+A `benchmarks/` directory ships with the library. It measures each primitive
+(`ok()`, `err()`, `some()`, `map()`, `matchResult()`) against the raw alternatives
+— plain object literal, `try/catch`, `T | null` — and reports ops/sec. Runs in CI
+via `bun bench`. A committed baseline file defines the acceptable floor; CI blocks
+merge on any regression beyond the defined threshold.
+
+**Opt-in instrumentation via SPI**
+
+A `MeasurementProvider` can be registered before the library is used. When registered,
+every `Result` / `Option` construction and combinator call emits a
+`performance.mark()` / `performance.measure()` pair. When no provider is registered
+the instrumentation path is never entered — zero cost in production.
+
+```typescript
+// Register before use — consistent with the SPI pattern
+measurementRegistry.register(MyMeasurementProvider)
+```
+
+**Allocation counter**
+
+In instrumentation mode, a counter increments on every `ok()`, `err()`, `some()`, and
+`none()` call. It is readable per-frame or per-tick. A spike signals that a boundary
+rule is being violated — `Result` is being constructed in a hot path rather than at a
+boundary.
+
+**GC observation**
+
+A `PerformanceObserver` listening on the `"gc"` entry type establishes a baseline
+before JustScript is introduced and a measurement after. The delta is the actual GC
+pressure added by the library. This is the ground truth — allocation counts are a
+proxy; GC pause time is the real cost.
+
+**Principle**
+
+Measurement is not optional. The library ships with the tools to verify its own
+performance contract. If the boundary-only rule is followed, the benchmarks confirm
+it. If it is violated, the allocation counter surfaces it before it reaches
+production.
+
+---
+
 ## Key contracts
 
 ### `Result<T, E>`
