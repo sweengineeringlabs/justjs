@@ -289,7 +289,7 @@ export class JustJS implements JustJSBoot {
     return JustJS.instance
   }
 
-  providers = {
+  private getProvidersRegistry = () => ({
     register: (spec: AspectProviderSpec): void => {
       const key = `${spec.concern}:${spec.strategy}`
       this.registeredStrategies.set(key, spec)
@@ -297,6 +297,10 @@ export class JustJS implements JustJSBoot {
     get: (concern: string, strategy: string): AspectProviderSpec | undefined => {
       const key = `${concern}:${strategy}`
       return this.registeredStrategies.get(key)
+    },
+    resolve: (concern: string, strategy: string): AspectProviderSpec | null => {
+      const key = `${concern}:${strategy}`
+      return this.registeredStrategies.get(key) ?? null
     },
     has: (concern: string, strategy: string): boolean => {
       const key = `${concern}:${strategy}`
@@ -310,6 +314,10 @@ export class JustJS implements JustJSBoot {
     clear: (): void => {
       this.registeredStrategies.clear()
     },
+  })
+
+  get providers() {
+    return this.getProvidersRegistry()
   }
 
   clearProviders(): void {
