@@ -79,12 +79,50 @@ scope on day one — this library ports ~5 Rust concepts, not the language.
 ### 1. Existing art
 
 `neverthrow`, `ts-results`, `oxide.ts` already implement `Result` / `Option` in
-TypeScript.
+TypeScript. Why build another?
 
-**Mitigation:** JustScript's differentiator is the full suite — branded newtypes,
-exhaustive match, `Disposable` patterns, and first-class async — in one coherent
-library with zero runtime dependencies. Before adding anything, check whether the
-existing libraries cover it and document why they don't in a follow-up ADR note.
+**Answer: JustScript is the only complete Rust-like suite.**
+
+| Feature | JustScript | neverthrow | ts-results | oxide.ts |
+|---|---|---|---|---|
+| Result<T,E> / Option<T> | ✅ | ✅ | ✅ | ✅ |
+| **Branded types (Newtype)** | ✅ | ❌ | ❌ | ❌ |
+| **Exhaustive match** | ✅ (compiler) | ⚠️ (manual) | ⚠️ (manual) | ⚠️ (manual) |
+| **Disposable / `using`** | ✅ | ❌ | ❌ | ❌ |
+| **One-shot type-state** | ✅ | ❌ | ❌ | ❌ |
+| **V8 monomorphism** | ✅ | ⚠️ | ⚠️ | ⚠️ |
+| **Measurement SPI** | ✅ | ❌ | ❌ | ❌ |
+
+**Differentiators:**
+
+1. **Branded types** — `Newtype<"UserId">` prevents mixing `UserId` with `ProductId` at
+   compile time. Neither neverthrow nor ts-results have this. oxide.ts has no
+   built-in support.
+
+2. **Exhaustive matching** — JustScript uses closed discriminated unions + `exhaust()`
+   in default arm. TypeScript compiler enforces all arms are handled. Competitors
+   require manual if-checks with no compile-time guarantee.
+
+3. **Disposable + `using`** — JustScript wraps `Symbol.dispose` and `Symbol.asyncDispose`
+   (TS 5.2+). Only JustScript. Alternatives require try/finally boilerplate.
+
+4. **One-shot type-state** — `oneShot()` returns a handle. `.consume()` returns `T`
+   + `Consumed` token. Reusing the handle is a compile-time error (token has no
+   methods). No alternative covers this.
+
+5. **V8 monomorphism** — Both `Ok` and `Err` have identical field shape, so V8's
+   JIT compiles monomorphic code. Competitors have different shapes
+   (e.g., `{ isOk: true }` vs `{ isErr: true }`), causing deoptimization.
+
+6. **Measurement SPI** — Zero-overhead hooks wired into core constructors. No
+   competitor offers this. Observability is post-hoc, not baked in.
+
+**Bottom line:** Competitors are good for Result/Option only. JustScript ports
+the *complete* Rust error-handling + domain-typing + resource-cleanup + observability
+suite. It's not an alternative to neverthrow; it's a superset.
+
+**Mitigation:** Before adding features to JustScript, check whether competitors
+already cover them and why we're diverging. Document in commit message or ADR amendment.
 
 ---
 
