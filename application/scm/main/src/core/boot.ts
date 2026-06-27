@@ -37,7 +37,7 @@ class BootValidator {
     return minDistance < 3 ? nearest : undefined
   }
 
-  validate(config: BootConfig, registeredProviders: Map<string, unknown>): void {
+  validate(config: BootConfig, justjs: JustJS): void {
     // Check for missing required config
     if (!config.routes) {
       throw new BootError("MISSING_ROUTES")
@@ -177,17 +177,20 @@ class BootValidator {
 
     // AC 1: Validate providers registered in JustJS.providers
     if (aspects) {
-      const validProviderStrategies = Array.from(registeredProviders.keys())
-      for (const [aspectName, aspectConfig] of Object.entries(aspects)) {
+      for (const [concern, aspectConfig] of Object.entries(aspects)) {
         // Check for strategy references in aspect config
         if (typeof aspectConfig === "string") {
-          if (!registeredProviders.has(aspectConfig)) {
+          const strategy = aspectConfig
+          if (!justjs.providers.has(concern, strategy)) {
+            // Find all registered strategies for this concern to suggest alternatives
+            const allRegistered = justjs.providers.strategiesFor(concern)
+            const nearest = this.findNearest(strategy, allRegistered)
             throw new BootError(
               "PROVIDER_NOT_REGISTERED",
-              aspectConfig,
-              validProviderStrategies,
-              this.findNearest(aspectConfig, validProviderStrategies),
-              `Aspect "${aspectName}" references provider strategy "${aspectConfig}" which is not registered in JustJS.providers`
+              strategy,
+              allRegistered,
+              nearest,
+              `Aspect "${concern}" references provider strategy "${strategy}" which is not registered in JustJS.providers${nearest ? ` (did you mean "${nearest}"?)` : ""}`
             )
           }
         }
@@ -268,10 +271,16 @@ class BootValidator {
   }
 }
 
+export interface AspectProviderSpec {
+  readonly concern: string
+  readonly strategy: string
+  readonly factory: (config?: unknown) => unknown
+}
+
 export class JustJS implements JustJSBoot {
   private static instance: JustJS | null = null
   private validator = new BootValidator()
-  private registeredProviders = new Map<string, unknown>()
+  private registeredStrategies = new Map<string, AspectProviderSpec>()
 
   static getInstance(): JustJS {
     if (!JustJS.instance) {
@@ -280,28 +289,35 @@ export class JustJS implements JustJSBoot {
     return JustJS.instance
   }
 
-  registerProvider(strategy: string, provider: unknown): void {
-    this.registeredProviders.set(strategy, provider)
-  }
-
-  hasProvider(strategy: string): boolean {
-    return this.registeredProviders.has(strategy)
-  }
-
-  getProvider(strategy: string): unknown {
-    return this.registeredProviders.get(strategy)
+  providers = {
+    register: (spec: AspectProviderSpec): void => {
+      const key = `${spec.concern}:${spec.strategy}`
+      this.registeredStrategies.set(key, spec)
+    },
+    get: (concern: string, strategy: string): AspectProviderSpec | undefined => {
+      const key = `${concern}:${strategy}`
+      return this.registeredStrategies.get(key)
+    },
+    has: (concern: string, strategy: string): boolean => {
+      const key = `${concern}:${strategy}`
+      return this.registeredStrategies.has(key)
+    },
+    strategiesFor: (concern: string): string[] => {
+      return Array.from(this.registeredStrategies.keys())
+        .filter((key) => key.startsWith(`${concern}:`))
+        .map((key) => key.split(":")[1])
+    },
+    clear: (): void => {
+      this.registeredStrategies.clear()
+    },
   }
 
   clearProviders(): void {
-    this.registeredProviders.clear()
-  }
-
-  get providers(): Readonly<Map<string, unknown>> {
-    return this.registeredProviders
+    this.providers.clear()
   }
 
   async boot(config: BootConfig): Promise<void> {
-    this.validator.validate(config, this.registeredProviders)
+    this.validator.validate(config, this)
     // Boot logic continues...
   }
 }

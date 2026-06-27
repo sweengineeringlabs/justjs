@@ -193,8 +193,8 @@ describe("Boot-time Validation — 4 ACs", () => {
     it("test_boot_succeeds_with_registered_providers", async () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
-      justjs.registerProvider("oauth", { name: "oauth-provider" })
-      justjs.registerProvider("datadog", { name: "datadog-provider" })
+      justjs.providers.register({ concern: "security", strategy: "oauth", factory: () => ({}) })
+      justjs.providers.register({ concern: "observability", strategy: "datadog", factory: () => ({}) })
 
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
@@ -214,7 +214,7 @@ describe("Boot-time Validation — 4 ACs", () => {
     it("test_boot_fails_unregistered_provider", async () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
-      justjs.registerProvider("oauth", { name: "oauth-provider" })
+      justjs.providers.register({ concern: "security", strategy: "oauth", factory: () => ({}) })
       // datadog not registered
 
       const config: BootConfig = {
@@ -235,8 +235,8 @@ describe("Boot-time Validation — 4 ACs", () => {
     it("test_boot_suggests_nearest_provider_on_typo", async () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
-      justjs.registerProvider("oauth", { name: "oauth-provider" })
-      justjs.registerProvider("datadog", { name: "datadog-provider" })
+      justjs.providers.register({ concern: "security", strategy: "oauth", factory: () => ({}) })
+      justjs.providers.register({ concern: "observability", strategy: "datadog", factory: () => ({}) })
 
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
@@ -262,8 +262,8 @@ describe("Boot-time Validation — 4 ACs", () => {
     it("test_boot_all_4_acs_pass_together", async () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
-      justjs.registerProvider("oauth", { name: "oauth-provider" })
-      justjs.registerProvider("datadog", { name: "datadog-provider" })
+      justjs.providers.register({ concern: "security", strategy: "oauth", factory: () => ({}) })
+      justjs.providers.register({ concern: "observability", strategy: "datadog", factory: () => ({}) })
 
       const config: BootConfig = {
         routes: ["/", "/dashboard", "/account"],
