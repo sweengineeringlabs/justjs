@@ -1,0 +1,8 @@
+{
+  "routes": [
+    "/",
+    "/dashboard",
+    "/account",
+    "/account/settings"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@justjs/core": "/vendor/core-v0.1.0.js",
+    "@justjs/aop-security-oauth": "/vendor/security-oauth-v1.0.0.js",
+    "@justjs/aop-observability-datadog": "/vendor/observability-datadog-v1.0.0.js",
+    "@justjs/aop-flags-launchdarkly": "/vendor/flags-launchdarkly-v2.0.0.js"
+  }
+}

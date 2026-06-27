@@ -1,0 +1,6 @@
+{
+  "addresses": {
+    "x-button": ["button", "button[data-action]"],
+    "x-card": ["div.card", "article.card-wrapper"]
+  }
+}

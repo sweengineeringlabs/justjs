@@ -1,0 +1,12 @@
+{
+  "components": {
+    "x-button": {
+      "tag": "x-button",
+      "file": "./components/button.ts"
+    },
+    "x-card": {
+      "tag": "x-card",
+      "file": "./components/card.ts"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# Real config for E2E demo
+[security]
+strategy = "oauth"
+on = ["/dashboard", "/account"]
+
+[observability]
+strategy = "datadog"
+all = true
+
+[flags]
+strategy = "launchdarkly"

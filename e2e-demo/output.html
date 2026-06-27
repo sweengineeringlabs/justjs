@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type="importmap">
+{
+  "imports": {
+    "@justjs/core": "/vendor/core-v0.1.0.js",
+    "@justjs/aop-security-oauth": "/vendor/security-oauth-v1.0.0.js",
+    "@justjs/aop-observability-datadog": "/vendor/observability-datadog-v1.0.0.js",
+    "@justjs/aop-flags-launchdarkly": "/vendor/flags-launchdarkly-v2.0.0.js"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="app"><x-dashboard>
+  <template shadowrootmode="open">
+    <div class="dashboard-card"><h1>Welcome</h1><slot></slot></div>
+  </template>
+</x-dashboard></div>
+  <script>
+
+import { boot } from "@justjs/core"
+import "@justjs/aop-security-oauth"
+import "@justjs/aop-observability-datadog"
+import "@justjs/aop-flags-launchdarkly"
+
+async function init() {
+  await boot()
+}
+
+init()
+
+</script>
+</body>
+</html>
