@@ -204,11 +204,46 @@ scm/
                 └── api.html             ⚙ generated API docs
 ```
 
+## DDAS — Deterministic DOM Addressing System
+
+`dom-address-map.json` is a `DdasMap` artifact produced by `justw generate app` via `@swelabs/ddas`. It assigns every addressable DOM element a stable four-segment ID: `app:feature:component:element`.
+
+JustJS consumes `dom-address-map.json` at two points:
+
+| Point | Layer | What happens |
+|---|---|---|
+| Boot time | application | `BootValidator` calls `DomProcessor.validate()` — rejects any component tag in `.on([])` / `.except([])` that has no entry in the map |
+| Lifecycle | application | `MountStep` resolves the DDAS ID to locate the correct DOM target before calling `RuntimeAdapter.mount()` |
+
+The `application` workspace declares `@swelabs/ddas` as a runtime dependency. No other workspace imports it directly.
+
+**`DdasMap` shape (from `@swelabs/ddas`):**
+
+```typescript
+// Flat record keyed by four-segment DDAS ID: app:feature:component:element
+type DdasMap = {
+  app:      string
+  version:  string
+  schema:   string
+  elements: Record<string, ElementDescriptor>
+  slots?:   Record<string, SlotDescriptor>
+}
+```
+
+ID grammar: each segment matches `^[a-z0-9][a-z0-9-]*$`. `DomProcessor.load()` rejects maps that violate the grammar in strict mode.
+
+## Signals
+
+`FeatureStore` and `Signal<T>` are implemented with `@preact/signals-core`. When TC39 native signals ship, only the import in generated component files changes — the `FeatureStore` and `Signal` contracts stay the same.
+
 ## Boot contract
 
 ```typescript
 JustJS.boot({
-  routes, importmap, registry,
+  routes,    // routes.gen.json   — valid route paths
+  importmap, // importmap.gen.json — ES module import map
+  registry,  // registry.gen.ts   — valid component tags
+  domMap,    // dom-address-map.json — DdasMap (valid DOM addresses)
 
   // AOP — declared by strategy name, resolved via SPI, never imported directly
   security:     { strategy: "oauth",   on: ["/dashboard"] },
@@ -225,6 +260,44 @@ JustJS.boot({
 })
 ```
 
-- Each strategy is resolved through the SPI `AspectRegistry` — never imported directly
-- All targets validated at boot time against `routes.gen.json` and `registry.gen.ts`
-- Unknown strategy, route, or component tag = `BootError` before any layer starts
+AOP providers self-register before `boot()` is called:
+
+```typescript
+JustJS.providers.register({
+  concern:  "security",
+  strategy: "oauth",
+  factory:  (config) => new OAuthProvider(config)
+})
+```
+
+**Boot-time validation — hard invariant:**
+
+`BootValidator` runs before any layer initialises. All four checks must pass:
+
+1. Every strategy name is registered in `JustJS.providers`
+2. Every route in `.on([])` / `.except([])` exists in `routes.gen.json`
+3. Every component tag in `.on([])` / `.except([])` exists in `registry.gen.ts`
+4. Every component tag in `.on([])` / `.except([])` has a valid DDAS entry in `dom-address-map.json`
+
+Failure = `BootError` with an actionable message — what was expected, what is known, nearest match:
+
+```
+BootError: route "/cheackout" not found in routes.gen.json
+           Known routes: /home, /checkout, /dashboard, /account
+           Did you mean "/checkout"?
+```
+
+Unknown strategy, route, component tag, or DDAS address = `BootError` before any layer starts.
+
+## Build-time tooling
+
+The following features require a build-time tooling workspace not yet defined in the workspace layout. Their location is an open decision:
+
+| Feature | Candidate location |
+|---|---|
+| Vite plugin + HMR | separate `tooling/vite/` workspace |
+| SSR — Declarative Shadow DOM + client hydration | application layer or separate `tooling/ssr/` |
+| Build pipeline — bundle + inline `importmap.gen.json` | separate `tooling/build/` workspace |
+| Semver contract with justweb artifact shape | spec document, not a workspace |
+
+These are tracked in issues #11–#14. The workspace location must be decided before implementation begins.
