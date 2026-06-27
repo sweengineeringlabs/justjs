@@ -1,5 +1,11 @@
 import type { OneShotHandle, Consumed } from "../api/control.js"
-import { OneShotError }                  from "../api/control.js"
+
+export class OneShotError extends Error {
+  constructor() {
+    super("OneShot: called more than once")
+    this.name = "OneShotError"
+  }
+}
 
 const _consumed = Symbol("consumed")
 

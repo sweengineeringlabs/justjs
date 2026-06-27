@@ -1,6 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { oneShot }               from "../core/one_shot.js"
-import { OneShotError }          from "../api/control.js"
+import { oneShot, OneShotError } from "../core/one_shot.js"
 import type { Consumed }         from "../api/control.js"
 
 describe("oneShot()", () => {
@@ -35,13 +34,13 @@ describe("oneShot()", () => {
     expect(value.id).toBe(1)
   })
 
-  it("test_consumed_token_has_no_consume_method", () => {
+  it("test_consumed_token_reuse_is_a_compile_time_error", () => {
     const handle = oneShot(() => 99)
     const [, token] = handle.consume()
-    // Consumed type has no methods — the compiler enforces this
-    // @ts-expect-error — Consumed has no 'consume' property
-    expect(() => (token as unknown as { consume: () => void }).consume).not.toThrow()
-    // The important thing: token is typed as Consumed, not OneShotHandle
+    // token is Consumed — it has no consume() method
+    // @ts-expect-error — Property 'consume' does not exist on type 'Consumed'
+    void token.consume
+    // Ensure token satisfies Consumed (not OneShotHandle) at the type level
     const _: Consumed = token
     void _
   })

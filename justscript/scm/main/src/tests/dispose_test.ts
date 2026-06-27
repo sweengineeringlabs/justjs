@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test"
-import { makeDisposable, makeAsyncDisposable } from "../core/dispose.js"
+import { makeDisposable }      from "../core/dispose.js"
+import { makeAsyncDisposable } from "../core/async_dispose.js"
 
 describe("makeDisposable()", () => {
   it("test_symbol_dispose_calls_cleanup_on_dispose", () => {

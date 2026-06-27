@@ -41,4 +41,12 @@ describe("unwrapNewtype()", () => {
     const pid: ProductId = newtype<"ProductId">("same")
     expect(unwrapNewtype(uid)).toBe(unwrapNewtype(pid))
   })
+
+  it("test_brand_blocks_structural_aliasing_at_compile_time", () => {
+    const uid: UserId = newtype<"UserId">("user-1")
+    // @ts-expect-error — UserId is not assignable to ProductId (different brands block structural aliasing)
+    const _pid: ProductId = uid
+    void _pid
+    expect(true).toBe(true)
+  })
 })
