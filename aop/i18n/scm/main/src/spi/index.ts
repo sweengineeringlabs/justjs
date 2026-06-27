@@ -1,6 +1,5 @@
-import { JustJS }              from "@justjs/application"
-import { DefaultI18nProvider }  from "../core/default_i18n.js"
+import { justjs } from "@justjs/application"
+import { DefaultI18nProvider } from "../core/default_i18n.js"
 
 const provider = new DefaultI18nProvider()
-
-JustJS.providers.register(provider)
+justjs.providers.register({ concern: "i18n", strategy: "noop", factory: (config?: unknown) => provider.factory(config) })

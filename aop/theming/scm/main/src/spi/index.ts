@@ -1,6 +1,5 @@
-import { JustJS }                  from "@justjs/application"
-import { DefaultThemingProvider }   from "../core/default_theming.js"
+import { justjs } from "@justjs/application"
+import { DefaultThemingProvider } from "../core/default_theming.js"
 
 const provider = new DefaultThemingProvider()
-
-JustJS.providers.register(provider)
+justjs.providers.register({ concern: "theming", strategy: "noop", factory: (config?: unknown) => provider.factory(config) })
