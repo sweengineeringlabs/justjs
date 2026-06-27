@@ -30,5 +30,4 @@ export { DefaultRouter } from "../core/registry/router.js"
 export { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 export { JustJS, justjs } from "../core/boot.js"
 
-export type { AspectProvider } from "../api/aspect.js"
-export type { JustJSAspect, AspectTarget } from "../api/aspect.js"
+export type { AspectProvider, JustJSAspect, AspectTarget } from "../api/aspect.js"

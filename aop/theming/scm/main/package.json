@@ -1,7 +1,7 @@
 {
   "name": "@justjs/aop-theming",
   "version": "0.1.0",
-  "description": "JustJS theming concern — token loading, CSS application, theme state",
+  "description": "JustJS AOP aspect — theming",
   "type": "module",
   "exports": {
     ".": {
@@ -15,9 +15,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@justjs/application": "workspace:*"
+    "@justjs/application": "*"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "typescript": "^5.5.0"
   }
 }

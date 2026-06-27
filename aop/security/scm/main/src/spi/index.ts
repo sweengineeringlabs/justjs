@@ -1,10 +1,10 @@
-import { justjs }                  from "@justjs/application"
-import { DefaultSecurityProvider }  from "../core/default_security.js"
+import { justjs } from "@justjs/application"
+import { DefaultSecurityProvider } from "../core/default_security.js"
 
 const provider = new DefaultSecurityProvider()
 
 justjs.providers.register({
   concern: "security",
   strategy: "noop",
-  factory: (config?: unknown) => provider.factory(config),
+  factory: (config?: any) => provider.factory(config),
 })

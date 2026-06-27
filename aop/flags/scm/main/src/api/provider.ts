@@ -1,20 +1,25 @@
-import type { AspectProvider, JustJSAspect, FlagsContext } from "@justjs/application"
+import type { AspectProvider, JustJSAspect } from "@justjs/application"
+
+export interface UIFlagsContext {
+  isEnabled(flagKey: string): boolean
+  getVariant(flagKey: string): string | null
+}
 
 export interface FlagsProviderConfig {
   endpoint?: string
-  pollingIntervalMs?: number
+  refreshInterval?: number
 }
 
 export interface FlagsAspect extends JustJSAspect {
   readonly concern: "flags"
-  context(): FlagsContext
+  context(): UIFlagsContext
 }
 
 export interface FlagsProvider extends AspectProvider<FlagsProviderConfig> {
   readonly concern: "flags"
 }
 
-export class NoopFlagsContext implements FlagsContext {
-  isEnabled(_flag: string): boolean { return false }
-  variant<T>(_flag: string): T | null { return null }
+export class NoopFlagsContext implements UIFlagsContext {
+  isEnabled(): boolean { return false }
+  getVariant(): string | null { return null }
 }

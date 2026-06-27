@@ -1,21 +1,27 @@
-import type { AspectProvider, JustJSAspect, I18nContext } from "@justjs/application"
+import type { AspectProvider, JustJSAspect } from "@justjs/application"
+
+export interface UIi18nContext {
+  translate(key: string, params?: Record<string, unknown>): string
+  getLocale(): string
+  setLocale(locale: string): void
+}
 
 export interface I18nProviderConfig {
   defaultLocale?: string
-  fallbackLocale?: string
+  messages?: Record<string, Record<string, string>>
 }
 
 export interface I18nAspect extends JustJSAspect {
   readonly concern: "i18n"
-  context(): I18nContext
+  context(): UIi18nContext
 }
 
 export interface I18nProvider extends AspectProvider<I18nProviderConfig> {
   readonly concern: "i18n"
 }
 
-export class NoopI18nContext implements I18nContext {
-  t(key: string, _params?: Record<string, unknown>): string { return key }
-  locale(): string { return "en" }
-  async changeLocale(_locale: string): Promise<void> {}
+export class NoopI18nContext implements UIi18nContext {
+  translate(key: string): string { return key }
+  getLocale(): string { return "en" }
+  setLocale(): void {}
 }

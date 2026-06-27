@@ -1,12 +1,12 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
 import type { I18nProviderConfig } from "../api/provider.js"
-import { NoopUIi18nContext } from "../api/provider.js"
+import { NoopI18nContext } from "../api/provider.js"
 
 class DefaultI18nAspect implements JustJSAspect {
   readonly concern = "i18n" as const
   readonly strategy = "noop" as const
 
-  context() { return new NoopUIi18nContext() }
+  context() { return new NoopI18nContext() }
   weave(_target: AspectTarget): void {}
 }
 
