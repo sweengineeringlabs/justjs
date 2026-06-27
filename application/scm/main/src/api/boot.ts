@@ -13,6 +13,11 @@ export interface AspectConfig {
   readonly components?: ComponentConfig
 }
 
+export interface DdasEnforcement {
+  readonly enabled?: boolean
+  readonly onMissing?: "warn" | "error" | "ignore"
+}
+
 export interface BootConfig {
   readonly routes?: readonly string[]
   readonly registry?: Record<string, unknown>
@@ -20,6 +25,7 @@ export interface BootConfig {
   readonly domAddressMap?: Record<string, readonly string[]>
   readonly providers?: Record<string, unknown>
   readonly aspects?: Record<string, AspectConfig>
+  readonly ddasEnforcement?: DdasEnforcement
   readonly [key: string]: unknown
 }
 
