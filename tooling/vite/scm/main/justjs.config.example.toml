@@ -1,0 +1,22 @@
+# Example configuration for config codegen
+# Copy to justjs.config.toml and customize
+
+[security]
+strategy = "oauth"
+on = ["/dashboard", "/account"]
+
+[observability]
+strategy = "datadog"
+all = true
+
+[flags]
+strategy = "launchdarkly"
+
+# [analytics]
+# strategy = "segment"
+
+# [theming]
+# strategy = "runtime"
+
+# [i18n]
+# strategy = "intl"

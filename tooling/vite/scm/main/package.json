@@ -1,0 +1,25 @@
+{
+  "name": "@justjs/vite",
+  "version": "0.1.0",
+  "description": "JustJS Vite plugin — config codegen + HMR",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test",
+    "dev": "bun run src/core/codegen.ts"
+  },
+  "dependencies": {
+    "@justjs/application": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.5.0"
+  }
+}

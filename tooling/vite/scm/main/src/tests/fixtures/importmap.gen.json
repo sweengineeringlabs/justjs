@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@justjs/core": "/vendor/core-abc123.js",
+    "@justjs/aop-security-oauth": "/vendor/security-oauth-def456.js",
+    "@justjs/aop-security-saml": "/vendor/security-saml-def457.js",
+    "@justjs/aop-observability-datadog": "/vendor/observability-datadog-ghi789.js",
+    "@justjs/aop-observability-prometheus": "/vendor/observability-prometheus-ghi790.js",
+    "@justjs/aop-flags-launchdarkly": "/vendor/flags-launchdarkly-jkl012.js",
+    "@justjs/aop-analytics-segment": "/vendor/analytics-segment-mno345.js",
+    "@justjs/aop-theming-runtime": "/vendor/theming-runtime-pqr678.js",
+    "@justjs/aop-i18n-intl": "/vendor/i18n-intl-stu901.js"
+  }
+}
