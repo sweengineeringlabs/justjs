@@ -1,0 +1,156 @@
+# arch rules: JustJS / JustScript TypeScript project conventions
+# Rules are split across scm/config/arch/policy/rules/*.toml by category.
+# Run `arch audit .` for a live breakdown.
+#
+# =============================================================================
+# Field semantics
+# =============================================================================
+#
+# Each [[rules.<category>]] entry carries:
+#
+# key              — unique snake_case identifier
+# objective        — WHY this rule exists (invariant being enforced)
+# principles       — design principles the rule encodes
+# category         — rule grouping (matches the file it lives in)
+# description      — human-readable one-liner
+# severity         — error | warning | info
+# type             — file_exists | dir_exists | file_content_matches |
+#                    file_content_not_matches | glob_content_matches |
+#                    glob_content_not_matches | json_key_exists |
+#                    json_key_matches | builtin
+# remediation_strategy — declarative | imperative | manual
+# scope            — workspace | package (which project level fires)
+# layer            — api | core | saf | spi  (SAF layer scope)
+# workspace_type   — osi_layer | aop | platform | foundation
+# depends_on       — array of rule keys that must pass first
+# llm_prompt       — step-by-step remediation for AI-assisted fix
+#
+# project_layout
+# -----------------------------------------------------------------------------
+#   workspace  — root with bun-workspace.yaml / package.json workspaces
+#   package    — individual standalone workspace (network, transport, etc.)
+#
+# SAF layer import DAG
+# -----------------------------------------------------------------------------
+#   api ≺ core ≺ {saf, spi}
+#   Forbidden edges:
+#     api  ↛ core, saf, spi
+#     core ↛ saf, spi
+#     saf  ↛ spi
+#     spi  ↛ saf
+#
+# OSI layer dependency direction (higher depends on lower)
+# -----------------------------------------------------------------------------
+#   network ≺ transport ≺ application ≺ data
+#   Forbidden: lower layer imports from higher layer
+#
+# =============================================================================
+
+# =============================================================================
+# Path configuration
+# =============================================================================
+
+[config]
+source_dir        = "scm/main/src"
+saf_entry         = "scm/main/src/saf/index.ts"
+test_dir          = "scm/main/tests"
+docs_dir          = "docs"
+workspace_layout  = "scm"
+pkg_scope         = "@justjs"
+
+# Valid test file suffixes
+test_suffixes = [
+    ".test.ts",
+    "_test.ts",
+    "_int_test.ts",
+    "_e2e_test.ts",
+    "_browser_test.ts",
+]
+
+# Minimum % of source files that must have corresponding test files
+structural_coverage_threshold = 80
+
+# SAF layer levels
+[config.saf_levels]
+L1 = "api"
+L2 = ["core", "spi"]
+L3 = "saf"
+
+# OSI layer stack (network is base, data is top)
+[config.osi_layers]
+order = ["network", "transport", "application", "data"]
+
+# AOP concerns — each must span more than one OSI layer
+[config.aop_concerns]
+names = ["security", "observability", "i18n", "flags", "analytics", "theming"]
+
+[config.aop_layer_spans]
+security      = ["network", "transport", "application"]
+observability = ["network", "transport", "application", "data"]
+i18n          = ["transport", "application", "data"]
+flags         = ["transport", "application", "data"]
+analytics     = ["transport", "application"]
+theming       = ["transport", "application", "data"]
+
+# Valid workspace types
+workspace_types = [
+    # OSI layers
+    "network", "transport", "application", "data",
+    # AOP concerns
+    "security", "observability", "i18n", "flags", "analytics", "theming",
+    # Platform adapters (blocked: justweb#43)
+    "native", "mobile", "desktop",
+    # Foundation
+    "justscript",
+]
+
+# Generic suffixes banned from type/interface names
+banned_type_suffixes = [
+    "Service", "Manager", "Handler", "Helper", "Util", "Utils", "Utilities",
+]
+
+# Permitted specific-role suffixes
+allowed_type_suffixes = [
+    "Monitor", "Provider", "Backend", "Builder", "Factory",
+    "Inspector", "Resolver", "Adapter", "Guard", "Registry",
+    "Context", "Config", "Error", "Result", "Proxy", "Bus",
+]
+
+# Builder pattern thresholds
+builder_field_threshold  = 5
+builder_option_threshold = 3
+
+# =============================================================================
+# Workspace root whitelist
+# =============================================================================
+
+[config.whitelist.workspace]
+entries = [
+    "package.json", "bun.lockb", "bun-workspace.yaml",
+    "tsconfig.base.json",
+    "network", "transport", "application", "data",
+    "aop", "platform", "justscript",
+    "scm", "docs",
+    "README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE", "SECURITY.md",
+    ".git", ".gitignore", ".gitattributes", ".github",
+    ".idea", ".vscode", ".claude",
+    "CLAUDE.md",
+    "bootstrap.sh", "bootstrap.ps1",
+    "node_modules",
+]
+
+# =============================================================================
+# Package whitelist (individual workspace root)
+# =============================================================================
+
+[config.whitelist.package]
+entries = [
+    "scm",
+    "docs",
+    "package.json", "bun.lockb",
+    ".gitignore",
+    "README.md", "CHANGELOG.md", "SECURITY.md",
+    "bootstrap.sh", "bootstrap.ps1",
+    "node_modules",
+    "dist",
+]

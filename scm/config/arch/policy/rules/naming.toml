@@ -1,0 +1,198 @@
+[[rules.naming]]
+key = "types_are_nouns"
+objective = "Make every type name unambiguously identify what a value IS, not what it does, so readers can build a mental model without reading the implementation."
+principles = ["screaming_architecture", "single_responsibility", "locality_of_reference"]
+category = "naming"
+description = "TypeScript interfaces and type aliases must be nouns — not verbs, not adjectives alone"
+severity = "error"
+type = "builtin"
+handler = "types_are_nouns"
+remediation_strategy = "manual"
+layer = ["api"]
+scope = ["package"]
+subcategory = "identity"
+fix_hint = "Rename the type to a noun. Apply the 'is-a' test: 'A ComponentRegistry IS a registry of components.' If the name could be heard as a verb (Log, Run, Check), pick a different noun."
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Rename the interface or type alias to a noun. The name must pass the 'is-a' test: 'A <Name> is a <description>'. Verbs (Validate, Process, Handle) and bare adjectives (Readable, Writable) without a noun stem are not valid type names."
+is_safe = false
+description = "Rename type to a noun"
+
+llm_prompt = """
+1. Find the interface or type alias that is named with a verb or bare adjective.
+2. Apply the 'is-a' test: can you say 'A <Name> is a ...'? If not, it is not a noun.
+3. Examples:
+   - `Validate` → `Validator`
+   - `Handle` → `Handler` (permitted specific-role suffix)
+   - `Log` → `LogDrain` or `Logger`
+   - `Readable` → `ReadableStream` or `Reader`
+4. Rename the type and update all usages across the workspace.
+5. Run `bun run typecheck` to verify.
+"""
+
+
+[[rules.naming]]
+key = "no_generic_suffixes"
+objective = "Force type names to describe a specific role so readers know exactly what a type does without reading its definition."
+principles = ["screaming_architecture", "single_responsibility", "locality_of_reference"]
+category = "naming"
+description = "Type and interface names must not end with generic suffixes: *Service, *Manager, *Handler, *Helper, *Util, *Utils, *Utilities"
+severity = "error"
+type = "builtin"
+handler = "no_generic_suffixes"
+remediation_strategy = "manual"
+layer = ["api"]
+scope = ["package"]
+subcategory = "identity"
+fix_hint = "Replace the generic suffix with a specific role: *Monitor, *Provider, *Backend, *Builder, *Factory, *Inspector, *Resolver, *Adapter, *Guard, *Registry."
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Rename the type to use a specific-role suffix instead of a generic one. Generic suffixes communicate nothing about what the type actually does. Pick from: Monitor, Provider, Backend, Builder, Factory, Inspector, Resolver, Adapter, Guard, Registry — or a domain noun specific to the role."
+is_safe = false
+description = "Replace generic suffix with a specific-role name"
+
+llm_prompt = """
+1. Find the type or interface ending with a banned suffix (Service, Manager, Handler, Helper, Util, Utils, Utilities).
+2. Identify what the type actually does — what is its single responsibility?
+3. Choose a replacement:
+   - Something that monitors state → *Monitor
+   - Something that provides values → *Provider
+   - Something that builds objects → *Builder or *Factory
+   - Something that validates → *Guard or *Inspector
+   - Something that resolves dependencies → *Resolver
+   - Something that adapts a foreign API → *Adapter
+   - Something that registers items → *Registry
+4. Rename and update all usages.
+5. Run `bun run typecheck`.
+"""
+
+
+[[rules.naming]]
+key = "functions_are_verbs"
+objective = "Make every function name communicate the action it performs so call sites are self-documenting."
+principles = ["screaming_architecture", "single_responsibility", "locality_of_reference"]
+category = "naming"
+description = "Exported functions must start with a verb: get_, create_, load_, parse_, check_, list_, query_, find_, resolve_, emit_, flush_, register_, boot_, validate_"
+severity = "error"
+type = "builtin"
+handler = "functions_are_verbs"
+remediation_strategy = "manual"
+layer = ["api", "core", "saf"]
+scope = ["package"]
+subcategory = "identity"
+fix_hint = "Prefix the function name with a verb. `config()` → `loadConfig()`, `user()` → `getUser()`, `routes()` → `resolveRoutes()`."
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Rename the function to start with a verb that describes what it does. Bare nouns are not valid function names. Update all call sites after renaming."
+is_safe = false
+description = "Rename function to start with a verb"
+
+llm_prompt = """
+1. Find the exported function whose name starts with a noun rather than a verb.
+2. Choose a verb prefix that matches the action:
+   - Creates/constructs something → `create*`
+   - Reads from a source → `get*` or `load*`
+   - Converts/transforms → `parse*` or `map*`
+   - Checks a condition → `check*` or `is*`
+   - Searches for something → `find*` or `query*`
+   - Resolves dependencies → `resolve*`
+   - Emits events → `emit*`
+3. Rename the function and update all call sites.
+4. Run `bun run typecheck`.
+"""
+
+
+[[rules.naming]]
+key = "test_naming_convention"
+objective = "Make test names self-documenting so failures identify the exact scenario without reading the test body."
+principles = ["single_responsibility", "screaming_architecture", "locality_of_reference"]
+category = "naming"
+description = "Test names must follow test_<action>_<condition>_<expectation> pattern"
+severity = "warning"
+type = "builtin"
+handler = "test_naming_convention"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "identity"
+fix_hint = "Rename the test to follow: test_<action>_<condition>_<expectation>. Wrong: test_health(). Right: test_check_health_no_components_returns_empty()."
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Rename the test function to follow the pattern: test_<action>_<condition>_<expectation>. The name must communicate: what operation is being tested, under what condition, and what the expected outcome is."
+is_safe = false
+description = "Rename test to follow test_<action>_<condition>_<expectation>"
+
+llm_prompt = """
+1. Find the test function with a vague or incomplete name.
+2. Identify three things: (a) what action is being tested, (b) the condition or input, (c) the expected outcome.
+3. Compose: `test_<action>_<condition>_<expectation>`.
+   - Bad:  `test_boot()`
+   - Good: `test_boot_unknown_route_throws_boot_error()`
+   - Bad:  `test_result()`
+   - Good: `test_map_result_ok_value_applies_fn()`
+4. Rename and update any references.
+"""
+
+
+[[rules.naming]]
+key = "package_name_scoped"
+objective = "Bind every workspace to the @justjs namespace so its identity is unambiguous to package managers and consumers."
+principles = ["screaming_architecture", "single_source_of_truth"]
+category = "naming"
+description = "package.json name must use the @justjs scope: @justjs/<workspace>"
+severity = "error"
+type = "json_key_matches"
+path = "package.json"
+json_path = "name"
+pattern = "^@justjs/"
+fix_hint = "Set the package name to `@justjs/<workspace-basename>` in package.json."
+scope = ["package"]
+subcategory = "identity"
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Update `name` in package.json to `@justjs/<workspace-basename>`. Use the workspace directory basename as the package name (e.g. the `network` workspace → `@justjs/network`)."
+is_safe = false
+description = "Add @justjs scope to package name"
+
+llm_prompt = """
+1. Open `package.json` in the workspace.
+2. Check the `name` field.
+3. If it does not start with `@justjs/`, prefix it: `\"name\": \"@justjs/network\"`.
+4. Use the workspace directory basename as the package leaf name.
+5. Update any internal cross-workspace imports that reference this package by name.
+"""
+
+
+[[rules.naming]]
+key = "no_index_files_in_api_or_core"
+objective = "Force each file in api/ and core/ to name the single concept it defines so readers can navigate to a type by name without reading barrel files."
+principles = ["screaming_architecture", "single_responsibility", "locality_of_reference"]
+category = "naming"
+description = "api/ and core/ must not contain index.ts barrel files — each file names the concept it defines"
+severity = "warning"
+type = "glob_content_not_matches"
+glob = "{source_dir}/{api,core}/index.ts"
+pattern = ".*"
+fix_hint = "Remove index.ts from api/ and core/. Name files after the concept they define: result.ts, option.ts, transport.ts. Barrel re-exports belong in saf/index.ts only."
+layer = ["api", "core"]
+scope = ["package"]
+subcategory = "identity"
+
+[rules.naming.remediation]
+action = "manual"
+instruction = "Delete the index.ts barrel from api/ or core/ and inline its re-exports into saf/index.ts. Each file in api/ and core/ should be named after exactly one type or module (result.ts, option.ts, transport.ts)."
+is_safe = false
+description = "Remove index.ts barrel from api/ or core/ — move re-exports to saf/index.ts"
+
+llm_prompt = """
+1. Find the index.ts in api/ or core/.
+2. Open it and collect all re-exports.
+3. Move those re-exports to `scm/main/src/saf/index.ts`.
+4. Delete the index.ts from api/ or core/.
+5. Update any imports that pointed to the old index.ts.
+6. Run `bun run typecheck` to verify.
+"""

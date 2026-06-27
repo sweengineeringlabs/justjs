@@ -1,0 +1,156 @@
+[[rules.test_organization]]
+key = "test_file_suffix"
+objective = "Make test files immediately recognisable by their suffix so tooling and readers know without inspecting content whether a file is a test."
+principles = ["screaming_architecture", "single_responsibility", "locality_of_reference"]
+category = "test_organization"
+description = "Test files must use a recognised suffix: .test.ts | _test.ts | _int_test.ts | _e2e_test.ts | _browser_test.ts"
+severity = "error"
+type = "builtin"
+handler = "test_file_suffix"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "naming"
+fix_hint = "Rename the test file to end with one of the recognised suffixes. Unit/module tests: _test.ts. Integration tests: _int_test.ts. End-to-end: _e2e_test.ts. Browser runtime: _browser_test.ts."
+
+[rules.test_organization.remediation]
+action = "manual"
+instruction = "Rename the test file to use a recognised suffix. Choose the suffix that matches the test category: _test.ts for unit tests, _int_test.ts for integration tests, _e2e_test.ts for end-to-end tests, _browser_test.ts for browser runtime tests."
+is_safe = false
+description = "Rename test file to use recognised suffix"
+
+llm_prompt = """
+1. Find the test file with an unrecognised name (e.g. `component.test.js`, `__tests__/foo.ts`).
+2. Choose the correct suffix:
+   - Tests a single function in isolation → `_test.ts`
+   - Tests integration between two or more units → `_int_test.ts`
+   - Tests a full user flow → `_e2e_test.ts`
+   - Tests browser-specific behaviour → `_browser_test.ts`
+3. Rename the file.
+4. Update any test runner configuration that references the old name.
+"""
+
+
+[[rules.test_organization]]
+key = "test_cannot_pass_without_impl"
+objective = "Prevent tests that always pass regardless of the implementation from creating false confidence in the test suite."
+principles = ["test_validity", "single_responsibility"]
+category = "test_organization"
+description = "Every test must be able to fail if the feature it claims to test is broken or absent"
+severity = "error"
+type = "builtin"
+handler = "test_cannot_pass_without_impl"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "validity"
+fix_hint = "Delete the test and write one that asserts against expected behaviour. If deleting the implementation causes the test to pass, the test is fake."
+
+[rules.test_organization.remediation]
+action = "manual"
+instruction = "Identify what bug the test would catch. If you cannot name one, delete the test and write a real one. A test that passes when the implementation does not exist is not a test — it is noise."
+is_safe = false
+description = "Rewrite fake test to assert against real behaviour"
+
+llm_prompt = """
+A test that cannot fail is not a test. Before writing any test, answer: "What bug would this catch?"
+
+1. Find the test that is suspected of being fake.
+2. Temporarily delete or stub the implementation it claims to test.
+3. Run the test. If it still passes → it is fake. Delete it.
+4. Write a replacement that:
+   a. Exercises the actual feature (calls the real function/method).
+   b. Asserts the correct output for given inputs.
+   c. Fails when the implementation is broken or absent.
+5. For safety features (error handling, validation, access control): add at least one negative test that passes bad input and asserts the correct error response.
+"""
+
+
+[[rules.test_organization]]
+key = "negative_tests_required_for_safety"
+objective = "Guarantee that error handling, validation, and access control are tested against bad input — not just the happy path — so safety invariants are caught when they break."
+principles = ["test_validity", "defence_in_depth", "fail_fast"]
+category = "test_organization"
+description = "Safety features (error handling, validation, access control) must have at least one negative test"
+severity = "error"
+type = "builtin"
+handler = "negative_tests_required_for_safety"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "coverage"
+fix_hint = "Add a negative test for the safety feature. Pass invalid input, an expired token, a null value, or a forbidden route and assert the correct error response."
+
+[rules.test_organization.remediation]
+action = "manual"
+instruction = "Add a negative test that passes bad input to the safety feature and asserts the correct rejection. Negative tests are mandatory for: Result/err paths, Option/none paths, route guards, BootError validation, input validators."
+is_safe = false
+description = "Add negative test for safety feature"
+
+llm_prompt = """
+1. Identify the safety feature with no negative test (e.g. a route guard, a Result-returning function, a BootError path).
+2. Write a test named following the convention: `test_<action>_<bad_condition>_returns_err()` or `test_<action>_<bad_condition>_throws_boot_error()`.
+3. The test must:
+   a. Pass invalid/bad input (null, undefined, expired token, unknown route, wrong type).
+   b. Assert the exact error type or error code returned.
+   c. NOT catch and ignore the error — assert it.
+4. Run the test without the implementation and verify it fails.
+5. Run the test with the implementation and verify it passes.
+"""
+
+
+[[rules.test_organization]]
+key = "test_coverage_threshold"
+objective = "Prevent the test suite from silently decaying below the minimum structural coverage so regressions are caught before they reach production."
+principles = ["test_validity", "fail_fast"]
+category = "test_organization"
+description = "At least 80% of source files must have corresponding test files"
+severity = "warning"
+type = "builtin"
+handler = "structural_coverage_check"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "coverage"
+threshold = 80
+fix_hint = "Add test files for the untested source files. Every api/ and core/ file should have a corresponding _test.ts."
+
+[rules.test_organization.remediation]
+action = "manual"
+instruction = "Find the source files in api/ and core/ that have no corresponding test file. Add a _test.ts for each. At minimum, add a smoke test (happy path) and one negative test."
+is_safe = false
+description = "Add missing test files to reach 80% structural coverage"
+
+llm_prompt = """
+1. List all .ts files in `scm/main/src/api/` and `scm/main/src/core/`.
+2. For each, check if a corresponding `_test.ts` or `_int_test.ts` exists in `scm/main/tests/`.
+3. For each file without a test: create `scm/main/tests/<module>_test.ts`.
+4. At minimum include:
+   - A smoke test: the feature exists and works with valid input.
+   - A negative test: the feature fails correctly with invalid input.
+5. Run `bun test` to verify all new tests pass.
+"""
+
+
+[[rules.test_organization]]
+key = "test_independence"
+objective = "Prevent tests from creating hidden dependencies on execution order or shared mutable state that make the suite fragile and non-deterministic."
+principles = ["test_validity", "single_responsibility"]
+category = "test_organization"
+description = "Tests must not depend on other tests running first or on shared mutable state outside the test"
+severity = "warning"
+type = "builtin"
+handler = "test_independence"
+remediation_strategy = "manual"
+scope = ["package"]
+subcategory = "validity"
+fix_hint = "Each test must arrange its own state (setup) and clean up after itself (teardown). Use beforeEach/afterEach for shared fixtures, not module-level mutation."
+
+[rules.test_organization.remediation]
+action = "manual"
+instruction = "Refactor the test to set up its own state rather than relying on state left by another test. Use beforeEach to create fresh instances. Avoid module-level mutable variables that persist between test runs."
+is_safe = false
+description = "Make test self-contained and independent"
+
+llm_prompt = """
+1. Find tests that reference a variable set by a previous test or a module-level mutated value.
+2. Refactor to use `beforeEach`/`afterEach` to create and tear down fresh state for each test.
+3. If state is large and expensive to create: use `beforeAll`/`afterAll` but ensure the state is RESET between tests, not shared mutable.
+4. Every test should pass when run in isolation: `bun test --test-name-pattern "<name>"`.
+"""

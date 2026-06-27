@@ -1,0 +1,171 @@
+[[rules.workspace]]
+key = "bun_package_manager"
+objective = "Pin the package manager so every developer and CI environment uses the same resolver and lockfile format, eliminating install-time divergence."
+principles = ["single_source_of_truth", "reproducible_builds"]
+category = "workspace"
+description = "Root package.json must declare bun as the packageManager"
+severity = "error"
+type = "json_key_matches"
+path = "package.json"
+json_path = "packageManager"
+pattern = "^bun@"
+fix_hint = "Set `\"packageManager\": \"bun@<version>\"` in the root package.json."
+scope = ["workspace"]
+subcategory = "tooling"
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Add `\"packageManager\": \"bun@1.3.5\"` (or the current pinned version) to the root package.json. Run `bun install` to regenerate the lockfile with the correct manager."
+is_safe = false
+description = "Pin bun as the package manager in root package.json"
+
+llm_prompt = """
+1. Open the root `package.json`.
+2. Add or update the `packageManager` field: `\"packageManager\": \"bun@1.3.5\"`.
+3. Use the version pinned in the repo's bootstrap documentation — do not use `latest`.
+4. Run `bun install` to verify the lockfile is consistent.
+"""
+
+
+[[rules.workspace]]
+key = "workspace_scripts_defined"
+objective = "Guarantee every workspace has the canonical four scripts so developers and CI have a predictable interface regardless of which workspace they are in."
+principles = ["single_source_of_truth", "screaming_architecture", "locality_of_reference"]
+category = "workspace"
+description = "Every workspace package.json must define build, typecheck, and test scripts"
+severity = "error"
+type = "builtin"
+handler = "workspace_scripts_defined"
+required_scripts = ["build", "typecheck", "test"]
+scope = ["package"]
+subcategory = "tooling"
+fix_hint = "Add the missing scripts to package.json: build (tsc), typecheck (tsc --noEmit), test (bun test)."
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Add the missing scripts to package.json. Use: `\"build\": \"tsc --project tsconfig.json\"`, `\"typecheck\": \"tsc --project tsconfig.json --noEmit\"`, `\"test\": \"bun test\"`."
+is_safe = true
+description = "Add missing build/typecheck/test scripts to package.json"
+
+llm_prompt = """
+1. Open the workspace `package.json`.
+2. Check the `scripts` field for: `build`, `typecheck`, `test`.
+3. Add any that are missing:
+   - `\"build\": \"tsc --project tsconfig.json\"`
+   - `\"typecheck\": \"tsc --project tsconfig.json --noEmit\"`
+   - `\"test\": \"bun test\"`
+4. Run each script to verify it works before committing.
+"""
+
+
+[[rules.workspace]]
+key = "workspace_esm_module_type"
+objective = "Lock every workspace to ES module semantics so import/export syntax works natively and tree-shaking is available to consumers."
+principles = ["single_source_of_truth", "reproducible_builds"]
+category = "workspace"
+description = "Every workspace package.json must set `\"type\": \"module\"`"
+severity = "error"
+type = "json_key_matches"
+path = "package.json"
+json_path = "type"
+pattern = "^module$"
+fix_hint = "Add `\"type\": \"module\"` to package.json. All JustJS workspaces are ESM."
+scope = ["package"]
+subcategory = "tooling"
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Add `\"type\": \"module\"` to the workspace package.json. Ensure all imports in .ts files use the `.js` extension (TypeScript resolves .ts, outputs .js — consumers see .js)."
+is_safe = true
+description = "Set `\"type\": \"module\"` in package.json"
+
+llm_prompt = """
+1. Open the workspace `package.json`.
+2. Add `\"type\": \"module\"` at the top level.
+3. Check all `import` statements in .ts files — they must use `.js` extensions for relative imports (TypeScript NodeNext/Bundler resolution requires this).
+4. Run `bun run build` and `bun run typecheck` to verify.
+"""
+
+
+[[rules.workspace]]
+key = "workspace_standalone"
+objective = "Guarantee every workspace can be installed, built, tested, and run in complete isolation so the architecture stays decoupled and each workspace is independently releasable."
+principles = ["single_responsibility", "separation_of_concerns", "independently_deployable"]
+category = "workspace"
+description = "Each workspace must be buildable and testable in isolation — bun-workspace.yaml is convenience only"
+severity = "warning"
+type = "builtin"
+handler = "workspace_standalone"
+scope = ["package"]
+subcategory = "isolation"
+fix_hint = "Verify `bun run build` and `bun test` pass inside the workspace directory without needing the root workspace context."
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Navigate into the workspace directory and run `bun install && bun run build && bun test` without relying on the root workspace. If it fails, identify what the workspace assumes about its environment and make those dependencies explicit in its own package.json."
+is_safe = false
+description = "Make workspace buildable in isolation"
+
+llm_prompt = """
+1. Navigate into the workspace root (e.g. `network/`).
+2. Run `bun install` — this should resolve only the workspace's own declared dependencies.
+3. Run `bun run build` — the TypeScript compiler should find all referenced types.
+4. Run `bun test` — all tests should pass.
+5. If any step fails: find what was provided implicitly by the root workspace and add it explicitly to this workspace's package.json.
+"""
+
+
+[[rules.workspace]]
+key = "workspace_registered_in_root"
+objective = "Prevent workspaces from becoming orphaned — every workspace must be discoverable by the root so bun can resolve cross-workspace dependencies."
+principles = ["single_source_of_truth", "screaming_architecture"]
+category = "workspace"
+description = "Every workspace must be listed in the root package.json workspaces field"
+severity = "error"
+type = "builtin"
+handler = "workspace_registered_in_root"
+scope = ["workspace"]
+subcategory = "registry"
+fix_hint = "Add the workspace path to the `workspaces` array in the root package.json."
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Add the workspace path to the `workspaces` array in the root package.json. The path must point to the directory containing the workspace's own package.json (e.g. `\"network/scm/main\"`)."
+is_safe = true
+description = "Register workspace in root package.json workspaces"
+
+llm_prompt = """
+1. Open the root `package.json`.
+2. Find the `workspaces` array.
+3. Add the path to the new workspace's package.json directory (e.g. `\"network/scm/main\"`).
+4. Run `bun install` at the root to verify the workspace is now linked.
+5. Verify the workspace is resolvable: `bun run --filter '@justjs/network' build`.
+"""
+
+
+[[rules.workspace]]
+key = "platform_workspaces_blocked"
+objective = "Prevent accidental work on platform adapters that are known to be blocked until the upstream dependency (justweb#43) is resolved."
+principles = ["single_source_of_truth", "explicit_over_implicit"]
+category = "workspace"
+description = "platform/ workspaces (native, mobile, desktop) must carry a blocked marker until justweb#43 is resolved"
+severity = "info"
+type = "file_content_matches"
+path = "README.md"
+pattern = "blocked.*justweb#43|justweb#43.*blocked"
+scope = ["package"]
+workspace_type = ["platform"]
+subcategory = "status"
+fix_hint = "Add a `> **Blocked:** justweb#43` notice to the workspace README.md."
+
+[rules.workspace.remediation]
+action = "manual"
+instruction = "Add a blocked notice to README.md: `> **Blocked:** This workspace depends on justweb#43 (multi-platform component generation). Do not implement until that issue is resolved.`"
+is_safe = true
+description = "Add blocked notice to platform workspace README"
+
+llm_prompt = """
+1. Open or create `README.md` in the platform workspace.
+2. Add at the top: `> **Blocked:** This workspace is pending justweb#43 (multi-platform component generation). Implementation must not begin until that issue is resolved.`
+3. Commit the README so the blocked status is visible in the repo.
+"""

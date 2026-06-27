@@ -1,0 +1,166 @@
+[[rules.aop]]
+key = "aop_concern_spans_multiple_layers"
+objective = "Prevent concerns from being misclassified as AOP when they only operate at one layer — a single-layer concern belongs inside that layer, not in aop/."
+principles = ["separation_of_concerns", "single_responsibility", "stratified_encapsulation"]
+category = "aop"
+description = "Each concern in aop/ must operate at more than one OSI layer — single-layer concerns belong inside their layer"
+severity = "error"
+type = "builtin"
+handler = "aop_concern_spans_multiple_layers"
+scope = ["workspace"]
+subcategory = "placement"
+fix_hint = "If a concern only operates at one layer, move it into that layer's workspace. If it spans multiple layers, it belongs in aop/."
+
+[rules.aop.remediation]
+action = "manual"
+instruction = "Audit which OSI layers the concern touches. If it only operates at one layer (e.g. only in application/), move it into that layer's workspace. A concern stays in aop/ only when it must operate at more than one layer — placing it in a single layer would either leak implementation upward or force other layers to depend on it."
+is_safe = false
+description = "Move single-layer concern out of aop/ and into its OSI layer"
+
+llm_prompt = """
+The rule: a concern lives in aop/ when it must operate at MORE THAN ONE OSI layer.
+
+Verified layer spans per concern:
+  security:      network (token refresh) + transport (auth headers) + application (route guards)
+  observability: network (request timing) + transport (call logs) + application (lifecycle events) + data (state tracking)
+  i18n:          transport (locale loading) + application (translation) + data (locale state)
+  flags:         transport (flag fetch) + application (component gating) + data (flag state)
+  analytics:     transport (event dispatch) + application (interaction capture)
+  theming:       transport (token loading) + application (CSS application) + data (theme state)
+
+1. Identify which layers the flagged concern actually touches.
+2. If it touches only one: move it into that layer's `scm/main/src/` directory.
+3. If it touches two or more: it belongs in `aop/<concern>/scm/main/src/`.
+4. Update the ADR layer span table if the concern's scope changes.
+"""
+
+
+[[rules.aop]]
+key = "aop_strategy_only"
+objective = "Ensure AOP concerns are wired by strategy name at boot time — never by direct import — so strategies can be swapped without changing any application code."
+principles = ["dependency_inversion", "open_closed", "inversion_of_control"]
+category = "aop"
+description = "AOP concerns must be declared by strategy name in JustJS.boot() config — never imported directly into application code"
+severity = "error"
+type = "builtin"
+handler = "aop_strategy_only"
+scope = ["workspace"]
+subcategory = "wiring"
+fix_hint = "Remove the direct import of the AOP concern. Declare it in JustJS.boot() config by strategy name: `security: { strategy: 'oauth', on: ['/dashboard'] }`."
+
+[rules.aop.remediation]
+action = "manual"
+instruction = "Remove the direct import of the AOP implementation from application code. Register the provider before JustJS.boot() is called, then declare the strategy by name in the boot config. Swap strategies by changing the string — nothing else changes."
+is_safe = false
+description = "Replace direct AOP import with strategy declaration in JustJS.boot()"
+
+llm_prompt = """
+1. Find the direct import of an AOP implementation in application code.
+2. Remove the import.
+3. Ensure the provider self-registers before JustJS.boot() is called:
+   ```typescript
+   import { aspectRegistry } from '@justjs/application'
+   import { OAuthProvider } from '@justjs/aop-security-oauth'
+   aspectRegistry.register(OAuthProvider)
+   ```
+4. Declare the strategy by name in JustJS.boot():
+   ```typescript
+   JustJS.boot({
+     security: { strategy: 'oauth', on: ['/dashboard'] }
+   })
+   ```
+5. The application never knows which concrete implementation runs — only the strategy name.
+"""
+
+
+[[rules.aop]]
+key = "osi_layer_no_cross_cutting"
+objective = "Keep OSI layer workspaces free of cross-cutting concerns so each layer has a single responsibility and AOP remains the only mechanism for adding cross-layer behaviour."
+principles = ["separation_of_concerns", "single_responsibility", "stratified_encapsulation"]
+category = "aop"
+description = "OSI layer workspaces (network, transport, application, data) must not implement cross-cutting concerns — those belong in aop/"
+severity = "error"
+type = "builtin"
+handler = "osi_layer_no_cross_cutting"
+scope = ["workspace"]
+workspace_type = ["osi_layer"]
+subcategory = "placement"
+fix_hint = "Move the cross-cutting concern implementation to the appropriate aop/<concern>/ workspace. OSI layers consume AOP contracts via ComponentContext — they do not implement them."
+
+[rules.aop.remediation]
+action = "manual"
+instruction = "Extract the cross-cutting implementation from the OSI layer workspace and move it to the appropriate aop/<concern>/ workspace. OSI layers receive AOP context via ComponentContext fields (UISecurityContext, UIObserverContext, etc.) — they consume, not implement."
+is_safe = false
+description = "Move cross-cutting concern implementation to aop/<concern>/"
+
+llm_prompt = """
+1. Identify the cross-cutting concern implemented inside the OSI layer.
+2. Determine which aop/ workspace it belongs in (security, observability, i18n, flags, analytics, theming).
+3. Move the implementation to `aop/<concern>/scm/main/src/core/`.
+4. In the OSI layer, replace the implementation with a reference to the api/ contract (ComponentContext field or injected interface).
+5. The OSI layer must only CONSUME the AOP concern via the injected context — never IMPLEMENT it.
+"""
+
+
+[[rules.aop]]
+key = "errors_are_layer_specific"
+objective = "Prevent a global error hierarchy from coupling all layers together — each layer defines its own error types to keep dependencies isolated."
+principles = ["separation_of_concerns", "information_hiding", "single_responsibility"]
+category = "aop"
+description = "Error types must be defined in the api/ of the layer where they originate — no global error base class or shared error workspace"
+severity = "error"
+type = "builtin"
+handler = "errors_are_layer_specific"
+scope = ["workspace"]
+subcategory = "errors"
+fix_hint = "Define error types in the api/ of the layer where they occur. TransportError in transport/api/, RouterError in application/api/, etc. Do not create a shared @justjs/errors workspace."
+
+[rules.aop.remediation]
+action = "manual"
+instruction = "Move the error type to the api/ directory of the layer where it originates. Errors are not AOP concerns — they are layer-specific contracts. Each layer's api/ defines its own error discriminated union."
+is_safe = false
+description = "Move error type to the correct layer's api/"
+
+llm_prompt = """
+1. Identify the error type that has been placed in a shared or AOP workspace.
+2. Determine which OSI layer it originates in:
+   - Network errors → `network/scm/main/src/api/error.ts`
+   - Transport errors → `transport/scm/main/src/api/error.ts`
+   - Application errors → `application/scm/main/src/api/error.ts`
+   - Data errors → `data/scm/main/src/api/error.ts`
+3. Move the error type to the correct layer's api/.
+4. Update imports in core/ and saf/ to reference the new location.
+5. Do NOT create a shared `@justjs/errors` package — each layer owns its errors.
+"""
+
+
+[[rules.aop]]
+key = "boot_validates_before_start"
+objective = "Guarantee the application never starts in an invalid state by enforcing that all AOP strategy names, routes, and component tags are validated before any layer initialises."
+principles = ["fail_fast", "explicit_over_implicit", "defence_in_depth"]
+category = "aop"
+description = "JustJS.boot() must validate all strategy names, routes, and component tags before any layer starts — invalid config must throw BootError"
+severity = "error"
+type = "builtin"
+handler = "boot_validates_before_start"
+scope = ["workspace"]
+workspace_type = ["osi_layer"]
+subcategory = "boot"
+fix_hint = "Ensure JustJS.boot() runs BootValidator before wiring any layers. Unknown strategy name, route path, or component tag must throw BootError before any layer initialises."
+
+[rules.aop.remediation]
+action = "manual"
+instruction = "Review the JustJS.boot() implementation. BootValidator must run as the first step — before AspectRegistry.resolve(), before layer wiring. Any BootError thrown by the validator must propagate immediately without partial initialisation."
+is_safe = false
+description = "Enforce boot-time validation before layer initialisation"
+
+llm_prompt = """
+1. Find the JustJS.boot() implementation (typically in `application/scm/main/src/core/`).
+2. Verify the execution order:
+   a. BootValidator runs FIRST — validates all routes, component tags, and strategy names.
+   b. If BootError[] is non-empty → throw immediately. No layers start.
+   c. Only after validation passes → resolve AOP strategies via AspectRegistry.
+   d. Only after AOP resolution → wire network → transport → application → data.
+3. Ensure no layer is partially initialised if validation fails.
+4. Add a test: `test_boot_unknown_strategy_throws_before_layers_start()`.
+"""

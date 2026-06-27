@@ -1,0 +1,152 @@
+[[rules.interface]]
+key = "saf_is_sole_export_surface"
+objective = "Route the workspace's entire public surface through one facade so consumers depend on the curated boundary, never on internal layers."
+principles = ["facade_pattern", "information_hiding", "single_source_of_truth"]
+category = "interface"
+description = "package.json exports must point to saf/index — never to api/ or core/ directly"
+severity = "error"
+type = "json_key_matches"
+remediation_strategy = "manual"
+path = "package.json"
+json_path = "exports['.'].import"
+pattern = "^\\./dist/saf/index\\.js$"
+fix_hint = "Set exports['.'].import to './dist/saf/index.js' and exports['.'].types to './dist/saf/index.d.ts'"
+scope = ["package"]
+subcategory = "facade"
+depends_on = ["saf_index_exists"]
+
+[rules.interface.remediation]
+action = "manual"
+instruction = "Update the `exports` field in package.json so the `.` entry points to `./dist/saf/index.js` (import) and `./dist/saf/index.d.ts` (types). Remove any entries pointing directly to api/ or core/ dist paths."
+is_safe = false
+description = "Route package exports through saf/index"
+
+llm_prompt = """
+1. Open `package.json` in the workspace root.
+2. Set `exports['.'].import` to `'./dist/saf/index.js'`.
+3. Set `exports['.'].types` to `'./dist/saf/index.d.ts'`.
+4. Remove any `exports` entries that point directly into dist/api/ or dist/core/ — those are internal layers.
+5. Consumers must have exactly one import path: the package name (e.g. `@justjs/transport`).
+"""
+
+
+[[rules.interface]]
+key = "api_types_only"
+objective = "Keep the contract layer free of runtime behaviour so it has zero dependencies and defines only what can be depended on from any layer."
+principles = ["dependency_inversion", "information_hiding", "interface_segregation"]
+category = "interface"
+description = "api/ files must contain only type definitions and interfaces — no class implementations, no function bodies"
+severity = "error"
+type = "builtin"
+handler = "api_types_only"
+remediation_strategy = "manual"
+layer = ["api"]
+scope = ["package"]
+subcategory = "contracts"
+fix_hint = "Move any function bodies or class implementations from api/ to core/. api/ should contain only interface, type, and const enum declarations."
+
+[rules.interface.remediation]
+action = "manual"
+instruction = "For each api/ file with an implementation: (a) extract the implementation into a matching core/ file, (b) keep only the type/interface declaration in api/, (c) re-export the type from saf/index.ts if consumers need it."
+is_safe = false
+description = "Extract implementations from api/ to core/"
+
+llm_prompt = """
+1. Scan all files under `scm/main/src/api/`.
+2. Flag any: class with method bodies, function declarations with bodies, object literals with logic, expressions with side-effects.
+3. Allowed in api/: `interface`, `type`, `export type`, `const enum`, plain type re-exports.
+4. For each violation: move the implementation to a matching file in `scm/main/src/core/` and leave only the type/interface in api/.
+5. Update saf/index.ts imports to point to core/ for implementations.
+"""
+
+
+[[rules.interface]]
+key = "core_not_exported_directly"
+objective = "Hide implementations from consumers so internal details can change without breaking the public contract."
+principles = ["information_hiding", "open_closed", "facade_pattern"]
+category = "interface"
+description = "saf/index.ts must not re-export implementation details from core/ without going through the SAF surface"
+severity = "error"
+type = "file_content_not_matches"
+remediation_strategy = "manual"
+path = "{saf_entry}"
+pattern = "from [\"']\\.\\.?/core"
+fix_hint = "saf/index.ts may re-export from core/ only for things consumers actually need. Prefer exporting the type from api/ and the factory/constructor from core/ under a stable name."
+scope = ["package"]
+layer = ["saf", "core"]
+subcategory = "facade"
+
+[rules.interface.remediation]
+action = "manual"
+instruction = "For each `from '../core/...'` line in saf/index.ts: check whether the export is an implementation detail or a necessary public API. If it is an implementation detail, remove it. If consumers genuinely need it, define a type alias or factory wrapper in saf/ that abstracts the core detail."
+is_safe = false
+description = "Replace raw core re-exports in saf/index.ts with stable public names"
+
+llm_prompt = """
+1. Open `scm/main/src/saf/index.ts` and find all lines matching `from '../core/...'`.
+2. For each: ask whether consumers NEED this export or if it leaks an internal detail.
+3. If consumers need a type: move the type declaration to api/ and re-export from there.
+4. If consumers need a constructor/factory: wrap it with a stable public name in saf/ itself.
+5. Never expose core implementation classes directly — only types and factory functions.
+"""
+
+
+[[rules.interface]]
+key = "spi_providers_self_register"
+objective = "Prevent the framework from coupling to concrete strategy implementations by ensuring all providers arrive through the SPI registry, never through direct imports."
+principles = ["dependency_inversion", "open_closed", "inversion_of_control"]
+category = "interface"
+description = "SPI providers must self-register before JustJS.boot() — the framework must not import provider implementations directly"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/core/**/*.ts"
+pattern = "from [\"'].*spi.*[Pp]rovider"
+fix_hint = "Remove direct provider imports from core/. Providers self-register via the SPI registry. The framework resolves them by strategy name at boot time."
+scope = ["package"]
+layer = ["core", "spi"]
+subcategory = "inversion_of_control"
+
+[rules.interface.remediation]
+action = "manual"
+instruction = "Find the direct provider import in core/ and remove it. The provider should call `registry.register(provider)` before JustJS.boot() is invoked. The boot process resolves strategies by name via AspectRegistry — it never imports them."
+is_safe = false
+description = "Remove direct provider imports from core/ — providers self-register"
+
+llm_prompt = """
+1. Find the direct provider import in the flagged core/ file.
+2. Remove the import entirely.
+3. The correct pattern is: provider packages import the registry from spi/ and call `registry.register(MyProvider)` in their own entry point.
+4. The framework resolves strategies by string name at boot time — it never needs to know the concrete type.
+5. Verify that JustJS.boot() config only references strategy names (strings), not imported classes.
+"""
+
+
+[[rules.interface]]
+key = "zero_runtime_deps_api"
+objective = "Guarantee the contract layer can be depended on from any layer — including the browser — without pulling in runtime code."
+principles = ["dependency_inversion", "information_hiding", "interface_segregation"]
+category = "interface"
+description = "Workspaces that are pure contract layers (justscript) must have zero runtime dependencies in package.json"
+severity = "error"
+type = "json_key_exists"
+json_path = "dependencies"
+expected = false
+fix_hint = "Remove `dependencies` from package.json. api/ workspaces use only TypeScript types — all deps belong in devDependencies."
+scope = ["package"]
+workspace_type = ["foundation"]
+subcategory = "contracts"
+
+[rules.interface.remediation]
+action = "manual"
+instruction = "Move all entries from `dependencies` to `devDependencies` in package.json. A contract-layer workspace must have zero runtime dependencies — its output is types only."
+is_safe = false
+description = "Move runtime dependencies to devDependencies for contract workspaces"
+
+llm_prompt = """
+1. Open `package.json` in the workspace.
+2. Check the `dependencies` field.
+3. Move every entry to `devDependencies` — this workspace exports types only, no runtime code.
+4. Verify `bun run typecheck` still passes after the move.
+5. If a dependency is genuinely needed at runtime, the workspace design is wrong — the implementation should live in core/ of a different workspace.
+"""

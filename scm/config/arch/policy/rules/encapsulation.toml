@@ -1,0 +1,238 @@
+[[rules.encapsulation]]
+key = "api_no_import_core"
+objective = "Keep the abstraction layer free of any knowledge of concrete implementations so the dependency arrow points inward toward contracts, never outward toward implementations."
+principles = ["dependency_inversion", "information_hiding", "stratified_encapsulation"]
+category = "encapsulation"
+description = "api/ must not import from core/"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/api/**/*.ts"
+pattern = "from [\"']\\.\\.?/core"
+fix_hint = "Remove core/ imports from api/. api/ defines abstractions only — it must not know about implementations."
+layer = ["api", "core"]
+scope = ["package"]
+subcategory = "boundary"
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Find the core/ import in the api/ file and remove it. If api/ needs a type that currently lives in core/, move that type to api/ — types belong in the contract layer."
+is_safe = false
+description = "Remove forbidden core/ imports from api/"
+
+llm_prompt = """
+1. Open the flagged file in scm/main/src/api/ and find the `from '../core/...'` import.
+2. Remove the import — api/ must have zero knowledge of core/.
+3. If the import was for a type: move that type declaration to the appropriate api/ file.
+4. If the import was for an implementation: that implementation should never be in api/ — it belongs in core/ and is accessed via saf/.
+5. Run `bun run typecheck` to verify the fix.
+"""
+
+
+[[rules.encapsulation]]
+key = "api_no_import_saf"
+objective = "Prevent the contract layer from depending on the composition root, which would create a circular dependency and collapse the layer hierarchy."
+principles = ["dependency_inversion", "stratified_encapsulation", "acyclic_dependencies"]
+category = "encapsulation"
+description = "api/ must not import from saf/"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/api/**/*.ts"
+pattern = "from [\"']\\.\\.?/saf"
+fix_hint = "Remove saf/ imports from api/. Circular dependency: api/ → saf/ → api/ is not permitted."
+layer = ["api", "saf"]
+scope = ["package"]
+subcategory = "boundary"
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Remove the saf/ import from the api/ file. If api/ needs something from saf/, that is a circular dependency — redesign the type to live in api/ and be re-exported from saf/."
+is_safe = false
+description = "Remove circular saf/ import from api/"
+
+llm_prompt = """
+1. Find the `from '../saf/...'` import in the api/ file.
+2. This is a circular dependency: api/ → saf/ → api/. Remove it.
+3. If the imported type is needed in api/, move its definition to api/ and update saf/ to re-export it from there.
+4. Run `bun run typecheck` to verify no circular dependency remains.
+"""
+
+
+[[rules.encapsulation]]
+key = "api_no_import_spi"
+objective = "Prevent the contract layer from depending on extension hooks, which would tie the abstraction to a specific extension mechanism."
+principles = ["dependency_inversion", "stratified_encapsulation", "interface_segregation"]
+category = "encapsulation"
+description = "api/ must not import from spi/"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/api/**/*.ts"
+pattern = "from [\"']\\.\\.?/spi"
+fix_hint = "Remove spi/ imports from api/. Extension hooks depend on contracts, not the other way around."
+layer = ["api", "spi"]
+scope = ["package"]
+subcategory = "boundary"
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Remove the spi/ import from the api/ file. If api/ and spi/ need to share a type, that type belongs in api/ — spi/ imports from api/, never the reverse."
+is_safe = false
+description = "Remove forbidden spi/ import from api/"
+
+llm_prompt = """
+1. Find the `from '../spi/...'` import in the api/ file.
+2. Remove it — api/ must not know about spi/.
+3. If a type needs to be shared between api/ and spi/, declare it in api/ and import it in spi/.
+4. The correct dependency direction is: spi/ imports from api/, not the other way around.
+"""
+
+
+[[rules.encapsulation]]
+key = "core_no_import_saf"
+objective = "Prevent implementations from depending on the facade so the composition root is the only place wiring happens."
+principles = ["dependency_inversion", "stratified_encapsulation", "single_responsibility"]
+category = "encapsulation"
+description = "core/ must not import from saf/"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/core/**/*.ts"
+pattern = "from [\"']\\.\\.?/saf"
+fix_hint = "Remove saf/ imports from core/. core/ implements api/ contracts — it must not depend on the facade that wires it."
+layer = ["core", "saf"]
+scope = ["package"]
+subcategory = "boundary"
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Remove the saf/ import from the core/ file. If the implementation needs something the saf/ layer provides, that something should be passed in as a dependency (injected via api/ interfaces) rather than imported from saf/."
+is_safe = false
+description = "Remove forbidden saf/ import from core/"
+
+llm_prompt = """
+1. Find the `from '../saf/...'` import in the core/ file.
+2. Remove it — core/ must not know about saf/.
+3. If the implementation needs a dependency: inject it via an api/ interface (constructor parameter, function parameter).
+4. The saf/ layer wires core/ implementations together — core/ does not wire itself.
+"""
+
+
+[[rules.encapsulation]]
+key = "spi_no_import_saf"
+objective = "Prevent extension hooks from depending on the facade so providers can be registered independently of how the system is wired."
+principles = ["dependency_inversion", "open_closed", "stratified_encapsulation"]
+category = "encapsulation"
+description = "spi/ must not import from saf/"
+severity = "error"
+type = "glob_content_not_matches"
+remediation_strategy = "manual"
+glob = "{source_dir}/spi/**/*.ts"
+pattern = "from [\"']\\.\\.?/saf"
+fix_hint = "Remove saf/ imports from spi/. spi/ only imports from api/ — extension hooks depend on contracts, not on the wiring layer."
+layer = ["spi", "saf"]
+scope = ["package"]
+subcategory = "boundary"
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Remove the saf/ import from the spi/ file. Replace with an import from api/ — extension hook interfaces depend on contracts only."
+is_safe = false
+description = "Remove forbidden saf/ import from spi/"
+
+llm_prompt = """
+1. Find the `from '../saf/...'` import in the spi/ file.
+2. Remove it.
+3. If a type from saf/ was needed: check if it originates in api/ and import it from there instead.
+4. spi/ imports from api/ only — the same contracts that core/ implements.
+"""
+
+
+[[rules.encapsulation]]
+key = "saf_no_implementation"
+objective = "Keep the facade as a pure composition root that wires and re-exports — it must not contain business logic so the layer boundary stays clear."
+principles = ["facade_pattern", "single_responsibility", "separation_of_concerns"]
+category = "encapsulation"
+description = "saf/index.ts must not contain function bodies or class implementations — only re-exports and factory wiring"
+severity = "error"
+type = "builtin"
+handler = "saf_no_implementation"
+remediation_strategy = "manual"
+layer = ["saf"]
+scope = ["package"]
+subcategory = "facade"
+fix_hint = "Move any logic from saf/index.ts to core/. saf/index.ts re-exports and wires; it does not implement."
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Extract any function bodies or class implementations from saf/index.ts into the appropriate core/ file. saf/index.ts should contain only `export type { ... } from '../api/...'`, `export { ... } from '../core/...'`, and thin factory wrappers."
+is_safe = false
+description = "Move implementations from saf/index.ts to core/"
+
+llm_prompt = """
+1. Open `scm/main/src/saf/index.ts`.
+2. Find any function with a body, class declaration, or expression with side effects.
+3. Move each to a matching file in `scm/main/src/core/`.
+4. Replace with a re-export: `export { myFunction } from '../core/my_module.js'`.
+5. saf/index.ts should read as a flat list of re-exports and nothing else.
+"""
+
+
+[[rules.encapsulation]]
+key = "osi_layer_import_direction"
+objective = "Enforce the OSI dependency direction so lower layers do not know about higher layers, keeping the stack decoupled and independently deployable."
+principles = ["dependency_inversion", "stratified_encapsulation", "separation_of_concerns"]
+category = "encapsulation"
+description = "OSI layers must only import from layers below — network cannot import transport, transport cannot import application, application cannot import data"
+severity = "error"
+type = "builtin"
+handler = "osi_layer_import_direction"
+remediation_strategy = "manual"
+scope = ["workspace"]
+subcategory = "boundary"
+fix_hint = "Remove the upward layer import. If lower layers need a contract defined by a higher layer, that contract belongs in a shared api/ workspace or should be passed in as a dependency."
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Remove the forbidden upward layer import. The dependency rule is: data depends on application depends on transport depends on network — never the reverse. If a lower layer needs a type from a higher layer, extract it into a shared contract workspace."
+is_safe = false
+description = "Remove upward OSI layer import"
+
+llm_prompt = """
+The OSI dependency direction is: network ← transport ← application ← data (lower layers have no knowledge of higher layers).
+
+1. Find the forbidden import — e.g. `from '@justjs/transport'` inside the `network` workspace.
+2. Remove it.
+3. If the lower layer needs a type: extract the type into an api/ workspace that both layers can depend on.
+4. If the lower layer needs behaviour: invert the dependency — pass the behaviour in as a parameter typed against an api/ interface.
+5. Verify: `bun run typecheck` across the workspace graph passes with no circular dependencies.
+"""
+
+
+[[rules.encapsulation]]
+key = "consumers_import_saf_only"
+objective = "Prevent consumers from bypassing the curated facade and depending on internal layers that can change without notice."
+principles = ["information_hiding", "facade_pattern", "single_source_of_truth"]
+category = "encapsulation"
+description = "Application code must import from workspace package names (@justjs/*) — never from internal paths (../api/, ../core/)"
+severity = "error"
+type = "builtin"
+handler = "consumers_import_saf_only"
+remediation_strategy = "manual"
+scope = ["workspace"]
+subcategory = "boundary"
+fix_hint = "Replace direct internal imports with the workspace package name. E.g., replace `from '../../../transport/src/api/...'` with `from '@justjs/transport'`."
+
+[rules.encapsulation.remediation]
+action = "manual"
+instruction = "Replace the deep internal import with the package's public name. The package.json exports field defines the only valid entry points. If the needed export is not in saf/index.ts, add it there rather than importing from the internal path."
+is_safe = false
+description = "Replace internal path import with workspace package name"
+
+llm_prompt = """
+1. Find the direct internal import (e.g. `from '../../network/scm/main/src/api/...'`).
+2. Replace it with the workspace package import: `from '@justjs/network'`.
+3. If the symbol you need is not exported from `@justjs/network`'s saf/index.ts, add it there first.
+4. Never import from a workspace's internal directories — only from its published package name.
+"""

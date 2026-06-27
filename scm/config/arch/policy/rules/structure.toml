@@ -1,0 +1,253 @@
+[[rules.structure]]
+key = "package_json_exists"
+objective = "Guarantee every workspace has a manifest so it is a recognisable, installable, buildable unit from the moment its directory is opened."
+principles = ["screaming_architecture", "single_source_of_truth"]
+category = "structure"
+description = "package.json exists at workspace root"
+severity = "error"
+type = "file_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "manifest"
+path = "package.json"
+
+[rules.structure.remediation]
+action = "create_file"
+path = "package.json"
+content = """
+{
+  "name": "@justjs/{workspace_name}",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types":  "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build":     "tsc --project tsconfig.json",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test":      "bun test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
+"""
+is_safe = true
+description = "Create minimal package.json for the workspace"
+
+llm_prompt = """
+1. Create `package.json` at the workspace root (the `scm/<name>/` directory).
+2. Set `name` to `@justjs/<workspace_name>` using the workspace directory basename.
+3. Set `type` to `"module"` — all JustJS workspaces are ESM.
+4. Set `exports` pointing to `./dist/saf/index.js` and `./dist/saf/index.d.ts`.
+5. Add `build`, `typecheck`, and `test` scripts using bun.
+6. Add `typescript` as a devDependency only — no runtime dependencies unless the workspace is not `api/`.
+"""
+
+
+[[rules.structure]]
+key = "tsconfig_exists"
+objective = "Ensure every workspace has a TypeScript configuration so the compiler knows its boundaries, output location, and strictness settings."
+principles = ["single_source_of_truth", "screaming_architecture"]
+category = "structure"
+description = "tsconfig.json exists at workspace root"
+severity = "error"
+type = "file_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "manifest"
+path = "tsconfig.json"
+
+[rules.structure.remediation]
+action = "create_file"
+path = "tsconfig.json"
+content = """
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "scm/main/src",
+    "outDir": "dist"
+  },
+  "include": ["scm/main/src"]
+}
+"""
+is_safe = true
+description = "Create tsconfig.json extending the root base config"
+
+llm_prompt = """
+1. Create `tsconfig.json` at the workspace root.
+2. Extend `../../tsconfig.base.json` (repo root base config).
+3. Set `rootDir` to `scm/main/src` and `outDir` to `dist`.
+4. Include only `scm/main/src` — tests and docs are not compiled into dist.
+5. Do not duplicate compiler options already in tsconfig.base.json.
+"""
+
+
+[[rules.structure]]
+key = "src_dir_exists"
+objective = "Keep all source under one canonical directory so readers and tooling know exactly where implementation lives."
+principles = ["locality_of_reference", "screaming_architecture", "single_responsibility"]
+category = "structure"
+description = "scm/main/src/ exists"
+severity = "error"
+type = "dir_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "layout"
+path = "{source_dir}"
+
+[rules.structure.remediation]
+action = "create_dir"
+path = "{source_dir}"
+is_safe = true
+description = "Create scm/main/src/ source directory"
+
+llm_prompt = """
+1. Create `scm/main/src/` inside the workspace root.
+2. This directory will hold all four SAF subdirectories: api/, core/, saf/, spi/.
+3. Do not place source files directly in `src/` — they belong in the appropriate SAF layer.
+"""
+
+
+[[rules.structure]]
+key = "api_dir_exists"
+objective = "Guarantee the contract layer exists so that all interfaces, types, and errors for this workspace have a dedicated, zero-dependency home."
+principles = ["dependency_inversion", "information_hiding", "separation_of_concerns"]
+category = "structure"
+description = "scm/main/src/api/ exists"
+severity = "error"
+type = "dir_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "saf_layout"
+path = "{source_dir}/api"
+depends_on = ["src_dir_exists"]
+
+[rules.structure.remediation]
+action = "create_dir"
+path = "{source_dir}/api"
+is_safe = true
+description = "Create api/ contract layer"
+
+llm_prompt = """
+1. Create `scm/main/src/api/` inside the workspace.
+2. This directory holds interfaces, types, and error types only — no implementations.
+3. Files in api/ must have zero runtime dependencies outside of api/ itself.
+"""
+
+
+[[rules.structure]]
+key = "core_dir_exists"
+objective = "Guarantee the implementation layer exists so that all business logic has a home that is hidden from consumers."
+principles = ["information_hiding", "single_responsibility", "separation_of_concerns"]
+category = "structure"
+description = "scm/main/src/core/ exists"
+severity = "error"
+type = "dir_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "saf_layout"
+path = "{source_dir}/core"
+depends_on = ["src_dir_exists"]
+
+[rules.structure.remediation]
+action = "create_dir"
+path = "{source_dir}/core"
+is_safe = true
+description = "Create core/ implementation layer"
+
+llm_prompt = """
+1. Create `scm/main/src/core/` inside the workspace.
+2. This directory holds all implementations — never imported by consumers.
+3. Consumers access functionality through saf/ only.
+"""
+
+
+[[rules.structure]]
+key = "saf_dir_exists"
+objective = "Guarantee the facade layer exists so there is a single, curated public export surface that consumers can depend on without knowing about internal structure."
+principles = ["facade_pattern", "information_hiding", "single_source_of_truth"]
+category = "structure"
+description = "scm/main/src/saf/ exists"
+severity = "error"
+type = "dir_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "saf_layout"
+path = "{source_dir}/saf"
+depends_on = ["src_dir_exists"]
+
+[rules.structure.remediation]
+action = "create_dir"
+path = "{source_dir}/saf"
+is_safe = true
+description = "Create saf/ facade layer"
+
+llm_prompt = """
+1. Create `scm/main/src/saf/` inside the workspace.
+2. This directory is the ONLY public export surface of the workspace.
+3. It re-exports types from api/ and wires implementations from core/.
+4. It must contain at minimum `saf/index.ts`.
+"""
+
+
+[[rules.structure]]
+key = "saf_index_exists"
+objective = "Ensure the facade layer has a single entry point so the entire public surface flows from one file and consumers have one stable import path."
+principles = ["facade_pattern", "single_source_of_truth", "locality_of_reference"]
+category = "structure"
+description = "scm/main/src/saf/index.ts exists"
+severity = "error"
+type = "file_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "saf_layout"
+path = "{saf_entry}"
+depends_on = ["saf_dir_exists"]
+
+[rules.structure.remediation]
+action = "create_file"
+path = "{saf_entry}"
+content = "// SAF — Service Abstraction Facade\n// Sole public export surface for this workspace.\n// Re-export types from api/ and implementations from core/.\n"
+is_safe = true
+description = "Create saf/index.ts as the public export surface"
+
+llm_prompt = """
+1. Create `scm/main/src/saf/index.ts`.
+2. This file is the sole public export surface — everything the workspace exposes is re-exported here.
+3. Export types with `export type { ... } from '../api/...'`.
+4. Export implementations with `export { ... } from '../core/...'`.
+5. Never export anything from `core/` that is not intended for consumers.
+6. The workspace's package.json `exports` field points here via `./dist/saf/index.js`.
+"""
+
+
+[[rules.structure]]
+key = "spi_dir_exists"
+objective = "Guarantee the extension point layer exists so that providers can self-register without the framework importing them directly."
+principles = ["open_closed", "dependency_inversion", "separation_of_concerns"]
+category = "structure"
+description = "scm/main/src/spi/ exists"
+severity = "warning"
+type = "dir_exists"
+remediation_strategy = "declarative"
+scope = ["package"]
+subcategory = "saf_layout"
+path = "{source_dir}/spi"
+depends_on = ["src_dir_exists"]
+
+[rules.structure.remediation]
+action = "create_dir"
+path = "{source_dir}/spi"
+is_safe = true
+description = "Create spi/ extension point layer"
+
+llm_prompt = """
+1. Create `scm/main/src/spi/` inside the workspace.
+2. This directory holds extension hook interfaces and registration mechanisms.
+3. Providers self-register here before JustJS.boot() is called.
+4. The spi/ layer is never imported directly by consumers — they declare strategies by name.
+"""
