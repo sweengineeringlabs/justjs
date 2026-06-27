@@ -3,13 +3,9 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "src/tests",
-    "**/*_test.ts"
-  ]
+  "include": ["src"],
+  "exclude": ["src/tests", "**/*_test.ts"]
 }

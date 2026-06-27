@@ -1,7 +1,7 @@
 {
   "name": "@justjs/data",
   "version": "0.1.0",
-  "description": "JustJS data layer — signals, feature store, event bus",
+  "description": "JustJS data layer — signals store, feature state, event bus",
   "type": "module",
   "exports": {
     ".": {
@@ -15,9 +15,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@preact/signals-core": "^1.8.0"
+    "@preact/signals-core": "^1.5.0"
   },
   "devDependencies": {
+    "@types/node": "^20.10.0",
     "typescript": "^5.5.0"
   }
 }

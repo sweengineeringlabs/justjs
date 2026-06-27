@@ -1,31 +1,55 @@
 import { describe, it, expect } from "bun:test"
 import { DefaultUIEventBus } from "../core/event_bus.js"
 
-const event = (type: string) => ({ type, componentId: "c1", occurredAt: 0 })
-
-describe("DefaultUIEventBus", () => {
-  it("test_subscribe_receives_published_event", () => {
+describe("event bus", () => {
+  it("test_emit_and_on_basic", () => {
     const bus = new DefaultUIEventBus()
-    const received: string[] = []
-    bus.subscribe("click", e => received.push(e.type))
-    bus.publish(event("click"))
-    expect(received).toEqual(["click"])
+    let received: unknown
+
+    bus.on("test", (data) => {
+      received = data
+    })
+
+    bus.emit("test", "hello")
+
+    expect(received).toBe("hello")
   })
 
-  it("test_unsubscribe_stops_receiving_events", () => {
+  it("test_multiple_listeners", () => {
     const bus = new DefaultUIEventBus()
-    const received: string[] = []
-    const unsub = bus.subscribe("click", e => received.push(e.type))
-    unsub()
-    bus.publish(event("click"))
-    expect(received).toHaveLength(0)
+    const results: unknown[] = []
+
+    bus.on("test", (data) => results.push(data))
+    bus.on("test", (data) => results.push(data))
+
+    bus.emit("test", "data")
+
+    expect(results).toHaveLength(2)
+    expect(results[0]).toBe("data")
+    expect(results[1]).toBe("data")
   })
 
-  it("test_subscribe_does_not_receive_other_type", () => {
+  it("test_unsubscribe", () => {
     const bus = new DefaultUIEventBus()
-    const received: string[] = []
-    bus.subscribe("hover", e => received.push(e.type))
-    bus.publish(event("click"))
-    expect(received).toHaveLength(0)
+    let count = 0
+
+    const unsubscribe = bus.on("test", () => {
+      count++
+    })
+
+    bus.emit("test")
+    expect(count).toBe(1)
+
+    unsubscribe()
+    bus.emit("test")
+    expect(count).toBe(1)
+  })
+
+  it("test_emit_without_listeners", () => {
+    const bus = new DefaultUIEventBus()
+
+    expect(() => {
+      bus.emit("nonexistent", "data")
+    }).not.toThrow()
   })
 })

@@ -1,17 +1,34 @@
-import type { UIEventBus, UIEvent } from "../api/store.js"
+import type { UIEventBus } from "../api/signal.js"
 
 export class DefaultUIEventBus implements UIEventBus {
-  readonly #subscribers = new Map<string, Set<(event: UIEvent) => void>>()
+  private listeners = new Map<string, Set<(data?: unknown) => void>>()
 
-  publish(event: UIEvent): void {
-    const fns = this.#subscribers.get(event.type)
-    if (fns) for (const fn of fns) fn(event)
+  emit(event: string, data?: unknown): void {
+    const handlers = this.listeners.get(event)
+    if (handlers) {
+      handlers.forEach((handler) => {
+        try {
+          handler(data)
+        } catch (error) {
+          console.error(`Error in event handler for ${event}:`, error)
+        }
+      })
+    }
   }
 
-  subscribe(type: string, fn: (event: UIEvent) => void): () => void {
-    let fns = this.#subscribers.get(type)
-    if (fns === undefined) { fns = new Set(); this.#subscribers.set(type, fns) }
-    fns.add(fn)
-    return () => { fns!.delete(fn) }
+  on(event: string, listener: (data?: unknown) => void): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set())
+    }
+
+    const handlers = this.listeners.get(event)!
+    handlers.add(listener)
+
+    return () => {
+      handlers.delete(listener)
+      if (handlers.size === 0) {
+        this.listeners.delete(event)
+      }
+    }
   }
 }

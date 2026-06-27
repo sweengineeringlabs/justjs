@@ -1,35 +1,32 @@
-import type { FeatureStore, Signal, Action } from "../api/store.js"
+import type { FeatureStore, WritableSignal } from "../api/signal.js"
 import { createSignal } from "./signal.js"
 
-export class DefaultFeatureStore<T, Selector extends (state: T) => unknown>
-  implements FeatureStore<T, Selector>
-{
-  readonly #state: ReturnType<typeof createSignal<T>>
+export class DefaultFeatureStore<S = unknown, A = unknown> implements FeatureStore<S, A> {
+  private stateSignal: WritableSignal<S>
+  private subscribers = new Set<(state: S) => void>()
 
-  constructor(initial: T) {
-    this.#state = createSignal(initial)
+  constructor(
+    initialState: S,
+    private reducer?: (state: S, action: A) => S
+  ) {
+    this.stateSignal = createSignal(initialState)
   }
 
-  select<V>(selector: Selector): Signal<V> {
-    const parent = this.#state
-    return {
-      get value() { return (selector as (s: T) => V)(parent.value) },
-      subscribe(fn: (value: V) => void): () => void {
-        let prev = (selector as (s: T) => V)(parent.value)
-        return parent.subscribe((s) => {
-          const next = (selector as (s: T) => V)(s)
-          if (next !== prev) { prev = next; fn(next) }
-        })
-      }
+  get state(): WritableSignal<S> {
+    return this.stateSignal
+  }
+
+  dispatch(action: A): void {
+    if (this.reducer) {
+      this.stateSignal.value = this.reducer(this.stateSignal.value, action)
+      this.subscribers.forEach((listener) => listener(this.stateSignal.value))
     }
   }
 
-  async dispatch(action: Action): Promise<void> {
-    void action
-    // Reducer wiring — consumers extend and override
-  }
-
-  snapshot(): T {
-    return this.#state.value
+  subscribe(listener: (state: S) => void): () => void {
+    this.subscribers.add(listener)
+    return () => {
+      this.subscribers.delete(listener)
+    }
   }
 }
