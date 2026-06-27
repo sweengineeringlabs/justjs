@@ -20,7 +20,8 @@
     "justscript/scm/main",
     "measurement/scm/main",
     "tooling/vite/scm/main",
-    "tooling/ssr/scm/main"
+    "tooling/ssr/scm/main",
+    "tooling/build/scm/main"
   ],
   "scripts": {
     "build":     "bun run --filter '*' build",

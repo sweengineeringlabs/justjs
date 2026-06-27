@@ -140,6 +140,17 @@
         "typescript": "^5.5.0",
       },
     },
+    "tooling/build/scm/main": {
+      "name": "@justjs/build",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/node": "^20.10.0",
+        "typescript": "^5.5.0",
+      },
+    },
     "tooling/ssr/scm/main": {
       "name": "@justjs/ssr",
       "version": "0.1.0",
@@ -187,6 +198,8 @@
     "@justjs/aop-theming": ["@justjs/aop-theming@workspace:aop/theming/scm/main"],
 
     "@justjs/application": ["@justjs/application@workspace:application/scm/main"],
+
+    "@justjs/build": ["@justjs/build@workspace:tooling/build/scm/main"],
 
     "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
 
