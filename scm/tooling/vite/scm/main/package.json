@@ -1,0 +1,22 @@
+{
+  "name": "@justjs/vite",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Vite plugin for JustJS config codegen",
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    ".": "./dist/saf/index.js"
+  },
+  "dependencies": {
+    "vite": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/bun": "latest",
+    "@types/node": "^20.10.0"
+  }
+}
