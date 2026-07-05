@@ -1,6 +1,6 @@
 import { justjs } from "@justjs/application"
 import { DefaultSecurityProvider } from "../core/default_security.js"
-import type { SecurityProviderConfig } from "../api/api_provider.js"
+import type { SecurityProviderConfig } from "../api/provider.js"
 
 const provider = new DefaultSecurityProvider()
 

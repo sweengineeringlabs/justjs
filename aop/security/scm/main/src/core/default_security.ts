@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { SecurityProviderConfig }     from "../api/api_provider.js"
-import { NoopSecurityContext }             from "../api/api_provider.js"
+import type { SecurityProviderConfig }     from "../api/provider.js"
+import { NoopSecurityContext }             from "../api/provider.js"
 
 class DefaultSecurityAspect implements JustJSAspect {
   readonly concern  = "security" as const

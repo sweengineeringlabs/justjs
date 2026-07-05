@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultI18nProvider }               from "../core/default_i18n.js"
-import { NoopI18nContext }                   from "../api/api_provider.js"
+import { NoopI18nContext }                   from "../api/provider.js"
 
 describe("DefaultI18nProvider", () => {
   it("test_concern_is_i18n", () => {

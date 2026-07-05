@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { ThemingProviderConfig } from "../api/api_provider.js"
-import { NoopThemingContext } from "../api/api_provider.js"
+import type { ThemingProviderConfig } from "../api/provider.js"
+import { NoopThemingContext } from "../api/provider.js"
 
 class DefaultThemingAspect implements JustJSAspect {
   readonly concern = "theming" as const
