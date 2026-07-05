@@ -1,4 +1,5 @@
-import type { ComponentContext } from "../../api/component.js"
+import type { ComponentContext, RuntimeAdapter } from "../../api/component.js"
+import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
 
@@ -15,6 +16,11 @@ export class ResolveStep implements LifecycleStep {
 }
 
 export class MountStep implements LifecycleStep {
+  constructor(
+    private readonly domAddressMap?: Record<string, readonly string[]>,
+    private readonly runtimeAdapter: RuntimeAdapter = new NoopRuntimeAdapter()
+  ) {}
+
   name(): string {
     return "mount"
   }
@@ -22,6 +28,14 @@ export class MountStep implements LifecycleStep {
   async execute(ctx: ComponentContext): Promise<void> {
     if (!ctx.element) {
       throw new LifecycleError("mount", "Missing DOM element")
+    }
+
+    if (this.domAddressMap) {
+      const ddasIds = this.domAddressMap[ctx.tag]
+      if (!ddasIds || ddasIds.length === 0) {
+        throw new LifecycleError("mount", `No DDAS entry found for component tag "${ctx.tag}"`)
+      }
+      this.runtimeAdapter.mount(ddasIds[0]!, ctx.element)
     }
   }
 }
@@ -59,13 +73,17 @@ export class UnmountStep implements LifecycleStep {
 }
 
 export class DefaultLifecycle implements Lifecycle {
-  private steps: LifecycleStep[] = [
-    new ResolveStep(),
-    new MountStep(),
-    new RenderStep(),
-    new UpdateStep(),
-    new UnmountStep(),
-  ]
+  private steps: LifecycleStep[]
+
+  constructor(domAddressMap?: Record<string, readonly string[]>, runtimeAdapter?: RuntimeAdapter) {
+    this.steps = [
+      new ResolveStep(),
+      new MountStep(domAddressMap, runtimeAdapter),
+      new RenderStep(),
+      new UpdateStep(),
+      new UnmountStep(),
+    ]
+  }
 
   async run(ctx: ComponentContext): Promise<void> {
     for (const step of this.steps) {

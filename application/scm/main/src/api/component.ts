@@ -17,6 +17,16 @@ export interface MountHandle {
   unmount(): void
 }
 
+export interface RuntimeAdapter {
+  mount(ddasId: string, element: Element): MountHandle
+}
+
+export class NoopRuntimeAdapter implements RuntimeAdapter {
+  mount(): MountHandle {
+    return { unmount() {} }
+  }
+}
+
 export class ComponentError extends Error {
   constructor(message: string) {
     super(message)

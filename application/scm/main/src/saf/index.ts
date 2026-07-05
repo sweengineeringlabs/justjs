@@ -3,8 +3,9 @@ export type {
   Component,
   ComponentContext,
   MountHandle,
+  RuntimeAdapter,
 } from "../api/component.js"
-export { ComponentError } from "../api/component.js"
+export { ComponentError, NoopRuntimeAdapter } from "../api/component.js"
 
 export type {
   LifecycleEventType,
