@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { ObservabilityProviderConfig } from "../api/api_provider.js"
-import { NoopObserverContext } from "../api/api_provider.js"
+import type { ObservabilityProviderConfig } from "../api/provider.js"
+import { NoopObserverContext } from "../api/provider.js"
 
 class DefaultObservabilityAspect implements JustJSAspect {
   readonly concern = "observability" as const

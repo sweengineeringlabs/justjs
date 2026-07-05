@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultFlagsProvider }              from "../core/default_flags.js"
-import { NoopFlagsContext }                  from "../api/api_provider.js"
+import { NoopFlagsContext }                  from "../api/provider.js"
 
 describe("DefaultFlagsProvider", () => {
   it("test_concern_is_flags", () => {

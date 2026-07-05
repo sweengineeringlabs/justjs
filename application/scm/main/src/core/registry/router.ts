@@ -1,5 +1,5 @@
-import type { Router } from "../../api/api_registry.js"
-import { RegistryError } from "../../api/api_registry.js"
+import type { Router } from "../../api/registry.js"
+import { RegistryError } from "../../api/registry.js"
 
 export class DefaultRouter implements Router {
   private currentRoute = "/"

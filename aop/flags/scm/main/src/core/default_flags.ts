@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { FlagsProviderConfig } from "../api/api_provider.js"
-import { NoopFlagsContext } from "../api/api_provider.js"
+import type { FlagsProviderConfig } from "../api/provider.js"
+import { NoopFlagsContext } from "../api/provider.js"
 
 class DefaultFlagsAspect implements JustJSAspect {
   readonly concern = "flags" as const

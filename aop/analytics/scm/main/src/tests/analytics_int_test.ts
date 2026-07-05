@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultAnalyticsProvider }          from "../core/default_analytics.js"
-import { NoopAnalyticsContext }              from "../api/api_provider.js"
+import { NoopAnalyticsContext }              from "../api/provider.js"
 
 describe("DefaultAnalyticsProvider", () => {
   it("test_concern_is_analytics", () => {

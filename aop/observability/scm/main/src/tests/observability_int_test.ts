@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test"
 import { JustJS }                            from "@justjs/application"
 import { DefaultObservabilityProvider }      from "../core/default_observability.js"
-import { NoopObserverContext }               from "../api/api_provider.js"
+import { NoopObserverContext }               from "../api/provider.js"
 
 describe("DefaultObservabilityProvider", () => {
   it("test_concern_is_observability", () => {

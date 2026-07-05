@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
-import type { AnalyticsProviderConfig } from "../api/api_provider.js"
-import { NoopAnalyticsContext } from "../api/api_provider.js"
+import type { AnalyticsProviderConfig } from "../api/provider.js"
+import { NoopAnalyticsContext } from "../api/provider.js"
 
 class DefaultAnalyticsAspect implements JustJSAspect {
   readonly concern = "analytics" as const

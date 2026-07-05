@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
-import { RegistryError } from "../api/api_registry.js"
-import type { Component } from "../api/api_component.js"
+import { RegistryError } from "../api/registry.js"
+import type { Component } from "../api/component.js"
 
 describe("component registry", () => {
   it("test_register_and_get_component", async () => {

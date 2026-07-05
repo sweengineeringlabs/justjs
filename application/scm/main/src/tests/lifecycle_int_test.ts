@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
-import type { ComponentContext } from "../api/api_component.js"
+import type { ComponentContext } from "../api/component.js"
 
 describe("lifecycle", () => {
   it("test_lifecycle_runs_all_steps", async () => {
