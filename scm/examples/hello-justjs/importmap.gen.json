@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "@justjs/aop-security-noop": "@justjs/aop-security",
+    "@justjs/aop-observability-noop": "@justjs/aop-observability",
+    "@justjs/aop-i18n-noop": "@justjs/aop-i18n",
+    "@justjs/aop-flags-noop": "@justjs/aop-flags",
+    "@justjs/aop-analytics-noop": "@justjs/aop-analytics",
+    "@justjs/aop-theming-noop": "@justjs/aop-theming"
+  }
+}

@@ -4,11 +4,22 @@
   "type": "module",
   "description": "Demo app showing JustJS data flow through 4 OSI layers + AOP aspects",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "codegen": "bun run scripts/codegen.js",
+    "dev": "bun run codegen && vite",
+    "build": "bun run codegen && vite build",
     "preview": "vite preview"
   },
+  "dependencies": {
+    "@justjs/application": "workspace:*",
+    "@justjs/aop-security": "workspace:*",
+    "@justjs/aop-observability": "workspace:*",
+    "@justjs/aop-i18n": "workspace:*",
+    "@justjs/aop-flags": "workspace:*",
+    "@justjs/aop-analytics": "workspace:*",
+    "@justjs/aop-theming": "workspace:*"
+  },
   "devDependencies": {
+    "@justjs/vite": "workspace:*",
     "vite": "^5.0.0"
   }
 }

@@ -12,8 +12,11 @@ onMissing = "error"  # "error" | "warn" | "ignore"
 [security]
 strategy = "noop"
 
+# Only "noop" strategies are self-registered by the aop/* workspaces today
+# (see aop/*/scm/main/src/spi/index.ts) - "console"/"light" etc. do not exist
+# as importable strategy packages yet, so this demo can only request "noop".
 [observability]
-strategy = "console"
+strategy = "noop"
 
 [i18n]
 strategy = "noop"
@@ -25,18 +28,21 @@ strategy = "noop"
 strategy = "noop"
 
 [theming]
-strategy = "light"
+strategy = "noop"
 
 [routes]
 "/counter" = "counter"
 "/fetch" = "fetch-demo"
+"/form" = "form-demo"
 
 [components]
 "x-counter" = "counter"
 "x-fetch" = "fetch-demo"
+"x-form" = "form-demo"
 
 [registry]
 domAddressMap = {
   "x-counter" = "#app",
-  "x-fetch" = "#app"
+  "x-fetch" = "#app",
+  "x-form" = "#app"
 }
