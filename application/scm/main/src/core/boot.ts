@@ -299,7 +299,7 @@ class BootValidator {
 export interface AspectProviderSpec {
   readonly concern: string
   readonly strategy: string
-  readonly factory: (config?: unknown) => unknown
+  readonly factory: (config?: any) => unknown
 }
 
 export class JustJS implements JustJSBoot {
