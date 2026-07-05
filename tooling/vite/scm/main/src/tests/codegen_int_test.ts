@@ -19,7 +19,7 @@ describe("codegen", () => {
       const config: JustJSConfig = {}
       const output = generateCodeWithStrategies(config, mockStrategies)
 
-      expect(output.code).toContain("JustJS.boot")
+      expect(output.code).toContain("justjs.boot")
       expect(output.imports).toHaveLength(0)
     })
 
@@ -86,8 +86,9 @@ describe("codegen", () => {
 
       const output = generateCodeWithStrategies(config, mockStrategies)
 
-      expect(output.code).toContain('import { JustJS } from "@justjs/application"')
+      expect(output.code).toContain('import { justjs } from "@justjs/application"')
       expect(output.code).toContain('export async function boot(config)')
+      expect(output.code).toContain('justjs.boot(')
     })
 
     it("test_generate_unknown_strategy_throws_error", () => {
