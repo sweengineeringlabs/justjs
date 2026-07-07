@@ -2,7 +2,7 @@
 
 Defines the stable artifact shapes and compatibility guarantees between justweb (generator) and JustJS build tools (consumer).
 
-**Status:** POC — v0.6 (byte-confirmed against a real `justw generate app` run, including justweb#56 and #52's landed fixes — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#52/#56)
+**Status:** POC — v0.7 (proved end-to-end with a real justweb-generated component mounted into a real DOM — see justjs#38/#39/#41/#49/#50 and justweb ADR-0006/ADR-0008/#52/#56)
 
 > **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); v0.3 brought the shapes below in line with those decisions.
 >
@@ -11,6 +11,8 @@ Defines the stable artifact shapes and compatibility guarantees between justweb 
 > **Correction note (v0.5):** justweb#56 landed — `dom-address-map.json`'s element descriptors now carry a `tag` field (the actually-registered custom-element tag) alongside the unchanged `component` field. `@justjs/application`'s `MountStep`/`BootValidator` updated to resolve by `tag`, not `component`. **`routes.gen.json` was not part of this fix** — it still only carried the bare `component` field, confirmed by regenerating after the fix landed. That part of justweb#56 remained open.
 >
 > **Correction note (v0.6):** justweb#56's `routes.gen.json` half landed too (`routes.gen.json` route entries now also carry `tag`) — justweb#56 is now fully resolved, both artifacts. Separately, justweb#52 landed real `props:` → attribute-backed signal codegen (`observedAttributes` + `attributeChangedCallback`), closing the "`props:` has no codegen, `setAttribute` is inert" gap ADR-0006 rev.4 and ADR-0008 both noted. `adaptCustomElementRegistry` (justjs#46) updated to take advantage: it now reuses an already-mounted element across repeated `render()` calls instead of always reconstructing, since `setAttribute` on an already-connected element is real again for declared props. Also found and filed upstream while verifying #52: a `props:`/`states:` name colliding with a `dom.elements`/`dom.slots` name produces a class with duplicate TS members that fails to compile (justweb#57) — confirmed via an isolated repro, not just inspection.
+>
+> **Correction note (v0.7):** built a real happy-dom-based integration test using a captured real justweb-generated component (not a hand-authored fixture) run through `adaptCustomElementRegistry` + `DefaultLifecycle` — a real custom element is now proven to actually mount, register, and receive prop updates in a live DOM, closing justjs#39's remaining "not yet a full live render" gap. Building that test caught a real, independent bug: `adaptCustomElementRegistry` was built (justjs#46) to return a `DefaultComponentRegistry` instance, but `RenderStep`/`UpdateStep` only ever read the plain `ComponentRegistry` Record shape — `DefaultComponentRegistry` was (and still is) never actually consumed by the lifecycle. Fixed the adapter to return the Record shape directly; `DefaultComponentRegistry` itself remaining disconnected is tracked separately as justjs#50 (a rediscovery of #38's original "two unreconciled registry designs" finding, one layer deeper than #46 thought it had resolved).
 
 ---
 
@@ -106,7 +108,7 @@ export const COMPONENT_REGISTRY: Record<string, () => Promise<CustomElementConst
 ```
 `CustomElementConstructor` is the standard TypeScript DOM-lib type (`lib.dom.d.ts`), not a justjs type — nothing in this file references `@justjs/*`. Consuming this map costs nothing until a specific entry is called; justweb's own `routes.gen.ts` (ADR-0006) is the first real consumer, using it for genuine per-route code-splitting.
 
-**`@justjs/application` side:** `DefaultComponentRegistry`'s own shape — lazy `(props?) => Component` factories via `.register(tag, factory)`, enforcing hyphenated tags — is a third, independent shape again. Bridging `COMPONENT_REGISTRY` to it is `@justjs/application`'s own adapter to write (ADR-0008 is explicit this isn't justweb's decision); see `adaptCustomElementRegistry` in `application/scm/main/src/core/registry/component_registry_adapter.ts` (justjs#46).
+**`@justjs/application` side:** `DefaultComponentRegistry`'s own shape — lazy `(props?) => Component` factories via `.register(tag, factory)`, enforcing hyphenated tags — is a third, independent shape again. Bridging `COMPONENT_REGISTRY` to what `RenderStep`/`UpdateStep` actually consume is `@justjs/application`'s own adapter to write (ADR-0008 is explicit this isn't justweb's decision); see `adaptCustomElementRegistry` in `application/scm/main/src/core/registry/component_registry_adapter.ts` (justjs#46). **Correction:** the adapter returns a plain `ComponentRegistry` Record, not a `DefaultComponentRegistry` instance — the latter is never actually read by the lifecycle at all (confirmed while building a real-DOM integration test, justjs#39/#50). `DefaultComponentRegistry` remains real, tested, exported code with no consumer.
 
 **Semver guarantees:**
 - ✅ **Minor bump:** New components added (always backwards-compatible)
