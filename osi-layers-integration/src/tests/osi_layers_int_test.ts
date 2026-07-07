@@ -174,6 +174,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     it("test_component_render_actually_executes_and_updates_state", async () => {
       let renderCalled = false
       let renderCount = 0
+      let lastOutput = ""
 
       // ACTUAL: Real component that executes render
       const realComponent: Component = {
@@ -181,7 +182,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         render: () => {
           renderCalled = true
           renderCount++
-          return `<div class="counter">${renderCount}</div>`
+          lastOutput = `<div class="counter">${renderCount}</div>`
         },
       }
 
@@ -201,11 +202,12 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       // ACTUAL: Get component and call render
       const component = await componentRegistry.get("x-counter")
-      const output = component.render()
+      const fakeElement = { tagName: "div" } as unknown as Element
+      component.render({}, fakeElement)
 
       // VERIFY: Render actually executed
       expect(renderCalled).toBe(true)
-      expect(output).toContain("counter")
+      expect(lastOutput).toContain("counter")
 
       // ACTUAL: Update store when render happens
       store.dispatch({ type: "RENDER" })
@@ -214,7 +216,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
       expect(store.state.value.renders).toBe(1)
 
       // ACTUAL: Render again
-      component.render()
+      component.render({}, fakeElement)
       store.dispatch({ type: "RENDER" })
       expect(store.state.value.renders).toBe(2)
     })
@@ -303,11 +305,12 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         expect(router.currentPath()).toBe("/dashboard")
 
         // ACTUAL: Layer 3 — Register component
+        let lastDashboardHtml = ""
         const dashboardComponent: Component = {
           name: "dashboard",
           render: () => {
             // Real render that uses store data
-            return `<div>${store.state.value.page}: ${store.state.value.widgets.length} widgets</div>`
+            lastDashboardHtml = `<div>${store.state.value.page}: ${store.state.value.widgets.length} widgets</div>`
           },
         }
         componentRegistry.register("x-dashboard", () => dashboardComponent)
@@ -340,9 +343,9 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
         // VERIFY: Component can render with full stack data
         const component = await componentRegistry.get("x-dashboard")
-        const html = component.render()
-        expect(html).toContain("dashboard")
-        expect(html).toContain("2 widgets")
+        component.render({}, { tagName: "div" } as unknown as Element)
+        expect(lastDashboardHtml).toContain("dashboard")
+        expect(lastDashboardHtml).toContain("2 widgets")
       } finally {
         server.stop()
       }

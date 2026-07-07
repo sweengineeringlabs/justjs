@@ -127,6 +127,39 @@ describe("lifecycle", () => {
     expect(mounted[0]?.ddasId).toBe("test-app:home:home:button")
   })
 
+  it("test_mount_step_rejects_domaddressmap_missing_elements_with_a_clear_error", async () => {
+    // The legacy pre-migration shape (a flat Record<tag, string[]>) has no
+    // `elements` property at all - confirm this fails with an actionable
+    // LifecycleError, not a raw "Object.entries requires..." TypeError.
+    const legacyShapeMap = { "x-button": ["main"] } as unknown as DomAddressMap
+    const lifecycle = new DefaultLifecycle(legacyShapeMap)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await expect(lifecycle.run(ctx)).rejects.toThrow(/elements/)
+  })
+
+  it("test_mount_step_rejects_a_domaddressmap_with_no_tag_field_on_any_element", async () => {
+    // Every element present but none carry `tag` - the signature of output
+    // generated before justweb#56. Must fail with a distinct, actionable
+    // message, not the generic "No DDAS entry found" per-tag message that
+    // would otherwise make this look like a real per-component gap.
+    const preTagFixMap: DomAddressMap = {
+      elements: { "app:home:x-button:root": { component: "button" } },
+    }
+    const lifecycle = new DefaultLifecycle(preTagFixMap)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await expect(lifecycle.run(ctx)).rejects.toThrow(/justweb#56/)
+  })
+
   it("test_mount_step_fails_without_ddas_entry_for_tag", async () => {
     const domAddressMap: DomAddressMap = {
       elements: { "app:home:x-other:root": { component: "other", tag: "x-other" } },
@@ -225,6 +258,30 @@ describe("lifecycle", () => {
 
     expect(updateCalls).toHaveLength(1)
     expect(updateCalls[0]).toEqual({ label: "Updated" })
+  })
+
+  it("test_render_and_update_steps_share_a_single_component_resolution_per_run", async () => {
+    // RenderStep and UpdateStep both need the same component within one
+    // run() pass. DefaultComponentRegistry.get() memoizes per tag, so this
+    // proves the factory is invoked once, not once per step.
+    let factoryCalls = 0
+    const component: Component = { name: "x-button", render() {}, update() {} }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => {
+      factoryCalls++
+      return component
+    })
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await lifecycle.run(ctx)
+    await lifecycle.run(ctx)
+
+    expect(factoryCalls).toBe(1)
   })
 
   it("test_update_step_is_noop_when_component_has_no_update_hook", async () => {

@@ -2,8 +2,9 @@ import type { ComponentContext, RuntimeAdapter } from "../../api/component.js"
 import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
-import type { DefaultComponentRegistry } from "../registry/component_registry.js"
+import type { ComponentRegistry } from "../../api/registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
+import { isLegacyDomAddressMap, resolveDdasAddressesForTag } from "../../api/dom-address.js"
 
 export class ResolveStep implements LifecycleStep {
   name(): string {
@@ -33,12 +34,24 @@ export class MountStep implements LifecycleStep {
     }
 
     if (this.domAddressMap) {
+      if (!this.domAddressMap.elements) {
+        throw new LifecycleError(
+          "mount",
+          'domAddressMap is missing its "elements" map — expected the real dom-address-map.json shape ({ elements: {...} }), not the legacy CSS-selector-list shape'
+        )
+      }
+
+      if (isLegacyDomAddressMap(this.domAddressMap)) {
+        throw new LifecycleError(
+          "mount",
+          "domAddressMap has no `tag` field on any element — this looks like a dom-address-map.json generated before justweb#56. Regenerate it with a current justweb version; mounting cannot resolve component tags without `tag`."
+        )
+      }
+
       // Resolve by `tag` (justweb#56) — the actually-registered custom-element
       // tag — not `component` (the bare *_component.yaml name), which never
       // matches a real customElements/COMPONENT_REGISTRY entry.
-      const ddasIds = Object.entries(this.domAddressMap.elements)
-        .filter(([, element]) => element.tag === ctx.tag)
-        .map(([address]) => address)
+      const ddasIds = resolveDdasAddressesForTag(this.domAddressMap, ctx.tag)
       if (ddasIds.length === 0) {
         throw new LifecycleError("mount", `No DDAS entry found for component tag "${ctx.tag}"`)
       }
@@ -48,7 +61,7 @@ export class MountStep implements LifecycleStep {
 }
 
 export class RenderStep implements LifecycleStep {
-  constructor(private readonly registry?: DefaultComponentRegistry) {}
+  constructor(private readonly registry?: ComponentRegistry) {}
 
   name(): string {
     return "render"
@@ -67,7 +80,7 @@ export class RenderStep implements LifecycleStep {
 }
 
 export class UpdateStep implements LifecycleStep {
-  constructor(private readonly registry?: DefaultComponentRegistry) {}
+  constructor(private readonly registry?: ComponentRegistry) {}
 
   name(): string {
     return "update"
@@ -76,8 +89,12 @@ export class UpdateStep implements LifecycleStep {
   // A component's `update` hook is optional (api/component.ts) — components that
   // only implement `render` have nothing distinct for this step to do, since
   // RenderStep already painted this pass with the current props. This step exists
-  // for components that need a separate reaction to being run again (e.g. patching
-  // instead of a full re-render) without forcing every component to define one.
+  // for components that want a separate reaction alongside render() (e.g.
+  // patching instead of a full re-render) without forcing every component to
+  // define one. Note: `update` fires on every `run()` call, including the
+  // very first mount, same as `render` — there is no first-mount-vs-repeat
+  // distinction here, since ComponentContext carries no prior-call state to
+  // detect one from (a deliberate scope limit, not an oversight).
   async execute(ctx: ComponentContext): Promise<void> {
     if (!this.registry) {
       return
@@ -106,7 +123,7 @@ export class DefaultLifecycle implements Lifecycle {
   constructor(
     domAddressMap?: DomAddressMap,
     runtimeAdapter?: RuntimeAdapter,
-    registry?: DefaultComponentRegistry
+    registry?: ComponentRegistry
   ) {
     this.steps = [
       new ResolveStep(),
