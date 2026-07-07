@@ -2,9 +2,11 @@
 
 Defines the stable artifact shapes and compatibility guarantees between justweb (generator) and JustJS build tools (consumer).
 
-**Status:** POC — v0.3 (corrected against justweb's real generated output — see justjs#38/#39/#41 and justweb ADR-0006/ADR-0008)
+**Status:** POC — v0.4 (byte-confirmed against a real `justw generate app` run — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#56)
 
-> **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); this revision brings the shapes below in line with those decisions. Where a shape is cited from justweb's ADRs rather than a byte-for-byte inspected file, that's noted explicitly below — confirm against a real generated project before treating field names as exact.
+> **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); v0.3 brought the shapes below in line with those decisions.
+>
+> **Correction note (v0.4):** actually generated a real project (`justw init`/`justw generate app`) and diffed every artifact against v0.3's descriptions field-for-field, closing the "cited from an ADR, not byte-inspected" caveats v0.3 carried. Confirmed a real, previously-undiscovered gap in the process: `routes.gen.json` and `dom-address-map.json` both key by the *bare* component name (`"home"`), not the actually-registered custom-element tag (`"js-home"`) — filed upstream as justweb#56 (justjs#49 tracks the consumer-side impact). Everything else matched exactly.
 
 ---
 
@@ -46,7 +48,16 @@ routes:
       id: id                  # :id segment → order-detail's own declared `id` prop
 ```
 
-**Generated shape:** `routes.gen.json` is a resolved artifact in justweb's own vocabulary — absolute paths (nesting already flattened), `feature`/`component` cross-references, `guard` carried through opaquely, `params` validated against the target component's own declared `props:` (only `string`/`enum` prop types accepted). *Citing ADR-0006's decision record here, not a byte-inspected file — confirm exact field names against a real generated project.*
+**Generated shape (confirmed via a real `justw init`/`justw generate app` run):**
+```json
+{
+  "routes": [
+    { "component": "home", "feature": "home", "path": "/", "targets": ["browser"] }
+  ],
+  "version": 1
+}
+```
+A flat `{routes: [...], version}` object — `component`/`feature` cross-references, `guard`/`params` present per-route only when declared in `routes.yaml`. **Important gap, not yet resolved:** `component` here is the *bare* `*_component.yaml` name (`"home"`), not the actually-registered custom-element tag (`"js-home"`, from the fixed `js-` prefix `domcompiler::TAG_PREFIX` applies) — the same bare-name-vs-tag mismatch confirmed in artifact #4 below. `routes.gen.ts`'s own generated wiring code resolves the full tag internally (`"tag": "js-home"` in its `ROUTES` array), but that resolution isn't exposed in this JSON artifact. Tracked upstream as justweb#56; blocks reliably resolving a `routes.gen.json` entry back to a registry tag.
 
 **Key behaviors, not just shape:**
 - `feature`/`component`/`targets` are validated cross-references against the discovered `*_component.yaml`/`*_api.yaml` set — an unresolved reference is a validation error, not a silent no-op.
@@ -148,13 +159,13 @@ interface ImportMap {
 
 **Purpose:** Valid DOM addresses (DDAS) for component lifecycle hooks.
 
-**Shape (confirmed against real justweb output):**
+**Shape (byte-confirmed, v0.4 — generated from `justw init test-app --features home` → `justw generate app`):**
 ```json
 {
-  "app": "myapp",
+  "app": "test-app",
   "elements": {
-    "myapp:home:home-page:button": {
-      "component": "home-page",
+    "test-app:home:home:button": {
+      "component": "home",
       "feature": "home",
       "interactive": true,
       "scope": "public",
@@ -166,7 +177,9 @@ interface ImportMap {
 }
 ```
 
-A flat map keyed by colon-delimited hierarchical address strings (`app:feature:component:part`), not by component tag. Each entry carries metadata about the element it addresses; `component` is the field that cross-references a registry tag — a tag may have zero, one, or multiple address entries pointing at it.
+A flat map keyed by colon-delimited hierarchical address strings (`app:feature:component:part`), not by component tag. Each entry carries metadata about the element it addresses.
+
+**Confirmed gap (v0.4), not yet resolved:** `component` is the *bare* `*_component.yaml` name (`"home"`) — it does **not** cross-reference the actually-registered custom-element tag (`"js-home"` here, per `component-registry.gen.ts`/`registry.gen.ts`). There is no field anywhere in this artifact that gives the resolved tag; a consumer cannot reliably go from a DDAS entry to its registry entry without independently hardcoding justweb's internal `js-` prefix convention. Tracked upstream as justweb#56 (consumer-side impact: justjs#49; blocks `MountStep`'s real-world resolution, justjs#45).
 
 **Schema (`application`'s `DomAddressMap`, `application/scm/main/src/api/dom-address.ts`):**
 ```typescript
