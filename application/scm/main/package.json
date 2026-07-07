@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "@happy-dom/global-registrator": "^15.0.0",
+    "@preact/signals-core": "^1.5.0"
   }
 }
