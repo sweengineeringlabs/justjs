@@ -11,6 +11,9 @@ class FakeCustomElement {
 
 class FakeContainer {
   children: unknown[] = []
+  get firstElementChild(): unknown {
+    return this.children[0] ?? null
+  }
   replaceChildren(...nodes: unknown[]): void {
     this.children = nodes
   }
@@ -66,7 +69,7 @@ describe("component_registry_adapter", () => {
     expect(container.children[0]).toBeInstanceOf(FakeCustomElement)
   })
 
-  it("test_adapter_render_is_idempotent_across_repeated_calls", async () => {
+  it("test_adapter_reuses_existing_element_across_repeated_renders", async () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
@@ -75,10 +78,33 @@ describe("component_registry_adapter", () => {
 
     const component = await registry.get("x-home")
     await component.render({ label: "first" }, container as unknown as Element)
+    const firstElement = container.children[0]
     await component.render({ label: "second" }, container as unknown as Element)
 
+    // Same element instance reused (justweb#52 makes setAttribute on an
+    // already-connected element meaningful for declared props, not inert) -
+    // not just "still one child", which a reconstruct-every-time
+    // implementation would also satisfy.
     expect(container.children).toHaveLength(1)
+    expect(container.children[0]).toBe(firstElement)
     expect((container.children[0] as FakeCustomElement).attributes).toEqual({ label: "second" })
+  })
+
+  it("test_adapter_replaces_a_foreign_existing_child_instead_of_reusing_it", async () => {
+    const source: LazyCustomElementRegistry = {
+      "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = new FakeContainer()
+    const foreignChild = { setAttribute() {} }
+    container.replaceChildren(foreignChild)
+
+    const component = await registry.get("x-home")
+    await component.render({ label: "value" }, container as unknown as Element)
+
+    expect(container.children).toHaveLength(1)
+    expect(container.children[0]).not.toBe(foreignChild)
+    expect(container.children[0]).toBeInstanceOf(FakeCustomElement)
   })
 
   it("test_adapter_still_enforces_hyphenated_tag_names", () => {
