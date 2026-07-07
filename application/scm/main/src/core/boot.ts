@@ -167,8 +167,13 @@ class BootValidator {
       const onMissing = ddasEnforcement.onMissing || "error"
 
       if (domAddressMap) {
+        // Resolve by `tag` (justweb#56) — the actually-registered custom-element
+        // tag — not `component` (the bare *_component.yaml name), which never
+        // matches a real registry tag.
         const knownComponents = new Set(
-          Object.values(domAddressMap.elements).map((element) => element.component)
+          Object.values(domAddressMap.elements)
+            .map((element) => element.tag)
+            .filter((tag): tag is string => tag !== undefined)
         )
         for (const [tag] of registryEntries) {
           if (!knownComponents.has(tag)) {

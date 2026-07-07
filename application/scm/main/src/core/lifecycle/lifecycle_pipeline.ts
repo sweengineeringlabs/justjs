@@ -33,8 +33,11 @@ export class MountStep implements LifecycleStep {
     }
 
     if (this.domAddressMap) {
+      // Resolve by `tag` (justweb#56) — the actually-registered custom-element
+      // tag — not `component` (the bare *_component.yaml name), which never
+      // matches a real customElements/COMPONENT_REGISTRY entry.
       const ddasIds = Object.entries(this.domAddressMap.elements)
-        .filter(([, element]) => element.component === ctx.tag)
+        .filter(([, element]) => element.tag === ctx.tag)
         .map(([address]) => address)
       if (ddasIds.length === 0) {
         throw new LifecycleError("mount", `No DDAS entry found for component tag "${ctx.tag}"`)
