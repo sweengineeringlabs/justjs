@@ -20,10 +20,7 @@ export type {
 } from "../api/boot.js"
 export { BootError } from "../api/boot.js"
 
-export type {
-  ComponentRegistry,
-  Router,
-} from "../api/registry.js"
+export type { Router } from "../api/registry.js"
 export { RegistryError } from "../api/registry.js"
 
 export type { DomAddressElement, DomAddressMap } from "../api/dom-address.js"

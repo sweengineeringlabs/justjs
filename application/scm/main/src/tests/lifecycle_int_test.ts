@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
+import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
 import type { ComponentContext, RuntimeAdapter, MountHandle, Component, ComponentProps } from "../api/component.js"
-import type { ComponentRegistry } from "../api/registry.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 
 describe("lifecycle", () => {
@@ -149,9 +149,8 @@ describe("lifecycle", () => {
         renderCalls.push(props)
       },
     }
-    const registry: ComponentRegistry = {
-      "x-button": () => component,
-    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
@@ -177,7 +176,8 @@ describe("lifecycle", () => {
         updateElements.push(element)
       },
     }
-    const registry: ComponentRegistry = { "x-button": () => component }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
     const element = { tagName: "div" } as unknown as Element
     const ctx: ComponentContext = { tag: "x-button", props: {}, element }
@@ -191,9 +191,8 @@ describe("lifecycle", () => {
   })
 
   it("test_render_step_fails_when_tag_has_no_registered_component", async () => {
-    const registry: ComponentRegistry = {
-      "x-other": () => ({ name: "x-other", render() {} }),
-    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-other", () => ({ name: "x-other", render() {} }))
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
@@ -213,7 +212,8 @@ describe("lifecycle", () => {
         updateCalls.push(props)
       },
     }
-    const registry: ComponentRegistry = { "x-button": () => component }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
@@ -232,7 +232,8 @@ describe("lifecycle", () => {
       name: "x-button",
       render() {},
     }
-    const registry: ComponentRegistry = { "x-button": () => component }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",

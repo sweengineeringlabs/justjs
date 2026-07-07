@@ -1,5 +1,4 @@
 import type { Component, ComponentProps } from "../../api/component.js"
-import { ComponentError } from "../../api/component.js"
 import { RegistryError } from "../../api/registry.js"
 
 export class DefaultComponentRegistry {
