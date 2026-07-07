@@ -14,12 +14,17 @@ export type LazyCustomElementRegistry = Record<string, () => Promise<CustomEleme
 // Scope of this adapter: translate the *factory* shape (tag -> lazy
 // CustomElementConstructor) into DefaultComponentRegistry's factory shape
 // (tag -> (props?) => Component); construct the custom element, apply props
-// as attributes (the only wiring mechanism justweb's generated components
-// currently support — see justweb ADR-0006 rev.4: only `states:` -> attribute
-// flows, and only at initial construction), and attach it into the container
-// RenderStep resolved (justjs#48). `replaceChildren` makes re-render
-// idempotent — a second render() call swaps in a fresh element rather than
-// accumulating stale ones alongside it.
+// as attributes, and attach it into the container RenderStep resolved
+// (justjs#48).
+//
+// Reuses the container's existing child across repeated render() calls when
+// it's already an instance of the same ElementCtor, instead of always
+// reconstructing - justweb#52 wired declared `props:` to a real
+// attributeChangedCallback -> signal flow, so setAttribute on an
+// already-connected element is no longer inert the way ADR-0006 rev.4
+// documented for `states:` alone. Falls back to a fresh element (and
+// replaces the container's contents) on first render or if the container
+// holds something else entirely.
 export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): DefaultComponentRegistry {
   const registry = new DefaultComponentRegistry()
 
@@ -29,11 +34,15 @@ export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): D
       return {
         name: tag,
         render(renderProps: ComponentProps, container: Element): void {
-          const element = new ElementCtor()
+          const existing = container.firstElementChild
+          const reusable = existing instanceof ElementCtor
+          const element = reusable ? existing : new ElementCtor()
           for (const [key, value] of Object.entries(renderProps)) {
             element.setAttribute(key, String(value))
           }
-          container.replaceChildren(element)
+          if (!reusable) {
+            container.replaceChildren(element)
+          }
         },
       }
     })
