@@ -4,7 +4,7 @@ import { JustJS } from "../core/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 
 const DDAS = (tags: string[]): DomAddressMap => ({
-  elements: Object.fromEntries(tags.map((t) => [`app:home:${t}:root`, { component: t }])),
+  elements: Object.fromEntries(tags.map((t) => [`app:home:${t}:root`, { component: t, tag: t }])),
 })
 
 describe("Boot-time Validation — 4 ACs", () => {
@@ -157,10 +157,10 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
         domAddressMap: {
           elements: {
-            "app:home:x-root:main": { component: "x-root" },
-            "app:home:x-root:role-main": { component: "x-root" },
-            "app:home:x-dashboard:root": { component: "x-dashboard" },
-            "app:home:x-dashboard:view": { component: "x-dashboard" },
+            "app:home:x-root:main": { component: "root", tag: "x-root" },
+            "app:home:x-root:role-main": { component: "root", tag: "x-root" },
+            "app:home:x-dashboard:root": { component: "dashboard", tag: "x-dashboard" },
+            "app:home:x-dashboard:view": { component: "dashboard", tag: "x-dashboard" },
           },
         },
       }
@@ -178,7 +178,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
         domAddressMap: {
           elements: {
-            "app:home:x-root:main": { component: "x-root" },
+            "app:home:x-root:main": { component: "root", tag: "x-root" },
             // x-dashboard missing
           },
         },
@@ -290,9 +290,9 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
         domAddressMap: {
           elements: {
-            "app:home:x-root:main": { component: "x-root" },
-            "app:home:x-dashboard:root": { component: "x-dashboard" },
-            "app:home:x-account:root": { component: "x-account" },
+            "app:home:x-root:main": { component: "root", tag: "x-root" },
+            "app:home:x-dashboard:root": { component: "dashboard", tag: "x-dashboard" },
+            "app:home:x-account:root": { component: "account", tag: "x-account" },
           },
         },
         aspects: {
@@ -315,10 +315,10 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
         domAddressMap: {
           elements: {
-            "app:home:x-root:main": { component: "x-root" },
-            "app:home:x-public:root": { component: "x-public" },
-            "app:home:x-admin:root": { component: "x-admin" },
-            "app:home:x-users:root": { component: "x-users" },
+            "app:home:x-root:main": { component: "root", tag: "x-root" },
+            "app:home:x-public:root": { component: "public", tag: "x-public" },
+            "app:home:x-admin:root": { component: "admin", tag: "x-admin" },
+            "app:home:x-users:root": { component: "users", tag: "x-users" },
           },
         },
         aspects: {

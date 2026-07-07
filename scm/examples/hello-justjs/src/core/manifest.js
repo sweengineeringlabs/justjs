@@ -21,10 +21,13 @@ export const REGISTRY = {
 // Real justweb dom-address-map.json shape: flat map keyed by hierarchical
 // address string, with per-element metadata (see justjs#38's correction and
 // application's DomAddressMap type, application/scm/main/src/api/dom-address.ts).
+// `tag` (justweb#56) is the actually-registered custom-element tag - what
+// MountStep resolves against; `component` is the bare pre-prefix name and is
+// never compared against a registry tag.
 export const DOM_ADDRESS_MAP = {
   elements: {
-    'hello-justjs:home:x-counter:root': { component: 'x-counter', feature: 'home' },
-    'hello-justjs:home:x-fetch:root': { component: 'x-fetch', feature: 'home' },
-    'hello-justjs:home:x-form:root': { component: 'x-form', feature: 'home' },
+    'hello-justjs:home:x-counter:root': { component: 'counter', tag: 'x-counter', feature: 'home' },
+    'hello-justjs:home:x-fetch:root': { component: 'fetch', tag: 'x-fetch', feature: 'home' },
+    'hello-justjs:home:x-form:root': { component: 'form', tag: 'x-form', feature: 'home' },
   },
 }

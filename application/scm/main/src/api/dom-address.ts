@@ -5,6 +5,12 @@
 
 export interface DomAddressElement {
   readonly component: string
+  // Actually-registered custom-element tag (justweb#56) — resolve against
+  // this, not `component` (the bare *_component.yaml name), to match a
+  // customElements/COMPONENT_REGISTRY entry. Optional: older justweb output
+  // predating justweb#56 won't have it, so a missing `tag` correctly fails
+  // to match rather than silently comparing against the wrong field.
+  readonly tag?: string
   readonly feature?: string
   readonly interactive?: boolean
   readonly scope?: string

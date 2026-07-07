@@ -51,7 +51,7 @@ describe("lifecycle", () => {
       },
     }
     const domAddressMap: DomAddressMap = {
-      elements: { "app:home:x-button:root": { component: "x-button" } },
+      elements: { "app:home:x-button:root": { component: "button", tag: "x-button" } },
     }
     const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter)
     const element = { tagName: "div" } as unknown as Element
@@ -64,9 +64,72 @@ describe("lifecycle", () => {
     expect(mounted[0]?.element).toBe(element)
   })
 
+  it("test_mount_step_resolves_against_a_real_justweb_generated_dom_address_map", async () => {
+    // Captured verbatim from a real `justw init test-app --features home` +
+    // `justw generate app` run (justjs#39/#49, justweb#56) - not a
+    // hand-authored fixture, so this catches shape drift that self-consistent
+    // hand-written fixtures above cannot.
+    const realGeneratedDomAddressMap: DomAddressMap = {
+      app: "test-app",
+      elements: {
+        "test-app:home:home:button": {
+          component: "home",
+          feature: "home",
+          interactive: true,
+          scope: "public",
+          tag: "js-home",
+          type: "button",
+        },
+        "test-app:home:home:input": {
+          component: "home",
+          feature: "home",
+          interactive: true,
+          scope: "public",
+          tag: "js-home",
+          type: "input",
+        },
+        "test-app:home:home:label": {
+          component: "home",
+          feature: "home",
+          interactive: false,
+          scope: "public",
+          tag: "js-home",
+          type: "span",
+        },
+        "test-app:home:home:link": {
+          component: "home",
+          feature: "home",
+          interactive: false,
+          scope: "public",
+          tag: "js-home",
+          type: "a",
+        },
+      },
+      schema: "1",
+      version: "0.1.0",
+    }
+    const mounted: Array<{ ddasId: string; element: Element }> = []
+    const runtimeAdapter: RuntimeAdapter = {
+      mount(ddasId: string, element: Element): MountHandle {
+        mounted.push({ ddasId, element })
+        return { unmount() {} }
+      },
+    }
+    const lifecycle = new DefaultLifecycle(realGeneratedDomAddressMap, runtimeAdapter)
+    const element = { tagName: "div" } as unknown as Element
+    // "js-home" is the real registered tag (registry.gen.ts/component-registry.gen.ts),
+    // not "home" (the bare *_component.yaml name real dom-address-map.json also carries).
+    const ctx: ComponentContext = { tag: "js-home", props: {}, element }
+
+    await lifecycle.run(ctx)
+
+    expect(mounted).toHaveLength(1)
+    expect(mounted[0]?.ddasId).toBe("test-app:home:home:button")
+  })
+
   it("test_mount_step_fails_without_ddas_entry_for_tag", async () => {
     const domAddressMap: DomAddressMap = {
-      elements: { "app:home:x-other:root": { component: "x-other" } },
+      elements: { "app:home:x-other:root": { component: "other", tag: "x-other" } },
     }
     const lifecycle = new DefaultLifecycle(domAddressMap)
     const ctx: ComponentContext = {
