@@ -2,11 +2,13 @@
 
 Defines the stable artifact shapes and compatibility guarantees between justweb (generator) and JustJS build tools (consumer).
 
-**Status:** POC — v0.4 (byte-confirmed against a real `justw generate app` run — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#56)
+**Status:** POC — v0.5 (byte-confirmed against a real `justw generate app` run, including justweb#56's landed fix — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#56)
 
 > **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); v0.3 brought the shapes below in line with those decisions.
 >
 > **Correction note (v0.4):** actually generated a real project (`justw init`/`justw generate app`) and diffed every artifact against v0.3's descriptions field-for-field, closing the "cited from an ADR, not byte-inspected" caveats v0.3 carried. Confirmed a real, previously-undiscovered gap in the process: `routes.gen.json` and `dom-address-map.json` both key by the *bare* component name (`"home"`), not the actually-registered custom-element tag (`"js-home"`) — filed upstream as justweb#56 (justjs#49 tracks the consumer-side impact). Everything else matched exactly.
+>
+> **Correction note (v0.5):** justweb#56 landed — `dom-address-map.json`'s element descriptors now carry a `tag` field (the actually-registered custom-element tag) alongside the unchanged `component` field. `@justjs/application`'s `MountStep`/`BootValidator` updated to resolve by `tag`, not `component`. **`routes.gen.json` was not part of this fix** — it still only carries the bare `component` field, confirmed by regenerating after the fix landed. That part of justweb#56 remains open.
 
 ---
 
@@ -57,7 +59,7 @@ routes:
   "version": 1
 }
 ```
-A flat `{routes: [...], version}` object — `component`/`feature` cross-references, `guard`/`params` present per-route only when declared in `routes.yaml`. **Important gap, not yet resolved:** `component` here is the *bare* `*_component.yaml` name (`"home"`), not the actually-registered custom-element tag (`"js-home"`, from the fixed `js-` prefix `domcompiler::TAG_PREFIX` applies) — the same bare-name-vs-tag mismatch confirmed in artifact #4 below. `routes.gen.ts`'s own generated wiring code resolves the full tag internally (`"tag": "js-home"` in its `ROUTES` array), but that resolution isn't exposed in this JSON artifact. Tracked upstream as justweb#56; blocks reliably resolving a `routes.gen.json` entry back to a registry tag.
+A flat `{routes: [...], version}` object — `component`/`feature` cross-references, `guard`/`params` present per-route only when declared in `routes.yaml`. **Confirmed gap, still open (v0.5):** `component` here is the *bare* `*_component.yaml` name (`"home"`), not the actually-registered custom-element tag (`"js-home"`, from the fixed `js-` prefix `domcompiler::TAG_PREFIX` applies) — the same bare-name-vs-tag mismatch as artifact #4 below, but **unlike #4, this one is not yet fixed** — justweb#56 landed a `tag` field on `dom-address-map.json` only; `routes.gen.json` was confirmed unchanged by regenerating after that fix. `routes.gen.ts`'s own generated wiring code resolves the full tag internally (`"tag": "js-home"` in its `ROUTES` array), but that resolution still isn't exposed in this JSON artifact.
 
 **Key behaviors, not just shape:**
 - `feature`/`component`/`targets` are validated cross-references against the discovered `*_component.yaml`/`*_api.yaml` set — an unresolved reference is a validation error, not a silent no-op.
@@ -159,7 +161,7 @@ interface ImportMap {
 
 **Purpose:** Valid DOM addresses (DDAS) for component lifecycle hooks.
 
-**Shape (byte-confirmed, v0.4 — generated from `justw init test-app --features home` → `justw generate app`):**
+**Shape (byte-confirmed, v0.5 — generated from `justw init test-app --features home` → `justw generate app`, after justweb#56 landed):**
 ```json
 {
   "app": "test-app",
@@ -169,6 +171,7 @@ interface ImportMap {
       "feature": "home",
       "interactive": true,
       "scope": "public",
+      "tag": "js-home",
       "type": "button"
     }
   },
@@ -179,12 +182,13 @@ interface ImportMap {
 
 A flat map keyed by colon-delimited hierarchical address strings (`app:feature:component:part`), not by component tag. Each entry carries metadata about the element it addresses.
 
-**Confirmed gap (v0.4), not yet resolved:** `component` is the *bare* `*_component.yaml` name (`"home"`) — it does **not** cross-reference the actually-registered custom-element tag (`"js-home"` here, per `component-registry.gen.ts`/`registry.gen.ts`). There is no field anywhere in this artifact that gives the resolved tag; a consumer cannot reliably go from a DDAS entry to its registry entry without independently hardcoding justweb's internal `js-` prefix convention. Tracked upstream as justweb#56 (consumer-side impact: justjs#49; blocks `MountStep`'s real-world resolution, justjs#45).
+**Resolved (v0.5):** `component` is still the *bare* `*_component.yaml` name (`"home"`) — it does **not** cross-reference the actually-registered custom-element tag. justweb#56 added a new `tag` field (`"js-home"` here) alongside the unchanged `component`, computed via the same internal `js-` prefix convention (`domcompiler::TAG_PREFIX`) `component-registry.gen.ts`/`registry.gen.ts` already use. **Resolve DDAS entries by `tag`, not `component`** — `@justjs/application`'s `MountStep`/`BootValidator` do this now (justjs#45/#49). `tag` is optional in `application`'s type since older justweb output predating justweb#56 won't have it.
 
 **Schema (`application`'s `DomAddressMap`, `application/scm/main/src/api/dom-address.ts`):**
 ```typescript
 interface DomAddressElement {
   readonly component: string
+  readonly tag?: string  // justweb#56 — resolve against this, not `component`
   readonly feature?: string
   readonly interactive?: boolean
   readonly scope?: string
@@ -199,15 +203,15 @@ interface DomAddressMap {
 }
 ```
 
-**Consumer resolution:** `@justjs/application`'s `MountStep` (`lifecycle_pipeline.ts`) resolves a component tag's DDAS entries by scanning `elements` for entries whose `component` field matches, not via a direct keyed lookup (justjs#45).
+**Consumer resolution:** `@justjs/application`'s `MountStep` (`lifecycle_pipeline.ts`) resolves a component tag's DDAS entries by scanning `elements` for entries whose `tag` field matches, not via a direct keyed lookup and not via `component` (justjs#45/#49).
 
 **Semver guarantees:**
 - ✅ **Minor bump:** New addresses added per component (always backwards-compatible)
 - ❌ **Never breaking:** Address entries never removed, only extended
-- ✅ **Patch OK:** Metadata fields may gain new optional keys
+- ✅ **Patch OK:** Metadata fields may gain new optional keys (e.g. `tag`, justweb#56)
 
 **Consumer validation:**
-- JustJS.boot() checks every component tag in `.on([])` / `.except([])` has at least one DDAS entry (an `elements` value whose `component` matches)
+- JustJS.boot() checks every component tag in `.on([])` / `.except([])` has at least one DDAS entry (an `elements` value whose `tag` matches)
 - Missing DDAS entry → `BootError`
 
 ---
