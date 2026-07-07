@@ -2,7 +2,7 @@ import type { ComponentContext, RuntimeAdapter } from "../../api/component.js"
 import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
-import type { ComponentRegistry } from "../../api/registry.js"
+import type { DefaultComponentRegistry } from "../registry/component_registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 
 export class ResolveStep implements LifecycleStep {
@@ -48,7 +48,7 @@ export class MountStep implements LifecycleStep {
 }
 
 export class RenderStep implements LifecycleStep {
-  constructor(private readonly registry?: ComponentRegistry) {}
+  constructor(private readonly registry?: DefaultComponentRegistry) {}
 
   name(): string {
     return "render"
@@ -60,18 +60,14 @@ export class RenderStep implements LifecycleStep {
     }
 
     if (this.registry) {
-      const factory = this.registry[ctx.tag]
-      if (!factory) {
-        throw new LifecycleError("render", `No component registered for tag "${ctx.tag}"`)
-      }
-      const component = await factory(ctx.props)
+      const component = await this.registry.get(ctx.tag, ctx.props)
       await component.render(ctx.props, ctx.element)
     }
   }
 }
 
 export class UpdateStep implements LifecycleStep {
-  constructor(private readonly registry?: ComponentRegistry) {}
+  constructor(private readonly registry?: DefaultComponentRegistry) {}
 
   name(): string {
     return "update"
@@ -87,11 +83,7 @@ export class UpdateStep implements LifecycleStep {
       return
     }
 
-    const factory = this.registry[ctx.tag]
-    if (!factory) {
-      throw new LifecycleError("update", `No component registered for tag "${ctx.tag}"`)
-    }
-    const component = await factory(ctx.props)
+    const component = await this.registry.get(ctx.tag, ctx.props)
     if (component.update) {
       await component.update(ctx.props, ctx.element)
     }
@@ -114,7 +106,7 @@ export class DefaultLifecycle implements Lifecycle {
   constructor(
     domAddressMap?: DomAddressMap,
     runtimeAdapter?: RuntimeAdapter,
-    registry?: ComponentRegistry
+    registry?: DefaultComponentRegistry
   ) {
     this.steps = [
       new ResolveStep(),

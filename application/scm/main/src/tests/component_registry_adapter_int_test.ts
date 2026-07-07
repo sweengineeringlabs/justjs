@@ -27,9 +27,11 @@ describe("component_registry_adapter", () => {
     }
     const registry = adaptCustomElementRegistry(source)
 
-    expect(Object.keys(registry).sort()).toEqual(["x-checkout", "x-home"])
+    expect(registry.has("x-home")).toBe(true)
+    expect(registry.has("x-checkout")).toBe(true)
+    expect(registry.list().sort()).toEqual(["x-checkout", "x-home"])
 
-    const component = await registry["x-home"]!()
+    const component = await registry.get("x-home")
     expect(component.name).toBe("x-home")
   })
 
@@ -47,7 +49,7 @@ describe("component_registry_adapter", () => {
     const registry = adaptCustomElementRegistry(source)
     const container = new FakeContainer()
 
-    const component = await registry["x-home"]!()
+    const component = await registry.get("x-home")
     await component.render({ label: "Welcome", count: 3 }, container as unknown as Element)
 
     expect(constructed?.attributes).toEqual({ label: "Welcome", count: "3" })
@@ -60,7 +62,7 @@ describe("component_registry_adapter", () => {
     const registry = adaptCustomElementRegistry(source)
     const container = new FakeContainer()
 
-    const component = await registry["x-home"]!()
+    const component = await registry.get("x-home")
     await component.render({}, container as unknown as Element)
 
     expect(container.children).toHaveLength(1)
@@ -74,7 +76,7 @@ describe("component_registry_adapter", () => {
     const registry = adaptCustomElementRegistry(source)
     const container = new FakeContainer()
 
-    const component = await registry["x-home"]!()
+    const component = await registry.get("x-home")
     await component.render({ label: "first" }, container as unknown as Element)
     const firstElement = container.children[0]
     await component.render({ label: "second" }, container as unknown as Element)
@@ -97,7 +99,7 @@ describe("component_registry_adapter", () => {
     const foreignChild = { setAttribute() {} }
     container.replaceChildren(foreignChild)
 
-    const component = await registry["x-home"]!()
+    const component = await registry.get("x-home")
     await component.render({ label: "value" }, container as unknown as Element)
 
     expect(container.children).toHaveLength(1)
@@ -107,13 +109,14 @@ describe("component_registry_adapter", () => {
 
   it("test_adapter_still_enforces_hyphenated_tag_names", () => {
     const source: LazyCustomElementRegistry = {
-      nohyphen: () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
+      "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    expect(() => adaptCustomElementRegistry(source)).toThrow(RegistryError)
+    const registry = adaptCustomElementRegistry(source)
+    expect(() => registry.register("nohyphen", () => ({ name: "nohyphen", render() {} }))).toThrow(RegistryError)
   })
 
-  it("test_adapter_leaves_an_unregistered_tag_absent", () => {
+  it("test_adapter_get_rejects_unregistered_tag", async () => {
     const registry = adaptCustomElementRegistry({})
-    expect(registry["x-missing"]).toBeUndefined()
+    await expect(registry.get("x-missing")).rejects.toThrow(RegistryError)
   })
 })

@@ -1,27 +1,25 @@
 import type { ComponentProps, Component } from "../../api/component.js"
-import type { ComponentRegistry } from "../../api/registry.js"
-import { RegistryError } from "../../api/registry.js"
+import { DefaultComponentRegistry } from "./component_registry.js"
 
 // justweb's `component-registry.gen.ts` (ADR-0008) exports this exact shape —
 // a plain, lazy, enumerable map keyed by tag. `CustomElementConstructor` is the
 // standard DOM-lib type (lib.dom.d.ts), not a justjs type.
 export type LazyCustomElementRegistry = Record<string, () => Promise<CustomElementConstructor>>
 
-// Bridges justweb's generic COMPONENT_REGISTRY shape into the plain
-// `ComponentRegistry` shape `RenderStep`/`UpdateStep` actually consume
-// (a bracket-indexed `Record`, per `lifecycle_pipeline.ts` - `DefaultComponentRegistry`,
-// despite its name, is never read by the lifecycle at all; confirmed while
-// building justjs#39's real-DOM integration test, which is what caught this).
-// Per justweb ADR-0008, deciding this bridge is explicitly justjs's call, not
-// justweb's — justweb emits a lazy constructor loader with no opinion about
-// how a consumer instantiates or mounts it.
+// Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's
+// DefaultComponentRegistry — the registry type RenderStep/UpdateStep actually
+// consume via `.get()` (justjs#50; a plain Record shape used to exist in
+// parallel and was never read by the lifecycle at all). Per justweb ADR-0008,
+// deciding this bridge is explicitly justjs's call, not justweb's — justweb
+// emits a lazy constructor loader with no opinion about how a consumer
+// instantiates or mounts it.
 //
 // Scope of this adapter: translate the *factory* shape (tag -> lazy
-// CustomElementConstructor) into `ComponentRegistry`'s factory shape
+// CustomElementConstructor) into DefaultComponentRegistry's factory shape
 // (tag -> (props?) => Component); construct the custom element, apply props
 // as attributes, and attach it into the container RenderStep resolved
-// (justjs#48). Hyphenated-tag validation (matching `DefaultComponentRegistry`'s
-// own rule) is enforced here directly, synchronously, at build time.
+// (justjs#48). Hyphenated-tag validation is DefaultComponentRegistry's own
+// (`.register()` throws `RegistryError` for a non-hyphenated tag).
 //
 // Reuses the container's existing child across repeated render() calls when
 // it's already an instance of the same ElementCtor, instead of always
@@ -31,14 +29,11 @@ export type LazyCustomElementRegistry = Record<string, () => Promise<CustomEleme
 // documented for `states:` alone. Falls back to a fresh element (and
 // replaces the container's contents) on first render or if the container
 // holds something else entirely.
-export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): ComponentRegistry {
-  const registry: Record<string, (props?: ComponentProps) => Promise<Component>> = {}
+export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): DefaultComponentRegistry {
+  const registry = new DefaultComponentRegistry()
 
   for (const [tag, load] of Object.entries(source)) {
-    if (!tag.includes("-")) {
-      throw new RegistryError(`Component tag must include hyphen: ${tag}`)
-    }
-    registry[tag] = async (): Promise<Component> => {
+    registry.register(tag, async (): Promise<Component> => {
       const ElementCtor = await load()
       return {
         name: tag,
@@ -54,7 +49,7 @@ export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): C
           }
         },
       }
-    }
+    })
   }
 
   return registry
