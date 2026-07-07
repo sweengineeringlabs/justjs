@@ -2,7 +2,9 @@
 
 Defines the stable artifact shapes and compatibility guarantees between justweb (generator) and JustJS build tools (consumer).
 
-**Status:** POC — v0.2 (foundation for all build-time tooling)
+**Status:** POC — v0.3 (corrected against justweb's real generated output — see justjs#38/#39/#41 and justweb ADR-0006/ADR-0008)
+
+> **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); this revision brings the shapes below in line with those decisions. Where a shape is cited from justweb's ADRs rather than a byte-for-byte inspected file, that's noted explicitly below — confirm against a real generated project before treating field names as exact.
 
 ---
 
@@ -12,28 +14,45 @@ Build tools must respect these four artifacts from justweb. Each has a stable sc
 
 ### 1. routes.gen.json
 
-**Purpose:** Authoritative list of valid route paths in the application.
+**Corrected (v0.3):** v0.2 assumed justweb already emitted this file as a flat `{routes: string[]}` list. It didn't — `justw generate --help`'s own "PER-APP OUTPUTS" list never mentioned it, and a real `generate app` run confirmed nothing was written (justjs#39). Resolved via justweb ADR-0006: a new project-level `routes.yaml` (sibling to `justweb.toml`, not per-component) is compiled into `routes.gen.json` plus generated browser wiring code (`routes.gen.ts` — vanilla History API, no framework dependency). justweb owns this **structurally** (which path renders which feature/component, nesting, dynamic segments) — never **behaviorally** (auth, data loading, transitions stay opaque pass-through).
 
-**Shape:**
-```json
-{
-  "routes": [
-    "/",
-    "/checkout",
-    "/account",
-    "/account/profile",
-    "/account/settings",
-    "/dashboard"
-  ]
-}
+**Purpose:** Resolved route → feature/component mapping, generated from `routes.yaml`.
+
+**Source shape (`routes.yaml`, hand-authored):**
+```yaml
+routes:
+  - path: /
+    feature: home
+    component: home
+    targets: [browser, native, desktop]
+
+  - path: /checkout
+    feature: checkout
+    component: checkout
+    guard: authRequired      # opaque tag — justweb never interprets this
+
+  - path: /account
+    feature: account
+    component: account
+    children:
+      - path: profile         # resolves to /account/profile
+        feature: account
+        component: profile
+
+  - path: /order/:id           # dynamic segment
+    feature: order
+    component: order-detail
+    params:
+      id: id                  # :id segment → order-detail's own declared `id` prop
 ```
 
-**Schema:**
-```typescript
-interface RoutesArtifact {
-  readonly routes: readonly string[]
-}
-```
+**Generated shape:** `routes.gen.json` is a resolved artifact in justweb's own vocabulary — absolute paths (nesting already flattened), `feature`/`component` cross-references, `guard` carried through opaquely, `params` validated against the target component's own declared `props:` (only `string`/`enum` prop types accepted). *Citing ADR-0006's decision record here, not a byte-inspected file — confirm exact field names against a real generated project.*
+
+**Key behaviors, not just shape:**
+- `feature`/`component`/`targets` are validated cross-references against the discovered `*_component.yaml`/`*_api.yaml` set — an unresolved reference is a validation error, not a silent no-op.
+- `:name` dynamic segments are validated for syntax and per-path uniqueness; `params:` mapping is validated (prop exists, type is `string`/`enum`).
+- Generated wiring code fully remounts the target component on any dynamic-segment value change — it does not update an existing instance's attribute in place, because `domcompiler` doesn't yet support attribute→signal reactivity for `props:` (a separate, pre-existing gap noted in ADR-0006).
+- `guard` and any similar per-route field are never enforced or interpreted by justweb — that's the consumer's responsibility.
 
 **Semver guarantees:**
 - ✅ **Minor bump:** New routes added (always backwards-compatible)
@@ -46,29 +65,33 @@ interface RoutesArtifact {
 
 ---
 
-### 2. registry.gen.ts
+### 2. registry.gen.ts + component-registry.gen.ts
 
-**Purpose:** Authoritative list of registered Web Component tags and their implementations.
+**Corrected (v0.3):** v0.2 described a single `registry.gen.ts` typed as `import type { ComponentRegistry } from "@justjs/application"` — a real coupling-boundary violation (justweb's generated output must never reference a consumer's package by name or type, per ADR-0004/ADR-0005/ADR-0007) *and* not what justweb actually emits. Real output (justjs#39) is a side-effect-only script calling `customElements.define(tag, Klass)` at load time — no exported map at all. Resolved via justweb ADR-0008: a **second, separate** generated file, `component-registry.gen.ts`, additionally exports a generic lazy map. The two files are kept separate on purpose — colocating them would make the map's laziness fake, since ES modules execute their whole body on import regardless of which export is used.
 
-**Shape:**
+**`registry.gen.ts` (unchanged, side-effect script):**
 ```typescript
-// registry.gen.ts
-import type { ComponentRegistry } from "@justjs/application"
+// registry.gen.ts — DO NOT EDIT — generated by: justw generate app
+import { HomeBase } from "./features/home/home_component.gen.js"
+import { CheckoutBase } from "./features/checkout/checkout_component.gen.js"
 
-export const COMPONENT_REGISTRY: ComponentRegistry = {
-  "x-button": () => import("./button_component.gen.js").then(m => m.XButton),
-  "x-card": () => import("./card_component.gen.js").then(m => m.XCard),
-  "x-modal": () => import("./modal_component.gen.js").then(m => m.XModal),
-}
+customElements.define("js-home", HomeBase)
+customElements.define("js-checkout", CheckoutBase)
 ```
+Import this file for its side effect and every component is eagerly registered. No exported map, no `@justjs/*` reference anywhere.
 
-**Schema:**
+**`component-registry.gen.ts` (new, generic + lazy):**
 ```typescript
-type ComponentRegistry = Record<
-  string,  // kebab-case tag name
-  () => Promise<CustomElementConstructor>
->
+// component-registry.gen.ts — DO NOT EDIT — generated by: justw generate app
+
+export const COMPONENT_REGISTRY: Record<string, () => Promise<CustomElementConstructor>> = {
+  'js-home': () => import('./features/home/home_component.gen').then(m => m.HomeBase),
+  'js-checkout': () => import('./features/checkout/checkout_component.gen').then(m => m.CheckoutBase),
+};
 ```
+`CustomElementConstructor` is the standard TypeScript DOM-lib type (`lib.dom.d.ts`), not a justjs type — nothing in this file references `@justjs/*`. Consuming this map costs nothing until a specific entry is called; justweb's own `routes.gen.ts` (ADR-0006) is the first real consumer, using it for genuine per-route code-splitting.
+
+**`@justjs/application` side:** `DefaultComponentRegistry`'s own shape — lazy `(props?) => Component` factories via `.register(tag, factory)`, enforcing hyphenated tags — is a third, independent shape again. Bridging `COMPONENT_REGISTRY` to it is `@justjs/application`'s own adapter to write (ADR-0008 is explicit this isn't justweb's decision); see `adaptCustomElementRegistry` in `application/scm/main/src/core/registry/component_registry_adapter.ts` (justjs#46).
 
 **Semver guarantees:**
 - ✅ **Minor bump:** New components added (always backwards-compatible)
@@ -83,6 +106,8 @@ type ComponentRegistry = Record<
 ---
 
 ### 3. importmap.gen.json
+
+**Correction (v0.3):** confirmed unimplemented on justweb's side, and not part of ADR-0006's scope either — `justw generate --help` does not list this file, and no real `generate app` run produces it (justjs#39, justweb#49). The shape below remains aspirational/undecided, not a live contract. Do not build consumer code against this artifact existing today.
 
 **Purpose:** ES module import map for dependency resolution in the browser.
 
@@ -119,33 +144,57 @@ interface ImportMap {
 
 ### 4. dom-address-map.json
 
+**Corrected (v0.3):** v0.2 described this as CSS-selector lists keyed by tag (`{"x-button": ["button", ...]}`). That was wrong — confirmed by generating a real project via `justw generate app` and inspecting the actual output (justjs#38's correction comment). No CSS selectors appear anywhere in real output.
+
 **Purpose:** Valid DOM addresses (DDAS) for component lifecycle hooks.
 
-**Shape:**
+**Shape (confirmed against real justweb output):**
 ```json
 {
-  "addresses": {
-    "x-button": ["button", "button[data-action]"],
-    "x-card": ["div.card", "article.card-wrapper"],
-    "x-modal": ["dialog", "div[role=dialog]"]
-  }
+  "app": "myapp",
+  "elements": {
+    "myapp:home:home-page:button": {
+      "component": "home-page",
+      "feature": "home",
+      "interactive": true,
+      "scope": "public",
+      "type": "button"
+    }
+  },
+  "schema": "1",
+  "version": "0.1.0"
 }
 ```
 
-**Schema:**
+A flat map keyed by colon-delimited hierarchical address strings (`app:feature:component:part`), not by component tag. Each entry carries metadata about the element it addresses; `component` is the field that cross-references a registry tag — a tag may have zero, one, or multiple address entries pointing at it.
+
+**Schema (`application`'s `DomAddressMap`, `application/scm/main/src/api/dom-address.ts`):**
 ```typescript
+interface DomAddressElement {
+  readonly component: string
+  readonly feature?: string
+  readonly interactive?: boolean
+  readonly scope?: string
+  readonly type?: string
+}
+
 interface DomAddressMap {
-  readonly addresses: Record<string, readonly string[]>  // CSS selectors
+  readonly app?: string
+  readonly elements: Record<string, DomAddressElement>
+  readonly schema?: string
+  readonly version?: string
 }
 ```
+
+**Consumer resolution:** `@justjs/application`'s `MountStep` (`lifecycle_pipeline.ts`) resolves a component tag's DDAS entries by scanning `elements` for entries whose `component` field matches, not via a direct keyed lookup (justjs#45).
 
 **Semver guarantees:**
 - ✅ **Minor bump:** New addresses added per component (always backwards-compatible)
-- ❌ **Never breaking:** Selectors never removed, only extended
-- ✅ **Patch OK:** Selector strings may be optimized (semantically equivalent)
+- ❌ **Never breaking:** Address entries never removed, only extended
+- ✅ **Patch OK:** Metadata fields may gain new optional keys
 
 **Consumer validation:**
-- JustJS.boot() checks every component tag in `.on([])` / `.except([])` has valid DDAS entries
+- JustJS.boot() checks every component tag in `.on([])` / `.except([])` has at least one DDAS entry (an `elements` value whose `component` matches)
 - Missing DDAS entry → `BootError`
 
 ---
@@ -191,7 +240,7 @@ BootError: route "/cheackout" not found in routes.gen.json
 ## Tool Responsibilities
 
 ### justweb (generator)
-- ✅ Generates all four artifacts
+- ⚠️ Generates artifacts #1, #2, #4 today; #3 (`importmap.gen.json`) remains unimplemented/undecided (v0.3 correction)
 - ✅ Maintains semver guarantees
 - ✅ Verifies artifact schemas on generation
 - ✅ Documents breaking changes in release notes
