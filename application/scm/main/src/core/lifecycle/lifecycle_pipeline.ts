@@ -2,6 +2,8 @@ import type { ComponentContext, RuntimeAdapter } from "../../api/component.js"
 import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
+import type { ComponentRegistry } from "../../api/registry.js"
+import type { DomAddressMap } from "../../api/dom-address.js"
 
 export class ResolveStep implements LifecycleStep {
   name(): string {
@@ -17,7 +19,7 @@ export class ResolveStep implements LifecycleStep {
 
 export class MountStep implements LifecycleStep {
   constructor(
-    private readonly domAddressMap?: Record<string, readonly string[]>,
+    private readonly domAddressMap?: DomAddressMap,
     private readonly runtimeAdapter: RuntimeAdapter = new NoopRuntimeAdapter()
   ) {}
 
@@ -31,8 +33,10 @@ export class MountStep implements LifecycleStep {
     }
 
     if (this.domAddressMap) {
-      const ddasIds = this.domAddressMap[ctx.tag]
-      if (!ddasIds || ddasIds.length === 0) {
+      const ddasIds = Object.entries(this.domAddressMap.elements)
+        .filter(([, element]) => element.component === ctx.tag)
+        .map(([address]) => address)
+      if (ddasIds.length === 0) {
         throw new LifecycleError("mount", `No DDAS entry found for component tag "${ctx.tag}"`)
       }
       this.runtimeAdapter.mount(ddasIds[0]!, ctx.element)
@@ -41,6 +45,8 @@ export class MountStep implements LifecycleStep {
 }
 
 export class RenderStep implements LifecycleStep {
+  constructor(private readonly registry?: ComponentRegistry) {}
+
   name(): string {
     return "render"
   }
@@ -49,16 +55,43 @@ export class RenderStep implements LifecycleStep {
     if (!ctx.element) {
       throw new LifecycleError("render", "Cannot render without element")
     }
+
+    if (this.registry) {
+      const factory = this.registry[ctx.tag]
+      if (!factory) {
+        throw new LifecycleError("render", `No component registered for tag "${ctx.tag}"`)
+      }
+      const component = await factory(ctx.props)
+      await component.render(ctx.props, ctx.element)
+    }
   }
 }
 
 export class UpdateStep implements LifecycleStep {
+  constructor(private readonly registry?: ComponentRegistry) {}
+
   name(): string {
     return "update"
   }
 
+  // A component's `update` hook is optional (api/component.ts) — components that
+  // only implement `render` have nothing distinct for this step to do, since
+  // RenderStep already painted this pass with the current props. This step exists
+  // for components that need a separate reaction to being run again (e.g. patching
+  // instead of a full re-render) without forcing every component to define one.
   async execute(ctx: ComponentContext): Promise<void> {
-    // No-op for now
+    if (!this.registry) {
+      return
+    }
+
+    const factory = this.registry[ctx.tag]
+    if (!factory) {
+      throw new LifecycleError("update", `No component registered for tag "${ctx.tag}"`)
+    }
+    const component = await factory(ctx.props)
+    if (component.update) {
+      await component.update(ctx.props, ctx.element)
+    }
   }
 }
 
@@ -75,12 +108,16 @@ export class UnmountStep implements LifecycleStep {
 export class DefaultLifecycle implements Lifecycle {
   private steps: LifecycleStep[]
 
-  constructor(domAddressMap?: Record<string, readonly string[]>, runtimeAdapter?: RuntimeAdapter) {
+  constructor(
+    domAddressMap?: DomAddressMap,
+    runtimeAdapter?: RuntimeAdapter,
+    registry?: ComponentRegistry
+  ) {
     this.steps = [
       new ResolveStep(),
       new MountStep(domAddressMap, runtimeAdapter),
-      new RenderStep(),
-      new UpdateStep(),
+      new RenderStep(registry),
+      new UpdateStep(registry),
       new UnmountStep(),
     ]
   }
