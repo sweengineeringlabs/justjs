@@ -1,12 +1,11 @@
 import { describe, it, expect } from "bun:test"
 import { BootError, type BootConfig } from "../api/boot.js"
 import { JustJS } from "../core/boot.js"
+import type { DomAddressMap } from "../api/dom-address.js"
 
-const DDAS = (tags: string[]): Record<string, readonly string[]> => {
-  const m: Record<string, readonly string[]> = {}
-  tags.forEach(t => { m[t] = [t] })
-  return m
-}
+const DDAS = (tags: string[]): DomAddressMap => ({
+  elements: Object.fromEntries(tags.map((t) => [`app:home:${t}:root`, { component: t }])),
+})
 
 describe("Boot-time Validation — 4 ACs", () => {
   describe("AC 2: Routes exist in .on()/.except()", () => {
@@ -157,8 +156,12 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
         domAddressMap: {
-          "x-root": ["main", "[role=main]"],
-          "x-dashboard": ["div.dashboard", ".dashboard-view"],
+          elements: {
+            "app:home:x-root:main": { component: "x-root" },
+            "app:home:x-root:role-main": { component: "x-root" },
+            "app:home:x-dashboard:root": { component: "x-dashboard" },
+            "app:home:x-dashboard:view": { component: "x-dashboard" },
+          },
         },
       }
 
@@ -174,8 +177,10 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-dashboard": { path: "/dashboard", component: "Dashboard" },
         },
         domAddressMap: {
-          "x-root": ["main"],
-          // x-dashboard missing
+          elements: {
+            "app:home:x-root:main": { component: "x-root" },
+            // x-dashboard missing
+          },
         },
       }
 
@@ -284,9 +289,11 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-account": { path: "/account", component: "Account" },
         },
         domAddressMap: {
-          "x-root": ["main"],
-          "x-dashboard": ["div.dashboard"],
-          "x-account": ["div.account"],
+          elements: {
+            "app:home:x-root:main": { component: "x-root" },
+            "app:home:x-dashboard:root": { component: "x-dashboard" },
+            "app:home:x-account:root": { component: "x-account" },
+          },
         },
         aspects: {
           security: { strategy: "oauth" },
@@ -307,10 +314,12 @@ describe("Boot-time Validation — 4 ACs", () => {
           "x-users": { path: "/admin/users", component: "Users" },
         },
         domAddressMap: {
-          "x-root": ["main"],
-          "x-public": ["div.public"],
-          "x-admin": ["div.admin"],
-          "x-users": ["div.users"],
+          elements: {
+            "app:home:x-root:main": { component: "x-root" },
+            "app:home:x-public:root": { component: "x-public" },
+            "app:home:x-admin:root": { component: "x-admin" },
+            "app:home:x-users:root": { component: "x-users" },
+          },
         },
         aspects: {
           security: {

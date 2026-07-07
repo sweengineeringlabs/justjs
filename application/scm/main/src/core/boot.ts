@@ -1,5 +1,6 @@
 import type { BootConfig, JustJSBoot } from "../api/boot.js"
 import { BootError } from "../api/boot.js"
+import type { DomAddressMap } from "../api/dom-address.js"
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
@@ -48,7 +49,7 @@ class BootValidator {
 
     const routes = config.routes as readonly unknown[]
     const registry = config.registry as Record<string, any>
-    const domAddressMap = config.domAddressMap as Record<string, readonly string[]> | undefined
+    const domAddressMap = config.domAddressMap as DomAddressMap | undefined
     const aspects = config.aspects as Record<string, any> | undefined
 
     // Validate routes format
@@ -166,9 +167,12 @@ class BootValidator {
       const onMissing = ddasEnforcement.onMissing || "error"
 
       if (domAddressMap) {
+        const knownComponents = new Set(
+          Object.values(domAddressMap.elements).map((element) => element.component)
+        )
         for (const [tag] of registryEntries) {
-          if (!(tag in domAddressMap)) {
-            const known = Object.keys(domAddressMap)
+          if (!knownComponents.has(tag)) {
+            const known = Array.from(knownComponents)
             const message = `Component tag "${tag}" missing DDAS entry in dom-address-map`
 
             if (onMissing === "error") {

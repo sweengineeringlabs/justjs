@@ -1,3 +1,5 @@
+import type { DomAddressMap } from "./dom-address.js"
+
 export interface RouteConfig {
   readonly on?: readonly string[]
   readonly except?: readonly string[]
@@ -22,7 +24,7 @@ export interface BootConfig {
   readonly routes?: readonly string[]
   readonly registry?: Record<string, unknown>
   readonly importmap?: Record<string, unknown>
-  readonly domAddressMap?: Record<string, readonly string[]>
+  readonly domAddressMap?: DomAddressMap
   readonly providers?: Record<string, unknown>
   readonly aspects?: Record<string, AspectConfig>
   readonly ddasEnforcement?: DdasEnforcement

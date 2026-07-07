@@ -4,7 +4,8 @@ export interface ComponentProps {
 
 export interface Component<Props extends ComponentProps = ComponentProps> {
   name: string
-  render(props: Props): void | Promise<void>
+  render(props: Props, element: Element): void | Promise<void>
+  update?(props: Props, element: Element): void | Promise<void>
 }
 
 export interface ComponentContext {
