@@ -2,13 +2,15 @@
 
 Defines the stable artifact shapes and compatibility guarantees between justweb (generator) and JustJS build tools (consumer).
 
-**Status:** POC — v0.5 (byte-confirmed against a real `justw generate app` run, including justweb#56's landed fix — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#56)
+**Status:** POC — v0.6 (byte-confirmed against a real `justw generate app` run, including justweb#56 and #52's landed fixes — see justjs#38/#39/#41/#49 and justweb ADR-0006/ADR-0008/#52/#56)
 
 > **Correction note (v0.3):** v0.2's shapes for artifacts #1–#4 below were written ahead of any real integration and turned out to not match what justweb actually generates, or ever planned to generate. Filed as justjs#38/#39/#41 (RFC) after running `justw init` → `justw generate app` end-to-end and inspecting real output. Resolved on justweb's side via ADR-0006 (routing) and ADR-0008 (registry shape); v0.3 brought the shapes below in line with those decisions.
 >
 > **Correction note (v0.4):** actually generated a real project (`justw init`/`justw generate app`) and diffed every artifact against v0.3's descriptions field-for-field, closing the "cited from an ADR, not byte-inspected" caveats v0.3 carried. Confirmed a real, previously-undiscovered gap in the process: `routes.gen.json` and `dom-address-map.json` both key by the *bare* component name (`"home"`), not the actually-registered custom-element tag (`"js-home"`) — filed upstream as justweb#56 (justjs#49 tracks the consumer-side impact). Everything else matched exactly.
 >
-> **Correction note (v0.5):** justweb#56 landed — `dom-address-map.json`'s element descriptors now carry a `tag` field (the actually-registered custom-element tag) alongside the unchanged `component` field. `@justjs/application`'s `MountStep`/`BootValidator` updated to resolve by `tag`, not `component`. **`routes.gen.json` was not part of this fix** — it still only carries the bare `component` field, confirmed by regenerating after the fix landed. That part of justweb#56 remains open.
+> **Correction note (v0.5):** justweb#56 landed — `dom-address-map.json`'s element descriptors now carry a `tag` field (the actually-registered custom-element tag) alongside the unchanged `component` field. `@justjs/application`'s `MountStep`/`BootValidator` updated to resolve by `tag`, not `component`. **`routes.gen.json` was not part of this fix** — it still only carried the bare `component` field, confirmed by regenerating after the fix landed. That part of justweb#56 remained open.
+>
+> **Correction note (v0.6):** justweb#56's `routes.gen.json` half landed too (`routes.gen.json` route entries now also carry `tag`) — justweb#56 is now fully resolved, both artifacts. Separately, justweb#52 landed real `props:` → attribute-backed signal codegen (`observedAttributes` + `attributeChangedCallback`), closing the "`props:` has no codegen, `setAttribute` is inert" gap ADR-0006 rev.4 and ADR-0008 both noted. `adaptCustomElementRegistry` (justjs#46) updated to take advantage: it now reuses an already-mounted element across repeated `render()` calls instead of always reconstructing, since `setAttribute` on an already-connected element is real again for declared props. Also found and filed upstream while verifying #52: a `props:`/`states:` name colliding with a `dom.elements`/`dom.slots` name produces a class with duplicate TS members that fails to compile (justweb#57) — confirmed via an isolated repro, not just inspection.
 
 ---
 
@@ -50,21 +52,21 @@ routes:
       id: id                  # :id segment → order-detail's own declared `id` prop
 ```
 
-**Generated shape (confirmed via a real `justw init`/`justw generate app` run):**
+**Generated shape (byte-confirmed, v0.6 — regenerated after justweb#56 fully landed):**
 ```json
 {
   "routes": [
-    { "component": "home", "feature": "home", "path": "/", "targets": ["browser"] }
+    { "component": "home", "feature": "home", "path": "/", "tag": "js-home", "targets": ["browser"] }
   ],
   "version": 1
 }
 ```
-A flat `{routes: [...], version}` object — `component`/`feature` cross-references, `guard`/`params` present per-route only when declared in `routes.yaml`. **Confirmed gap, still open (v0.5):** `component` here is the *bare* `*_component.yaml` name (`"home"`), not the actually-registered custom-element tag (`"js-home"`, from the fixed `js-` prefix `domcompiler::TAG_PREFIX` applies) — the same bare-name-vs-tag mismatch as artifact #4 below, but **unlike #4, this one is not yet fixed** — justweb#56 landed a `tag` field on `dom-address-map.json` only; `routes.gen.json` was confirmed unchanged by regenerating after that fix. `routes.gen.ts`'s own generated wiring code resolves the full tag internally (`"tag": "js-home"` in its `ROUTES` array), but that resolution still isn't exposed in this JSON artifact.
+A flat `{routes: [...], version}` object — `component`/`feature` cross-references, `guard`/`params` present per-route only when declared in `routes.yaml`. **Resolved (v0.6):** `component` is still the bare `*_component.yaml` name (`"home"`); `tag` (justweb#56, landed after the `dom-address-map.json` half) is the actually-registered custom-element tag (`"js-home"`) — resolve against `tag`, matching artifact #4 below.
 
 **Key behaviors, not just shape:**
 - `feature`/`component`/`targets` are validated cross-references against the discovered `*_component.yaml`/`*_api.yaml` set — an unresolved reference is a validation error, not a silent no-op.
 - `:name` dynamic segments are validated for syntax and per-path uniqueness; `params:` mapping is validated (prop exists, type is `string`/`enum`).
-- Generated wiring code fully remounts the target component on any dynamic-segment value change — it does not update an existing instance's attribute in place, because `domcompiler` doesn't yet support attribute→signal reactivity for `props:` (a separate, pre-existing gap noted in ADR-0006).
+- Generated wiring code fully remounts the target component on any dynamic-segment value change rather than updating an existing instance's attribute in place — this predates justweb#52's `props:` signal codegen (ADR-0006 rev.4) and hasn't been revisited since #52 landed; may be loosenable now, not yet confirmed.
 - `guard` and any similar per-route field are never enforced or interpreted by justweb — that's the consumer's responsibility.
 
 **Semver guarantees:**
