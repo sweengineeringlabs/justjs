@@ -1,6 +1,7 @@
 import type { BootConfig, JustJSBoot } from "../api/boot.js"
 import { BootError } from "../api/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
+import { isLegacyDomAddressMap, resolveDdasKnownTags } from "../api/dom-address.js"
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
@@ -166,15 +167,31 @@ class BootValidator {
     if (ddasEnforcement.enabled !== false) {
       const onMissing = ddasEnforcement.onMissing || "error"
 
+      if (domAddressMap && !domAddressMap.elements) {
+        throw new BootError(
+          "INVALID_DDAS_MAP",
+          undefined,
+          undefined,
+          undefined,
+          'domAddressMap is missing its "elements" map — expected the real dom-address-map.json shape ({ elements: {...} }), not the legacy CSS-selector-list shape'
+        )
+      }
+
+      if (domAddressMap && registryEntries.length > 0 && isLegacyDomAddressMap(domAddressMap)) {
+        throw new BootError(
+          "LEGACY_DDAS_MAP",
+          undefined,
+          undefined,
+          undefined,
+          "domAddressMap has no `tag` field on any element — this looks like a dom-address-map.json generated before justweb#56. Regenerate it with a current justweb version; DDAS validation cannot resolve component tags without `tag`."
+        )
+      }
+
       if (domAddressMap) {
         // Resolve by `tag` (justweb#56) — the actually-registered custom-element
         // tag — not `component` (the bare *_component.yaml name), which never
         // matches a real registry tag.
-        const knownComponents = new Set(
-          Object.values(domAddressMap.elements)
-            .map((element) => element.tag)
-            .filter((tag): tag is string => tag !== undefined)
-        )
+        const knownComponents = resolveDdasKnownTags(domAddressMap)
         for (const [tag] of registryEntries) {
           if (!knownComponents.has(tag)) {
             const known = Array.from(knownComponents)

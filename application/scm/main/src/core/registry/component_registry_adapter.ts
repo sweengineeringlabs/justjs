@@ -28,22 +28,44 @@ export type LazyCustomElementRegistry = Record<string, () => Promise<CustomEleme
 // already-connected element is no longer inert the way ADR-0006 rev.4
 // documented for `states:` alone. Falls back to a fresh element (and
 // replaces the container's contents) on first render or if the container
-// holds something else entirely.
+// holds something else entirely. A prop present in a previous render but
+// absent from the current one is actively removed (not just left stale)
+// when reusing the same element.
+//
+// Known limitation: reuse detection is purely structural (`instanceof
+// ElementCtor`), with no per-instance identity/key. A container that
+// already holds an unrelated element of the same custom-element class
+// (e.g. genuine pre-existing light-DOM content, or the same tag mounted
+// into a reused container across two logically distinct instances) would
+// be treated as reusable and re-propped rather than recognized as a
+// different logical instance. No caller in this codebase currently passes
+// a non-empty container, so this hasn't been a live bug - flagging it here
+// rather than leaving it undocumented.
 export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): DefaultComponentRegistry {
   const registry = new DefaultComponentRegistry()
 
   for (const [tag, load] of Object.entries(source)) {
     registry.register(tag, async (): Promise<Component> => {
       const ElementCtor = await load()
+      let previousKeys = new Set<string>()
       return {
         name: tag,
         render(renderProps: ComponentProps, container: Element): void {
           const existing = container.firstElementChild
           const reusable = existing instanceof ElementCtor
           const element = reusable ? existing : new ElementCtor()
+          const nextKeys = new Set(Object.keys(renderProps))
+          if (reusable) {
+            for (const key of previousKeys) {
+              if (!nextKeys.has(key)) {
+                element.removeAttribute(key)
+              }
+            }
+          }
           for (const [key, value] of Object.entries(renderProps)) {
             element.setAttribute(key, String(value))
           }
+          previousKeys = nextKeys
           if (!reusable) {
             container.replaceChildren(element)
           }

@@ -201,6 +201,35 @@ describe("Boot-time Validation — 4 ACs", () => {
       const justjs = JustJS.getInstance()
       await expect(justjs.boot(config)).rejects.toThrow(BootError)
     })
+
+    it("test_boot_rejects_domaddressmap_missing_elements_with_a_clear_error", async () => {
+      // Legacy pre-migration shape (flat Record<tag, string[]>), no
+      // `elements` property - must fail with an actionable BootError, not a
+      // raw "Object.values requires..." TypeError.
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: { "x-root": ["main"] } as unknown as DomAddressMap,
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(/elements/)
+    })
+
+    it("test_boot_rejects_a_domaddressmap_with_no_tag_field_on_any_element", async () => {
+      // Every element present but none carry `tag` - the signature of
+      // output generated before justweb#56. Must fail with a distinct,
+      // actionable message pointing at the real cause (a stale generator),
+      // not the generic per-tag "missing DDAS entry" message.
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: { elements: { "app:home:x-root:root": { component: "root" } } },
+      }
+
+      const justjs = JustJS.getInstance()
+      await expect(justjs.boot(config)).rejects.toThrow(/justweb#56/)
+    })
   })
 
   describe("AC 1: Providers registered in JustJS.providers", () => {

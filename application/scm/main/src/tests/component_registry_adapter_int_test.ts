@@ -7,6 +7,9 @@ class FakeCustomElement {
   setAttribute(name: string, value: string): void {
     this.attributes[name] = value
   }
+  removeAttribute(name: string): void {
+    delete this.attributes[name]
+  }
 }
 
 class FakeContainer {
@@ -87,6 +90,22 @@ describe("component_registry_adapter", () => {
     // implementation would also satisfy.
     expect(container.children).toHaveLength(1)
     expect(container.children[0]).toBe(firstElement)
+    expect((container.children[0] as FakeCustomElement).attributes).toEqual({ label: "second" })
+  })
+
+  it("test_adapter_removes_attributes_absent_from_a_later_render_on_the_reused_element", async () => {
+    const source: LazyCustomElementRegistry = {
+      "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = new FakeContainer()
+
+    const component = await registry.get("x-home")
+    await component.render({ label: "first", disabled: true }, container as unknown as Element)
+    await component.render({ label: "second" }, container as unknown as Element)
+
+    // `disabled` was present on the first render and omitted on the second -
+    // it must be actively removed, not left stale on the reused element.
     expect((container.children[0] as FakeCustomElement).attributes).toEqual({ label: "second" })
   })
 
