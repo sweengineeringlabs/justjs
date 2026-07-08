@@ -3,6 +3,18 @@ import { BootError } from "../api/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import { isLegacyDomAddressMap, resolveDdasKnownTags } from "../api/dom-address.js"
 import type { JustJSAspect } from "../api/aspect.js"
+import type { ComponentRegistry, LazyCustomElementRegistry, Router } from "../api/registry.js"
+import type { Lifecycle } from "../api/lifecycle.js"
+import { adaptCustomElementRegistry } from "./registry/component_registry_adapter.js"
+import { DefaultLifecycle } from "./lifecycle/lifecycle_pipeline.js"
+import { DefaultRouter } from "./registry/router.js"
+import type { ApiAdapter } from "@justjs/transport"
+import { DefaultApiAdapter } from "@justjs/transport"
+import { DefaultFetchAdapter } from "@justjs/network"
+
+function isComponentRegistry(x: LazyCustomElementRegistry | ComponentRegistry): x is ComponentRegistry {
+  return typeof (x as ComponentRegistry).get === "function"
+}
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
@@ -340,6 +352,10 @@ export class JustJS implements JustJSBoot {
   private static instance: JustJS | null = null
   private validator = new BootValidator()
   private registeredStrategies = new Map<string, AspectProviderSpec>()
+  private _apiAdapter?: ApiAdapter
+  private _componentRegistry: ComponentRegistry | undefined
+  private _lifecycle?: Lifecycle
+  private _router?: Router
 
   static getInstance(): JustJS {
     if (!JustJS.instance) {
@@ -387,6 +403,25 @@ export class JustJS implements JustJSBoot {
     this.providers.clear()
   }
 
+  // Populated by boot() once a componentRegistry is supplied in BootConfig —
+  // undefined before boot() runs, or if the app registers no components at
+  // all (nothing to render, so no working Lifecycle/Router either).
+  get apiAdapter(): ApiAdapter | undefined {
+    return this._apiAdapter
+  }
+
+  get componentRegistry(): ComponentRegistry | undefined {
+    return this._componentRegistry
+  }
+
+  get lifecycle(): Lifecycle | undefined {
+    return this._lifecycle
+  }
+
+  get router(): Router | undefined {
+    return this._router
+  }
+
   async boot(config: BootConfig): Promise<void> {
     this.validator.validate(config, this)
 
@@ -403,6 +438,21 @@ export class JustJS implements JustJSBoot {
         })
       }
     }
+
+    this.buildRuntime(config)
+  }
+
+  private buildRuntime(config: BootConfig): void {
+    const registry = config.componentRegistry
+      ? isComponentRegistry(config.componentRegistry)
+        ? config.componentRegistry
+        : adaptCustomElementRegistry(config.componentRegistry)
+      : undefined
+
+    this._apiAdapter = config.apiAdapter ?? new DefaultApiAdapter(new DefaultFetchAdapter())
+    this._componentRegistry = registry
+    this._lifecycle = new DefaultLifecycle(config.domAddressMap, config.runtimeAdapter, registry)
+    this._router = new DefaultRouter()
   }
 }
 

@@ -1,10 +1,6 @@
 import type { ComponentProps, Component } from "../../api/component.js"
+import type { LazyCustomElementRegistry } from "../../api/registry.js"
 import { DefaultComponentRegistry } from "./component_registry.js"
-
-// justweb's `component-registry.gen.ts` (ADR-0008) exports this exact shape —
-// a plain, lazy, enumerable map keyed by tag. `CustomElementConstructor` is the
-// standard DOM-lib type (lib.dom.d.ts), not a justjs type.
-export type LazyCustomElementRegistry = Record<string, () => Promise<CustomElementConstructor>>
 
 // Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's
 // DefaultComponentRegistry — the registry type RenderStep/UpdateStep actually

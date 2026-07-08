@@ -11,12 +11,22 @@ export const REGISTRY = {
   'x-form': { path: '/form', component: 'FormDemoComponent' },
 }
 
-// Not exercising @justjs/application's adaptCustomElementRegistry (justjs#46)
-// here: this demo's components are hand-authored plain classes, not native
-// custom elements behind a lazy COMPONENT_REGISTRY loader (justweb ADR-0008),
-// so there's nothing in this shape for that adapter to bridge. Wiring
-// hello-justjs through a real justweb-generated COMPONENT_REGISTRY is its own
-// follow-up, tracked by justjs#39/#41.
+// justjs#55: boot() now builds a real ComponentRegistry from a lazy map in
+// this exact shape (justweb ADR-0008's COMPONENT_REGISTRY, bridged via
+// adaptCustomElementRegistry). This demo's components genuinely are native
+// custom elements (each file calls customElements.define(...) directly), so
+// there's a real registry to build here even without justweb's generated
+// component-registry.gen.ts - customElements.get(tag) resolves the same
+// constructor once the component's own module has run its side effect.
+// Lazy on purpose, matching the real generated shape: these functions don't
+// call customElements.get() until adaptCustomElementRegistry's factory
+// actually invokes them, by which point app.js has already imported every
+// component file for its customElements.define() side effect.
+export const COMPONENT_REGISTRY = {
+  'x-counter': () => Promise.resolve(customElements.get('x-counter')),
+  'x-fetch': () => Promise.resolve(customElements.get('x-fetch')),
+  'x-form': () => Promise.resolve(customElements.get('x-form')),
+}
 
 // Real justweb dom-address-map.json shape: flat map keyed by hierarchical
 // address string, with per-element metadata (see justjs#38's correction and
