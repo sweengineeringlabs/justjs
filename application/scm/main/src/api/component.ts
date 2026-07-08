@@ -25,6 +25,8 @@ export interface ComponentContext {
   readonly tag: string
   readonly props: ComponentProps
   readonly element: Element
+  readonly store?: FeatureStore
+  readonly eventBus?: UIEventBus
 }
 
 export interface MountHandle {

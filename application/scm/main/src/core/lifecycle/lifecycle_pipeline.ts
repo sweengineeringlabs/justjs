@@ -1,10 +1,24 @@
-import type { ComponentContext, RuntimeAdapter } from "../../api/component.js"
+import type { ComponentContext, ComponentDataContext, RuntimeAdapter } from "../../api/component.js"
 import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
 import type { ComponentRegistry } from "../../api/registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { isLegacyDomAddressMap, resolveDdasAddressesForTag } from "../../api/dom-address.js"
+
+// ADR-0003 D7: only carries a key when the corresponding ComponentContext
+// field is actually present — exactOptionalPropertyTypes forbids assigning
+// `undefined` to an optional property outright, and a component reading
+// `ctx?.store` shouldn't see a key that's there but empty either way.
+function toDataContext(ctx: ComponentContext): ComponentDataContext | undefined {
+  if (ctx.store === undefined && ctx.eventBus === undefined) {
+    return undefined
+  }
+  return {
+    ...(ctx.store !== undefined ? { store: ctx.store } : {}),
+    ...(ctx.eventBus !== undefined ? { eventBus: ctx.eventBus } : {}),
+  }
+}
 
 export class ResolveStep implements LifecycleStep {
   name(): string {
@@ -74,7 +88,7 @@ export class RenderStep implements LifecycleStep {
 
     if (this.registry) {
       const component = await this.registry.get(ctx.tag, ctx.props)
-      await component.render(ctx.props, ctx.element)
+      await component.render(ctx.props, ctx.element, toDataContext(ctx))
     }
   }
 }
@@ -102,7 +116,7 @@ export class UpdateStep implements LifecycleStep {
 
     const component = await this.registry.get(ctx.tag, ctx.props)
     if (component.update) {
-      await component.update(ctx.props, ctx.element)
+      await component.update(ctx.props, ctx.element, toDataContext(ctx))
     }
   }
 }

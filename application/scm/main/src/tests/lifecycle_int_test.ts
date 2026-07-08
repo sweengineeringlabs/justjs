@@ -1,7 +1,15 @@
 import { describe, it, expect } from "bun:test"
+import { DefaultFeatureStore, DefaultUIEventBus } from "@justjs/data"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
-import type { ComponentContext, RuntimeAdapter, MountHandle, Component, ComponentProps } from "../api/component.js"
+import type {
+  ComponentContext,
+  ComponentDataContext,
+  RuntimeAdapter,
+  MountHandle,
+  Component,
+  ComponentProps,
+} from "../api/component.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 
 describe("lifecycle", () => {
@@ -221,6 +229,65 @@ describe("lifecycle", () => {
     expect(renderElements[0]).toBe(element)
     expect(updateElements).toHaveLength(1)
     expect(updateElements[0]).toBe(element)
+  })
+
+  it("test_render_and_update_steps_pass_a_real_store_and_event_bus_through_ctx", async () => {
+    const renderContexts: (ComponentDataContext | undefined)[] = []
+    const updateContexts: (ComponentDataContext | undefined)[] = []
+    const component: Component = {
+      name: "x-button",
+      render(_props, _element, ctx) {
+        renderContexts.push(ctx)
+      },
+      update(_props, _element, ctx) {
+        updateContexts.push(ctx)
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+
+    const store = new DefaultFeatureStore({ count: 0 }, (s) => s)
+    const eventBus = new DefaultUIEventBus()
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+      store,
+      eventBus,
+    }
+
+    await lifecycle.run(ctx)
+
+    expect(renderContexts).toHaveLength(1)
+    expect(renderContexts[0]?.store).toBe(store)
+    expect(renderContexts[0]?.eventBus).toBe(eventBus)
+    expect(updateContexts).toHaveLength(1)
+    expect(updateContexts[0]?.store).toBe(store)
+    expect(updateContexts[0]?.eventBus).toBe(eventBus)
+  })
+
+  it("test_render_step_passes_undefined_data_context_when_ctx_has_no_store_or_event_bus", async () => {
+    const renderContexts: (ComponentDataContext | undefined)[] = []
+    const component: Component = {
+      name: "x-button",
+      render(_props, _element, ctx) {
+        renderContexts.push(ctx)
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await lifecycle.run(ctx)
+
+    expect(renderContexts).toHaveLength(1)
+    expect(renderContexts[0]).toBeUndefined()
   })
 
   it("test_render_step_fails_when_tag_has_no_registered_component", async () => {
