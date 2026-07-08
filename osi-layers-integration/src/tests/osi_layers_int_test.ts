@@ -37,17 +37,19 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         expect(response.status).toBe(200)
 
         // ACTUAL: Parse response and cache it
-        const data = await response.json()
+        const data = JSON.parse(response.body)
         expect(data.id).toBe(1)
         expect(data.name).toBe("Alice")
 
         // ACTUAL: Transport layer caches the real response
         await cacheAdapter.set(`http://localhost:${port}/api/user/1`, data)
-        const cached = await cacheAdapter.get(`http://localhost:${port}/api/user/1`)
+        const cached = await cacheAdapter.get<{ id: number; name: string; role: string }>(
+          `http://localhost:${port}/api/user/1`
+        )
 
         // VERIFY: Cache has the actual HTTP response data
-        expect(cached.id).toBe(1)
-        expect(cached.role).toBe("admin")
+        expect(cached?.id).toBe(1)
+        expect(cached?.role).toBe("admin")
       } finally {
         server.stop()
       }
@@ -112,18 +114,22 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           url: `http://localhost:${port}/components/dashboard`,
           method: "GET",
         })
-        const componentMeta = await response.json()
+        const componentMeta = JSON.parse(response.body)
 
         // ACTUAL: Transport caches it
         await cacheAdapter.set("dashboard:meta", componentMeta)
 
         // ACTUAL: Application layer retrieves from cache
-        const cached = await cacheAdapter.get("dashboard:meta")
+        const cached = await cacheAdapter.get<{
+          tag: string
+          props: { title: string; widgetCount: number }
+          version: string
+        }>("dashboard:meta")
 
         // VERIFY: App can use cached data
-        expect(cached.tag).toBe("x-dashboard")
-        expect(cached.props.widgetCount).toBe(5)
-        expect(cached.version).toBe("2.1.0")
+        expect(cached?.tag).toBe("x-dashboard")
+        expect(cached?.props.widgetCount).toBe(5)
+        expect(cached?.version).toBe("2.1.0")
       } finally {
         server.stop()
       }
@@ -148,7 +154,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const cacheAdapter = new DefaultCacheAdapter()
 
         // ACTUAL: Cache miss — need to fetch
-        let cached = await cacheAdapter.get("data:key")
+        let cached = await cacheAdapter.get<{ result: string }>("data:key")
         expect(cached).toBeNull()
 
         // ACTUAL: Network layer fetches real data
@@ -156,14 +162,14 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           url: `http://localhost:${port}/api/data`,
           method: "GET",
         })
-        const data = await response.json()
+        const data = JSON.parse(response.body)
 
         // ACTUAL: Cache it for next time
         await cacheAdapter.set("data:key", data)
 
         // VERIFY: Subsequent access uses cache
-        cached = await cacheAdapter.get("data:key")
-        expect(cached.result).toBe("from-server")
+        cached = await cacheAdapter.get<{ result: string }>("data:key")
+        expect(cached?.result).toBe("from-server")
       } finally {
         server.stop()
       }
@@ -222,7 +228,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     })
 
     it("test_store_subscribers_actually_receive_state_changes", async () => {
-      const store = new DefaultFeatureStore(
+      const store = new DefaultFeatureStore<{ count: number; history: number[] }, any>(
         { count: 0, history: [] },
         (state, action: any) => {
           if (action.type === "INCREMENT") {
@@ -287,7 +293,18 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const componentRegistry = new DefaultComponentRegistry()
         const lifecycle = new DefaultLifecycle()
 
-        const store = new DefaultFeatureStore(
+        interface DashboardWidget {
+          id: number
+          type: string
+          data: number
+        }
+        interface DashboardState {
+          page: string
+          widgets: DashboardWidget[]
+          cached: boolean
+          ready: boolean
+        }
+        const store = new DefaultFeatureStore<DashboardState, any>(
           { page: "", widgets: [], cached: false, ready: false },
           (state, action: any) => {
             if (action.type === "SET_PAGE") {
@@ -320,26 +337,28 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           url: `http://localhost:${port}/dashboard`,
           method: "GET",
         })
-        const dashboardData = await response.json()
+        const dashboardData = JSON.parse(response.body)
 
         // ACTUAL: Layer 2 (Transport) — Cache response
         await cacheAdapter.set("page:dashboard", dashboardData)
-        const cached = await cacheAdapter.get("page:dashboard")
+        const cached = await cacheAdapter.get<{ page: string; widgets: DashboardWidget[] }>(
+          "page:dashboard"
+        )
 
         // VERIFY: Transport received real HTTP data
-        expect(cached.widgets).toHaveLength(2)
+        expect(cached?.widgets).toHaveLength(2)
 
         // ACTUAL: Layer 4 (Data) — Store everything
         store.dispatch({
           type: "SET_PAGE",
-          page: cached.page,
-          widgets: cached.widgets,
+          page: cached?.page,
+          widgets: cached?.widgets,
         })
 
         // VERIFY: Full stack state
         expect(store.state.value.page).toBe("dashboard")
         expect(store.state.value.widgets).toHaveLength(2)
-        expect(store.state.value.widgets[0].data).toBe(1000)
+        expect(store.state.value.widgets[0]?.data).toBe(1000)
 
         // VERIFY: Component can render with full stack data
         const component = await componentRegistry.get("x-dashboard")
@@ -369,7 +388,11 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const port = server.port
         const fetchAdapter = new DefaultFetchAdapter()
         const cacheAdapter = new DefaultCacheAdapter()
-        const store = new DefaultFeatureStore(
+        interface TimestampedData {
+          timestamp: number
+          fresh: boolean
+        }
+        const store = new DefaultFeatureStore<{ data: TimestampedData | null; isFresh: boolean }, any>(
           { data: null, isFresh: false },
           (state, action: any) => {
             if (action.type === "UPDATE") {
@@ -380,7 +403,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         )
 
         // ACTUAL: First request — cache miss
-        let cachedData = await cacheAdapter.get(`http://localhost:${port}/data`)
+        let cachedData = await cacheAdapter.get<TimestampedData>(`http://localhost:${port}/data`)
         expect(cachedData).toBeNull()
 
         // ACTUAL: Fetch fresh data from network
@@ -388,7 +411,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           url: `http://localhost:${port}/data`,
           method: "GET",
         })
-        let freshData = await response.json()
+        let freshData: TimestampedData = JSON.parse(response.body)
         expect(freshData.fresh).toBe(true)
 
         // Cache it
@@ -404,7 +427,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           url: `http://localhost:${port}/data`,
           method: "GET",
         })
-        const newData = await response.json()
+        const newData: TimestampedData = JSON.parse(response.body)
 
         // VERIFY: New data is different (newer timestamp)
         expect(newData.timestamp).toBeGreaterThanOrEqual(freshData.timestamp)
@@ -414,7 +437,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         store.dispatch({ type: "UPDATE", payload: newData, fresh: true })
 
         // VERIFY: Stack has latest
-        expect(store.state.value.data.timestamp).toBeGreaterThanOrEqual(freshData.timestamp)
+        expect(store.state.value.data?.timestamp).toBeGreaterThanOrEqual(freshData.timestamp)
       } finally {
         server.stop()
       }
@@ -424,7 +447,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
   describe("Error Paths — Real Failures", () => {
     it("test_network_error_handled_across_layers", async () => {
       const fetchAdapter = new DefaultFetchAdapter()
-      const store = new DefaultFeatureStore(
+      const store = new DefaultFeatureStore<{ status: string; error: string | null }, any>(
         { status: "idle", error: null },
         (state, action: any) => {
           if (action.type === "FAIL") {
@@ -444,7 +467,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         expect.unreachable("Should have thrown")
       } catch (error) {
         // ACTUAL: Error flows through stack
-        store.dispatch({ type: "FAIL", error: error.message })
+        const message = error instanceof Error ? error.message : String(error)
+        store.dispatch({ type: "FAIL", error: message })
 
         // VERIFY: Error captured in state
         expect(store.state.value.status).toBe("error")
@@ -454,7 +478,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
     it("test_cache_retrieval_fails_gracefully_without_data", async () => {
       const cacheAdapter = new DefaultCacheAdapter()
-      const store = new DefaultFeatureStore(
+      const store = new DefaultFeatureStore<{ cached: boolean; fallback: { default: string } | null }, any>(
         { cached: false, fallback: null },
         (state, action: any) => {
           if (action.type === "USE_FALLBACK") {
@@ -465,7 +489,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
       )
 
       // ACTUAL: Cache miss
-      const missing = await cacheAdapter.get("nonexistent-key")
+      const missing = await cacheAdapter.get<{ default: string }>("nonexistent-key")
       expect(missing).toBeNull()
 
       // ACTUAL: Fall back to default

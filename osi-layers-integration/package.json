@@ -5,13 +5,15 @@
   "description": "OSI layers integration tests — real implementations working together",
   "type": "module",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@justjs/network": "*",
     "@justjs/transport": "*",
     "@justjs/application": "*",
     "@justjs/data": "*",
-    "@types/node": "^20.10.0"
+    "@types/node": "^20.10.0",
+    "@types/bun": "^1.1.0"
   }
 }
