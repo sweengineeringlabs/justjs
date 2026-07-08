@@ -1,7 +1,11 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
+import { DefaultFeatureStore, DefaultUIEventBus } from "@justjs/data"
 import { BootError, type BootConfig } from "../api/boot.js"
 import { JustJS } from "../core/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
+import type { Component } from "../api/component.js"
+import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
 
 const DDAS = (tags: string[]): DomAddressMap => ({
   elements: Object.fromEntries(tags.map((t) => [`app:home:${t}:root`, { component: t, tag: t }])),
@@ -647,6 +651,62 @@ describe("Boot-time Validation — 4 ACs", () => {
       await justjs.boot(config)
 
       expect(justjs.apiAdapter).toBe(customApiAdapter)
+    })
+  })
+
+  describe("boot() threads a shared FeatureStore/UIEventBus end-to-end (ADR-0003 D8)", () => {
+    beforeAll(() => {
+      GlobalRegistrator.register()
+    })
+
+    afterAll(async () => {
+      await GlobalRegistrator.unregister()
+    })
+
+    it("test_a_real_navigate_call_reaches_a_component_that_reads_and_dispatches_against_a_shared_store", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const store = new DefaultFeatureStore<{ count: number }, { type: "INCREMENT" }>(
+        { count: 0 },
+        (state, action) => (action.type === "INCREMENT" ? { count: state.count + 1 } : state)
+      )
+      const eventBus = new DefaultUIEventBus()
+      const eventsReceived: unknown[] = []
+      eventBus.on("mounted", (data) => eventsReceived.push(data))
+
+      const rendered: { count: number | undefined }[] = []
+      const component: Component = {
+        name: "counter",
+        render(_props, _element, ctx) {
+          ctx?.store?.dispatch({ type: "INCREMENT" })
+          rendered.push({ count: (ctx?.store as typeof store | undefined)?.state.value.count })
+          ctx?.eventBus?.emit("mounted", { tag: "x-counter" })
+        },
+      }
+
+      const registry = new DefaultComponentRegistry()
+      registry.register("x-counter", () => component)
+
+      const target = document.createElement("x-counter")
+      target.setAttribute("data-ddas-id", "app:home:x-counter:root")
+      document.body.appendChild(target)
+
+      const config: BootConfig = {
+        routes: ["/counter"],
+        registry: { "x-counter": { path: "/counter", component: "Counter" } },
+        domAddressMap: DDAS(["x-counter"]),
+        componentRegistry: registry,
+        featureStore: store,
+        eventBus,
+      }
+
+      await justjs.boot(config)
+      await justjs.router!.navigate("/counter")
+
+      expect(rendered).toEqual([{ count: 1 }])
+      expect(store.state.value.count).toBe(1)
+      expect(eventsReceived).toEqual([{ tag: "x-counter" }])
     })
   })
 })

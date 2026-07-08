@@ -457,7 +457,9 @@ export class JustJS implements JustJSBoot {
       config.routes ?? [],
       (config.registry ?? {}) as Record<string, RouteRegistryEntry>,
       this._lifecycle,
-      config.domAddressMap
+      config.domAddressMap,
+      config.featureStore,
+      config.eventBus
     )
   }
 }

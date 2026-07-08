@@ -2,6 +2,7 @@ import type { DomAddressMap } from "./dom-address.js"
 import type { ComponentRegistry, LazyCustomElementRegistry } from "./registry.js"
 import type { RuntimeAdapter } from "./component.js"
 import type { ApiAdapter } from "@justjs/transport"
+import type { FeatureStore, UIEventBus } from "@justjs/data"
 
 export interface RouteConfig {
   readonly on?: readonly string[]
@@ -41,6 +42,13 @@ export interface BootConfig {
   readonly componentRegistry?: LazyCustomElementRegistry | ComponentRegistry
   readonly runtimeAdapter?: RuntimeAdapter
   readonly apiAdapter?: ApiAdapter
+
+  // ADR-0003 D8: shared data-layer access threaded into every
+  // ComponentContext DefaultRouter builds. Unlike apiAdapter, no default
+  // instance is constructed when omitted — an app with no shared state
+  // shouldn't pay for a DefaultFeatureStore it never uses.
+  readonly featureStore?: FeatureStore
+  readonly eventBus?: UIEventBus
 
   readonly [key: string]: unknown
 }
