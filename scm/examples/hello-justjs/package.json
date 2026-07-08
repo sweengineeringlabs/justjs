@@ -1,6 +1,7 @@
 {
   "name": "hello-justjs",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "description": "Demo app showing JustJS data flow through 4 OSI layers + AOP aspects",
   "scripts": {
@@ -10,16 +11,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@justjs/application": "workspace:*",
-    "@justjs/aop-security": "workspace:*",
-    "@justjs/aop-observability": "workspace:*",
-    "@justjs/aop-i18n": "workspace:*",
-    "@justjs/aop-flags": "workspace:*",
-    "@justjs/aop-analytics": "workspace:*",
-    "@justjs/aop-theming": "workspace:*"
+    "@justjs/application": "^0.1.0",
+    "@justjs/aop-security": "^0.1.0",
+    "@justjs/aop-observability": "^0.1.0",
+    "@justjs/aop-i18n": "^0.1.0",
+    "@justjs/aop-flags": "^0.1.0",
+    "@justjs/aop-analytics": "^0.1.0",
+    "@justjs/aop-theming": "^0.1.0"
   },
   "devDependencies": {
-    "@justjs/vite": "workspace:*",
+    "@justjs/vite": "^0.1.0",
     "vite": "^5.0.0"
   }
 }

@@ -1,6 +1,7 @@
 {
   "name": "@justjs/osi-layers-integration",
   "version": "0.1.0",
+  "private": true,
   "description": "OSI layers integration tests — real implementations working together",
   "type": "module",
   "scripts": {
