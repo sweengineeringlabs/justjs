@@ -2,6 +2,7 @@ export type {
   ComponentProps,
   Component,
   ComponentContext,
+  ComponentDataContext,
   MountHandle,
   RuntimeAdapter,
 } from "../api/component.js"

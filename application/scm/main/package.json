@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@justjs/transport": "^0.1.0",
-    "@justjs/network": "^0.1.0"
+    "@justjs/network": "^0.1.0",
+    "@justjs/data": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
