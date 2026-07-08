@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { JustJS }                            from "@justjs/application"
+import { justjs }                            from "@justjs/application"
 import { DefaultObservabilityProvider }      from "../core/default_observability.js"
 import { NoopObserverContext }               from "../api/provider.js"
 
@@ -52,7 +52,6 @@ describe("NoopObserverContext", () => {
 describe("observability SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const justjs = JustJS.getInstance()
     const resolved = justjs.providers.resolve("observability", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("observability")

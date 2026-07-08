@@ -1,17 +1,16 @@
-import type { AspectConfig, BootConfig, JustJSBoot } from "../api/boot.js"
+import type { AspectConfig, AspectProviderSpec, BootConfig, JustJSInstance, JustJSProviderRegistry } from "../api/boot.js"
 import { BootError } from "../api/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import { isLegacyDomAddressMap, resolveDdasKnownTags } from "../api/dom-address.js"
 import type { JustJSAspect } from "../api/aspect.js"
-import type { ComponentRegistry, LazyCustomElementRegistry, Router } from "../api/registry.js"
+import type { ComponentRegistry, LazyCustomElementRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
 import type { Lifecycle } from "../api/lifecycle.js"
 import { adaptCustomElementRegistry } from "./registry/component_registry_adapter.js"
 import { DefaultLifecycle } from "./lifecycle/lifecycle_pipeline.js"
 import { DefaultRouter } from "./registry/router.js"
-import type { RouteRegistryEntry } from "./registry/router.js"
 import type { ApiAdapter } from "@justjs/transport"
-import { DefaultApiAdapter } from "@justjs/transport"
-import { DefaultFetchAdapter } from "@justjs/network"
+import { createApiAdapter } from "@justjs/transport"
+import { createFetchAdapter } from "@justjs/network"
 
 function isComponentRegistry(x: LazyCustomElementRegistry | ComponentRegistry): x is ComponentRegistry {
   return typeof (x as ComponentRegistry).get === "function"
@@ -343,13 +342,7 @@ class BootValidator {
   }
 }
 
-export interface AspectProviderSpec {
-  readonly concern: string
-  readonly strategy: string
-  readonly factory: (config?: any) => unknown
-}
-
-export class JustJS implements JustJSBoot {
+export class JustJS implements JustJSInstance {
   private static instance: JustJS | null = null
   private validator = new BootValidator()
   private registeredStrategies = new Map<string, AspectProviderSpec>()
@@ -365,7 +358,7 @@ export class JustJS implements JustJSBoot {
     return JustJS.instance
   }
 
-  private getProvidersRegistry = () => ({
+  private getProvidersRegistry = (): JustJSProviderRegistry => ({
     register: (spec: AspectProviderSpec): void => {
       const key = `${spec.concern}:${spec.strategy}`
       this.registeredStrategies.set(key, spec)
@@ -396,7 +389,7 @@ export class JustJS implements JustJSBoot {
     },
   })
 
-  get providers() {
+  get providers(): JustJSProviderRegistry {
     return this.getProvidersRegistry()
   }
 
@@ -450,7 +443,7 @@ export class JustJS implements JustJSBoot {
         : adaptCustomElementRegistry(config.componentRegistry)
       : undefined
 
-    this._apiAdapter = config.apiAdapter ?? new DefaultApiAdapter(new DefaultFetchAdapter())
+    this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
     this._componentRegistry = registry
     this._lifecycle = new DefaultLifecycle(config.domAddressMap, config.runtimeAdapter, registry)
     this._router = new DefaultRouter(
@@ -464,4 +457,4 @@ export class JustJS implements JustJSBoot {
   }
 }
 
-export const justjs = JustJS.getInstance()
+export const justjs: JustJSInstance = JustJS.getInstance()

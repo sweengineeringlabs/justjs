@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { DefaultFeatureStore, DefaultUIEventBus } from "@justjs/data"
+import { createFeatureStore, createUIEventBus } from "@justjs/data"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
 import type {
@@ -247,8 +247,8 @@ describe("lifecycle", () => {
     registry.register("x-button", () => component)
     const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
 
-    const store = new DefaultFeatureStore({ count: 0 }, (s) => s)
-    const eventBus = new DefaultUIEventBus()
+    const store = createFeatureStore({ count: 0 }, (s) => s)
+    const eventBus = createUIEventBus()
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},

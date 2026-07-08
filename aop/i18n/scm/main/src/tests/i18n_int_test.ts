@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { JustJS }                            from "@justjs/application"
+import { justjs }                            from "@justjs/application"
 import { DefaultI18nProvider }               from "../core/default_i18n.js"
 import { NoopI18nContext }                   from "../api/provider.js"
 
@@ -52,7 +52,6 @@ describe("NoopI18nContext", () => {
 describe("i18n SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const justjs = JustJS.getInstance()
     const resolved = justjs.providers.resolve("i18n", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("i18n")

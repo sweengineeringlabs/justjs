@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { JustJS }                            from "@justjs/application"
+import { justjs }                            from "@justjs/application"
 import { DefaultAnalyticsProvider }          from "../core/default_analytics.js"
 import { NoopAnalyticsContext }              from "../api/provider.js"
 
@@ -52,7 +52,6 @@ describe("NoopAnalyticsContext", () => {
 describe("analytics SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const justjs = JustJS.getInstance()
     const resolved = justjs.providers.resolve("analytics", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("analytics")

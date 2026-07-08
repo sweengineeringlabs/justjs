@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { JustJS }                            from "@justjs/application"
+import { justjs }                            from "@justjs/application"
 import { DefaultThemingProvider }            from "../core/default_theming.js"
 import { NoopThemingContext }                from "../api/provider.js"
 
@@ -53,7 +53,6 @@ describe("NoopThemingContext", () => {
 describe("theming SPI self-registration", () => {
   it("test_provider_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js")
-    const justjs = JustJS.getInstance()
     const resolved = justjs.providers.resolve("theming", "noop")
     expect(resolved).not.toBeNull()
     expect(resolved!.concern).toBe("theming")

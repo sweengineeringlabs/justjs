@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { DefaultFeatureStore, DefaultUIEventBus } from "@justjs/data"
+import { createFeatureStore, createUIEventBus } from "@justjs/data"
 import type { Component, ComponentDataContext } from "../api/component.js"
 
 // ADR-0003 D6: proves ComponentDataContext is genuinely usable with real
@@ -7,7 +7,7 @@ import type { Component, ComponentDataContext } from "../api/component.js"
 
 describe("ComponentDataContext (ADR-0003 D6)", () => {
   it("test_component_reads_a_real_feature_store_via_the_third_render_argument", () => {
-    const store = new DefaultFeatureStore<{ count: number }, { type: "INCREMENT" }>(
+    const store = createFeatureStore<{ count: number }, { type: "INCREMENT" }>(
       { count: 0 },
       (state, action) => (action.type === "INCREMENT" ? { count: state.count + 1 } : state)
     )
@@ -27,7 +27,7 @@ describe("ComponentDataContext (ADR-0003 D6)", () => {
   })
 
   it("test_component_emits_on_a_real_event_bus_via_the_third_render_argument", () => {
-    const eventBus = new DefaultUIEventBus()
+    const eventBus = createUIEventBus()
     const received: unknown[] = []
     eventBus.on("counter:rendered", (data) => received.push(data))
 
@@ -54,7 +54,7 @@ describe("ComponentDataContext (ADR-0003 D6)", () => {
       },
     }
 
-    component.render({}, {} as Element, { store: new DefaultFeatureStore({}, (s) => s) })
+    component.render({}, {} as Element, { store: createFeatureStore({}, (s) => s) })
 
     expect(rendered).toBe(true)
   })

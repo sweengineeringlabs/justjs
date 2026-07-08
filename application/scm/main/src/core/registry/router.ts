@@ -1,21 +1,10 @@
-import type { Router } from "../../api/registry.js"
+import type { Router, RouteRegistryEntry } from "../../api/registry.js"
 import { RegistryError } from "../../api/registry.js"
 import type { Lifecycle } from "../../api/lifecycle.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { resolveDdasAddressesForTag } from "../../api/dom-address.js"
 import type { ComponentContext, ComponentProps } from "../../api/component.js"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
-
-export interface RouteRegistryEntry {
-  readonly path: string
-  readonly component: string
-  // Dynamic segment name -> the component's declared prop name (justweb
-  // routes.yaml's own `params:` mapping, e.g. `{ id: "id" }` for
-  // `/order/:id`). Same shape justweb's own generated routes.gen.ts uses
-  // internally (justweb#54) - consuming it here instead of a narrower
-  // invented shape is what makes dynamic route params extractable at all.
-  readonly params?: Record<string, string>
-}
 
 // Matches a route pattern (e.g. "/order/:id") against a real navigated path
 // (e.g. "/order/42"), returning the captured `:segment` values keyed by

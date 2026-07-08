@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "bun:test"
 import { DefaultApiAdapter } from "../core/api_adapter.js"
 import { TransportError } from "../api/api_adapter.js"
-import { DefaultFetchAdapter } from "@justjs/network"
+import { createFetchAdapter } from "@justjs/network"
 
 describe("DefaultApiAdapter", () => {
   let server: ReturnType<typeof Bun.serve> | undefined
@@ -24,7 +24,7 @@ describe("DefaultApiAdapter", () => {
       },
     })
 
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get<{ id: number; name: string }>(`http://localhost:${server.port}/api/user/1`)
 
     expect(result.status).toBe(200)
@@ -49,7 +49,7 @@ describe("DefaultApiAdapter", () => {
       },
     })
 
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.post<{ created: boolean }>(
       `http://localhost:${server.port}/api/users`,
       { name: "Bob" }
@@ -74,7 +74,7 @@ describe("DefaultApiAdapter", () => {
       },
     })
 
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
     await api.put(`http://localhost:${server.port}/api/users/1`, { name: "Carol" })
     await api.delete(`http://localhost:${server.port}/api/users/1`)
 
@@ -89,7 +89,7 @@ describe("DefaultApiAdapter", () => {
       },
     })
 
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get(`http://localhost:${server.port}/api/secret`)
 
     expect(result.status).toBe(403)
@@ -104,14 +104,14 @@ describe("DefaultApiAdapter", () => {
       },
     })
 
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get<string>(`http://localhost:${server.port}/api/text`)
 
     expect(result.data).toBe("plain text response")
   })
 
   it("test_network_failure_is_wrapped_in_a_transport_error", async () => {
-    const api = new DefaultApiAdapter(new DefaultFetchAdapter())
+    const api = new DefaultApiAdapter(createFetchAdapter())
 
     await expect(api.get("http://localhost:1/unreachable")).rejects.toThrow(TransportError)
   })

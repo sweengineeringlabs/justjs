@@ -1,5 +1,5 @@
 import type { ComponentProps, Component } from "../../api/component.js"
-import type { LazyCustomElementRegistry } from "../../api/registry.js"
+import type { LazyCustomElementRegistry, MutableComponentRegistry } from "../../api/registry.js"
 import { DefaultComponentRegistry } from "./component_registry.js"
 
 // Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's
@@ -37,7 +37,7 @@ import { DefaultComponentRegistry } from "./component_registry.js"
 // different logical instance. No caller in this codebase currently passes
 // a non-empty container, so this hasn't been a live bug - flagging it here
 // rather than leaving it undocumented.
-export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): DefaultComponentRegistry {
+export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): MutableComponentRegistry {
   const registry = new DefaultComponentRegistry()
 
   for (const [tag, load] of Object.entries(source)) {
