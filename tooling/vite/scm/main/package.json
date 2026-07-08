@@ -16,7 +16,7 @@
     "dev": "bun run src/core/codegen.ts"
   },
   "dependencies": {
-    "@justjs/application": "workspace:*"
+    "@justjs/application": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

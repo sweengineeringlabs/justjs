@@ -16,7 +16,7 @@
     "bench":     "bun run benchmarks/runner.ts"
   },
   "dependencies": {
-    "@justscript/core": "workspace:*"
+    "@justscript/core": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0"

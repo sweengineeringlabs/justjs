@@ -15,7 +15,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@justjs/application": "workspace:*"
+    "@justjs/application": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.5.0"
