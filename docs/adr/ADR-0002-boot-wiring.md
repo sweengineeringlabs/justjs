@@ -213,12 +213,11 @@ export class DefaultRouter implements Router {
 }
 ```
 
-`props: {}` is a known gap, not papered over: dynamic-segment params (`/order/:id`) aren't threaded through yet — that needs the same route-matching justweb's own `routes.gen.ts` already does (path-to-params extraction), which `application`'s `Router` doesn't have today. Flagged under Open questions rather than designed on the spot — extracting params correctly deserves its own small design pass, not an inline guess.
+**Resolved after this ADR landed:** `props: {}` was shipped as a known gap — dynamic-segment params (`/order/:id`) weren't threaded through. Fixed by typing `RouteRegistryEntry` against justweb's real `routes.yaml`/`routes.gen.json` route-entry shape (which already carries a `params: Record<string, string>` mapping — segment name to declared prop name) instead of the narrower `{path, component}` shape above, and having `navigate()` match the incoming path against each known `:segment` pattern to extract and map the captured values. No cross-repo decision was actually needed here — `application` already types `DomAddressMap` directly against justweb's real artifact shape elsewhere, so there was no reason to invent a narrower one for routes either.
 
 ## Open questions (not resolved by this ADR)
 
 - Should `application`'s `Router` eventually be the thing justweb's generated `routes.gen.ts` delegates to, instead of each maintaining independent navigation/mounting logic? Cross-repo, needs justweb's maintainers.
-- Dynamic route param extraction in `DefaultRouter.navigate()` (D5's `props: {}` gap).
 - `@justjs/data` → `ComponentContext` integration (`ctx.signals`, per ADR-0004's original sequence diagram) — needs its own ADR once `ComponentContext`'s shape is up for revision.
 
 ## Build order
