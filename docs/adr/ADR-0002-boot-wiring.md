@@ -231,7 +231,7 @@ Each phase is independently shippable and testable — no phase requires a later
 | 2 | D2 — real `DefaultApiAdapter` | 1 | `transport/core/api_adapter.ts` |
 | 3 | D3 — `AspectConfig.strategy` + boot resolve/weave | — (independent of 1/2) | `application/api/boot.ts`, `application/core/boot.ts`, `docs/adr/ADR-0001-ui-domain-layer.md` |
 | 4 | D4 — boot composition root | 2, 3 | `application/api/boot.ts`, `application/core/boot.ts` |
-| 5 | D5 — `Router` drives `Lifecycle` | 4 | `application/core/registry/router.ts`, `application/api/registry.ts` |
+| 5 | D5 — `Router` drives `Lifecycle` | 4 | `application/core/registry/router.ts`, `application/api/registry.ts`, `osi-layers-integration/src/tests/osi_layers_int_test.ts` |
 
 Phases 1 and 3 can run in parallel; everything converges at 4.
 
@@ -240,6 +240,7 @@ Phases 1 and 3 can run in parallel; everything converges at 4.
 - `@justjs/application` gains a real, non-optional dependency on `@justjs/network`/`@justjs/transport`'s concrete classes at `boot()`'s default-construction path (already declared in `package.json`, previously unused).
 - `network`'s public `FetchAdapter` export changes shape (D1) — a breaking change for any external consumer already depending on the native-`fetch`-signature version, though grep found none inside this repo today.
 - `ADR-0001`'s boot-contract example needs a follow-up edit once D3 lands (flattened `on`/`except` → split `routes`/`components`, `strategy` field added).
+- `DefaultRouter`'s constructor changes from zero-arg to `(routes, registry, lifecycle, domAddressMap)` (D5) — breaks the one existing real call site, `osi-layers-integration/src/tests/osi_layers_int_test.ts:286` (`new DefaultRouter()`), which must be updated as part of phase 5, not left to fail. Caught only when directly checked against "is every phase actually independently shippable" — not disclosed in this ADR's first draft.
 - No change to any shipped AOP strategy's *behavior* — every one is still `"noop"`. This ADR makes `boot()` capable of invoking a real strategy; it does not add one.
 
 ## Relates to
