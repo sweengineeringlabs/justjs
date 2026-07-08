@@ -11,6 +11,7 @@ export interface ComponentConfig {
 }
 
 export interface AspectConfig {
+  readonly strategy: string
   readonly routes?: RouteConfig
   readonly components?: ComponentConfig
 }

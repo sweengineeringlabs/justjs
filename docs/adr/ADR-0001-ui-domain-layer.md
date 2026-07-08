@@ -282,13 +282,20 @@ import "@justjs/aop-observability-datadog"
 
 JustJS.boot({
   routes, importmap, registry, domMap,
-  security:      { strategy: "oauth",        on: ["/dashboard"] },
-  observability: { strategy: "datadog",      all: true },
-  i18n:          { strategy: "fluent",       all: true },
-  flags:         { strategy: "launchdarkly", all: true },
-  analytics:     { strategy: "segment",      all: true },
-  theming:       { strategy: "tokens",       all: true },
-  aspects: [{ strategy: "my-plugin", on: ["js-checkout"] }]
+  // Every concern — built-in or custom plugin — is a key in one `aspects`
+  // map (`BootConfig.aspects: Record<string, AspectConfig>`), not a
+  // separate top-level field per concern. `routes`/`components` (each with
+  // `on`/`except`) replace a single flattened `on`/`all` list, since routes
+  // and component tags validate against different known-sets.
+  aspects: {
+    security:      { strategy: "oauth",        routes: { on: ["/dashboard"] } },
+    observability: { strategy: "datadog" },
+    i18n:          { strategy: "fluent" },
+    flags:         { strategy: "launchdarkly" },
+    analytics:     { strategy: "segment" },
+    theming:       { strategy: "tokens" },
+    "my-plugin":   { strategy: "my-plugin", components: { on: ["js-checkout"] } },
+  }
 })
 ```
 
@@ -307,22 +314,23 @@ The generated `core/app.ts` produces this runtime call. Shown here for reference
 ```typescript
 JustJS.boot({
   routes,    // routes.gen.json   — valid route paths
-  importmap, // importmap.gen.json — ES module import map
   registry,  // registry.gen.ts   — valid component tags
-  domMap,    // dom-address-map.json — DdasMap (valid DOM addresses)
+  importmap, // importmap.gen.json — ES module import map
+  domAddressMap, // dom-address-map.json — DdasMap (valid DOM addresses)
 
-  // AOP — declared by strategy name, resolved via SPI
-  // Values driven by justjs.config.toml — never hand-authored
-  security:     { strategy: "oauth",        on: ["/dashboard"] },
-  observability:{ strategy: "datadog",      all: true },
-  i18n:         { strategy: "fluent",       all: true },
-  flags:        { strategy: "launchdarkly", all: true },
-  analytics:    { strategy: "segment",      all: true },
-  theming:      { strategy: "tokens",       all: true },
-
-  aspects: [
-    { strategy: "my-plugin", on: ["js-checkout"] }
-  ]
+  // AOP — declared by strategy name, resolved via SPI. One map for every
+  // concern, built-in or custom plugin — `boot()` calls
+  // `providers.resolve(concern, strategy)` then `aspect.weave(target)` for
+  // each entry, after validation passes.
+  aspects: {
+    security:      { strategy: "oauth",        routes: { on: ["/dashboard"] } },
+    observability: { strategy: "datadog" },
+    i18n:          { strategy: "fluent" },
+    flags:         { strategy: "launchdarkly" },
+    analytics:     { strategy: "segment" },
+    theming:       { strategy: "tokens" },
+    "my-plugin":   { strategy: "my-plugin", components: { on: ["js-checkout"] } },
+  }
 })
 ```
 
