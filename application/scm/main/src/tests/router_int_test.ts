@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
+import { DefaultFeatureStore } from "@justjs/data"
 import { DefaultRouter } from "../core/registry/router.js"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
@@ -101,5 +102,61 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
     )
 
     await expect(router.navigate("/missing")).rejects.toThrow(RegistryError)
+  })
+
+  it("test_navigate_passes_a_constructor_supplied_feature_store_through_to_the_component (ADR-0003 D8)", async () => {
+    const store = new DefaultFeatureStore({ visits: 0 }, (s) => s)
+    let receivedStore: unknown
+
+    const component: Component = {
+      name: "dashboard",
+      render(_props, _element, ctx) {
+        receivedStore = ctx?.store
+      },
+    }
+
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => component)
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+
+    document.body.appendChild(document.createElement("x-dashboard"))
+
+    const router = new DefaultRouter(
+      ["/dashboard"],
+      { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
+      lifecycle,
+      undefined,
+      store
+    )
+
+    await router.navigate("/dashboard")
+
+    expect(receivedStore).toBe(store)
+  })
+
+  it("test_navigate_omits_store_and_eventBus_from_ctx_when_router_was_not_given_either", async () => {
+    let ctxSeen: unknown
+    const component: Component = {
+      name: "dashboard",
+      render(_props, _element, ctx) {
+        ctxSeen = ctx
+      },
+    }
+
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => component)
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+
+    document.body.appendChild(document.createElement("x-dashboard"))
+
+    const router = new DefaultRouter(
+      ["/dashboard"],
+      { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
+      lifecycle
+    )
+
+    await router.navigate("/dashboard")
+
+    expect(ctxSeen).toBeUndefined()
   })
 })

@@ -3,6 +3,8 @@ import { RegistryError } from "../../api/registry.js"
 import type { Lifecycle } from "../../api/lifecycle.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { resolveDdasAddressesForTag } from "../../api/dom-address.js"
+import type { ComponentContext } from "../../api/component.js"
+import type { FeatureStore, UIEventBus } from "@justjs/data"
 
 export interface RouteRegistryEntry {
   readonly path: string
@@ -16,7 +18,9 @@ export class DefaultRouter implements Router {
     private readonly routes: readonly string[],
     private readonly registry: Record<string, RouteRegistryEntry>,
     private readonly lifecycle: Lifecycle,
-    private readonly domAddressMap?: DomAddressMap
+    private readonly domAddressMap?: DomAddressMap,
+    private readonly featureStore?: FeatureStore,
+    private readonly eventBus?: UIEventBus
   ) {}
 
   async navigate(path: string): Promise<void> {
@@ -44,7 +48,17 @@ export class DefaultRouter implements Router {
     }
 
     this.currentRoute = path
-    await this.lifecycle.run({ tag, props: {}, element })
+    await this.lifecycle.run(this.buildContext(tag, element))
+  }
+
+  private buildContext(tag: string, element: Element): ComponentContext {
+    return {
+      tag,
+      props: {},
+      element,
+      ...(this.featureStore !== undefined ? { store: this.featureStore } : {}),
+      ...(this.eventBus !== undefined ? { eventBus: this.eventBus } : {}),
+    }
   }
 
   currentPath(): string {
