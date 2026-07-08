@@ -14,6 +14,7 @@
     "@justjs/application": "*",
     "@justjs/data": "*",
     "@types/node": "^20.10.0",
-    "@types/bun": "^1.1.0"
+    "@types/bun": "^1.1.0",
+    "@happy-dom/global-registrator": "^15.0.0"
   }
 }

@@ -8,6 +8,7 @@ import type { Lifecycle } from "../api/lifecycle.js"
 import { adaptCustomElementRegistry } from "./registry/component_registry_adapter.js"
 import { DefaultLifecycle } from "./lifecycle/lifecycle_pipeline.js"
 import { DefaultRouter } from "./registry/router.js"
+import type { RouteRegistryEntry } from "./registry/router.js"
 import type { ApiAdapter } from "@justjs/transport"
 import { DefaultApiAdapter } from "@justjs/transport"
 import { DefaultFetchAdapter } from "@justjs/network"
@@ -452,7 +453,12 @@ export class JustJS implements JustJSBoot {
     this._apiAdapter = config.apiAdapter ?? new DefaultApiAdapter(new DefaultFetchAdapter())
     this._componentRegistry = registry
     this._lifecycle = new DefaultLifecycle(config.domAddressMap, config.runtimeAdapter, registry)
-    this._router = new DefaultRouter()
+    this._router = new DefaultRouter(
+      config.routes ?? [],
+      (config.registry ?? {}) as Record<string, RouteRegistryEntry>,
+      this._lifecycle,
+      config.domAddressMap
+    )
   }
 }
 
