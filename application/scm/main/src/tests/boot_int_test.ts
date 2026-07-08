@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
-import { DefaultFeatureStore, DefaultUIEventBus } from "@justjs/data"
+import { createFeatureStore, createUIEventBus } from "@justjs/data"
 import { BootError, type BootConfig } from "../api/boot.js"
 import { JustJS } from "../core/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
@@ -667,11 +667,11 @@ describe("Boot-time Validation — 4 ACs", () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
 
-      const store = new DefaultFeatureStore<{ count: number }, { type: "INCREMENT" }>(
+      const store = createFeatureStore<{ count: number }, { type: "INCREMENT" }>(
         { count: 0 },
         (state, action) => (action.type === "INCREMENT" ? { count: state.count + 1 } : state)
       )
-      const eventBus = new DefaultUIEventBus()
+      const eventBus = createUIEventBus()
       const eventsReceived: unknown[] = []
       eventBus.on("mounted", (data) => eventsReceived.push(data))
 

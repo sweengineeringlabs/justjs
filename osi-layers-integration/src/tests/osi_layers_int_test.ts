@@ -1,9 +1,9 @@
 import { describe, it, expect } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
-import { DefaultFetchAdapter } from "@justjs/network"
-import { DefaultCacheAdapter } from "@justjs/transport"
-import { DefaultComponentRegistry, DefaultRouter, DefaultLifecycle } from "@justjs/application"
-import { DefaultFeatureStore } from "@justjs/data"
+import { createFetchAdapter } from "@justjs/network"
+import { createCacheAdapter } from "@justjs/transport"
+import { createComponentRegistry, createRouter, createLifecycle } from "@justjs/application"
+import { createFeatureStore } from "@justjs/data"
 import type { Component, ComponentContext } from "@justjs/application"
 
 describe("OSI Layers Integration Tests — Real Behavior", () => {
@@ -25,8 +25,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       try {
         const port = server.port
-        const fetchAdapter = new DefaultFetchAdapter()
-        const cacheAdapter = new DefaultCacheAdapter()
+        const fetchAdapter = createFetchAdapter()
+        const cacheAdapter = createCacheAdapter()
 
         // ACTUAL: Network layer makes real HTTP request
         const response = await fetchAdapter.fetch({
@@ -69,7 +69,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       try {
         const port = server.port
-        const fetchAdapter = new DefaultFetchAdapter()
+        const fetchAdapter = createFetchAdapter()
 
         // ACTUAL: Network layer handles real 403 error
         const response = await fetchAdapter.fetch({
@@ -106,9 +106,9 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       try {
         const port = server.port
-        const fetchAdapter = new DefaultFetchAdapter()
-        const cacheAdapter = new DefaultCacheAdapter()
-        const componentRegistry = new DefaultComponentRegistry()
+        const fetchAdapter = createFetchAdapter()
+        const cacheAdapter = createCacheAdapter()
+        const componentRegistry = createComponentRegistry()
 
         // ACTUAL: Network fetches real component metadata
         const response = await fetchAdapter.fetch({
@@ -151,8 +151,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       try {
         const port = server.port
-        const fetchAdapter = new DefaultFetchAdapter()
-        const cacheAdapter = new DefaultCacheAdapter()
+        const fetchAdapter = createFetchAdapter()
+        const cacheAdapter = createCacheAdapter()
 
         // ACTUAL: Cache miss — need to fetch
         let cached = await cacheAdapter.get<{ result: string }>("data:key")
@@ -193,8 +193,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         },
       }
 
-      const componentRegistry = new DefaultComponentRegistry()
-      const store = new DefaultFeatureStore(
+      const componentRegistry = createComponentRegistry()
+      const store = createFeatureStore(
         { renders: 0 },
         (state, action: any) => {
           if (action.type === "RENDER") {
@@ -229,7 +229,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     })
 
     it("test_store_subscribers_actually_receive_state_changes", async () => {
-      const store = new DefaultFeatureStore<{ count: number; history: number[] }, any>(
+      const store = createFeatureStore<{ count: number; history: number[] }, any>(
         { count: 0, history: [] },
         (state, action: any) => {
           if (action.type === "INCREMENT") {
@@ -288,13 +288,13 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const port = server.port
 
         // Initialize all 4 layers
-        const fetchAdapter = new DefaultFetchAdapter()
-        const cacheAdapter = new DefaultCacheAdapter()
-        const componentRegistry = new DefaultComponentRegistry()
+        const fetchAdapter = createFetchAdapter()
+        const cacheAdapter = createCacheAdapter()
+        const componentRegistry = createComponentRegistry()
         // justjs#56: DefaultLifecycle needs the registry to actually call
         // Component.render() — registered below, before router.navigate()
         // (which now drives lifecycle.run() for real) ever runs.
-        const lifecycle = new DefaultLifecycle(undefined, undefined, componentRegistry)
+        const lifecycle = createLifecycle(undefined, undefined, componentRegistry)
 
         interface DashboardWidget {
           id: number
@@ -307,7 +307,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           cached: boolean
           ready: boolean
         }
-        const store = new DefaultFeatureStore<DashboardState, any>(
+        const store = createFeatureStore<DashboardState, any>(
           { page: "", widgets: [], cached: false, ready: false },
           (state, action: any) => {
             if (action.type === "SET_PAGE") {
@@ -342,7 +342,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           // lookup (no domAddressMap supplied in this test) to resolve.
           document.body.appendChild(document.createElement("x-dashboard"))
 
-          const router = new DefaultRouter(
+          const router = createRouter(
             ["/dashboard"],
             { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
             lifecycle
@@ -411,13 +411,13 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
       try {
         const port = server.port
-        const fetchAdapter = new DefaultFetchAdapter()
-        const cacheAdapter = new DefaultCacheAdapter()
+        const fetchAdapter = createFetchAdapter()
+        const cacheAdapter = createCacheAdapter()
         interface TimestampedData {
           timestamp: number
           fresh: boolean
         }
-        const store = new DefaultFeatureStore<{ data: TimestampedData | null; isFresh: boolean }, any>(
+        const store = createFeatureStore<{ data: TimestampedData | null; isFresh: boolean }, any>(
           { data: null, isFresh: false },
           (state, action: any) => {
             if (action.type === "UPDATE") {
@@ -471,8 +471,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
 
   describe("Error Paths — Real Failures", () => {
     it("test_network_error_handled_across_layers", async () => {
-      const fetchAdapter = new DefaultFetchAdapter()
-      const store = new DefaultFeatureStore<{ status: string; error: string | null }, any>(
+      const fetchAdapter = createFetchAdapter()
+      const store = createFeatureStore<{ status: string; error: string | null }, any>(
         { status: "idle", error: null },
         (state, action: any) => {
           if (action.type === "FAIL") {
@@ -502,8 +502,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     })
 
     it("test_cache_retrieval_fails_gracefully_without_data", async () => {
-      const cacheAdapter = new DefaultCacheAdapter()
-      const store = new DefaultFeatureStore<{ cached: boolean; fallback: { default: string } | null }, any>(
+      const cacheAdapter = createCacheAdapter()
+      const store = createFeatureStore<{ cached: boolean; fallback: { default: string } | null }, any>(
         { cached: false, fallback: null },
         (state, action: any) => {
           if (action.type === "USE_FALLBACK") {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
-import { DefaultFeatureStore } from "@justjs/data"
+import { createFeatureStore } from "@justjs/data"
 import { DefaultRouter } from "../core/registry/router.js"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
@@ -147,7 +147,7 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
   })
 
   it("test_navigate_passes_a_constructor_supplied_feature_store_through_to_the_component (ADR-0003 D8)", async () => {
-    const store = new DefaultFeatureStore({ visits: 0 }, (s) => s)
+    const store = createFeatureStore({ visits: 0 }, (s) => s)
     let receivedStore: unknown
 
     const component: Component = {
