@@ -1,7 +1,8 @@
-import type { BootConfig, JustJSBoot } from "../api/boot.js"
+import type { AspectConfig, BootConfig, JustJSBoot } from "../api/boot.js"
 import { BootError } from "../api/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import { isLegacyDomAddressMap, resolveDdasKnownTags } from "../api/dom-address.js"
+import type { JustJSAspect } from "../api/aspect.js"
 
 class BootValidator {
   private levenshtein(a: string, b: string): number {
@@ -220,21 +221,28 @@ class BootValidator {
     // AC 1: Validate providers registered in JustJS.providers
     if (aspects) {
       for (const [concern, aspectConfig] of Object.entries(aspects)) {
-        // Check for strategy references in aspect config
-        if (typeof aspectConfig === "string") {
-          const strategy = aspectConfig
-          if (!justjs.providers.has(concern, strategy)) {
-            // Find all registered strategies for this concern to suggest alternatives
-            const allRegistered = justjs.providers.strategiesFor(concern)
-            const nearest = this.findNearest(strategy, allRegistered)
-            throw new BootError(
-              "PROVIDER_NOT_REGISTERED",
-              strategy,
-              allRegistered,
-              nearest,
-              `Aspect "${concern}" references provider strategy "${strategy}" which is not registered in JustJS.providers${nearest ? ` (did you mean "${nearest}"?)` : ""}`
-            )
-          }
+        if (!aspectConfig || typeof aspectConfig !== "object" || typeof aspectConfig.strategy !== "string") {
+          throw new BootError(
+            "MISSING_ASPECT_STRATEGY",
+            concern,
+            [],
+            undefined,
+            `Aspect "${concern}" is missing a required "strategy" field`
+          )
+        }
+
+        const strategy = aspectConfig.strategy
+        if (!justjs.providers.has(concern, strategy)) {
+          // Find all registered strategies for this concern to suggest alternatives
+          const allRegistered = justjs.providers.strategiesFor(concern)
+          const nearest = this.findNearest(strategy, allRegistered)
+          throw new BootError(
+            "PROVIDER_NOT_REGISTERED",
+            strategy,
+            allRegistered,
+            nearest,
+            `Aspect "${concern}" references provider strategy "${strategy}" which is not registered in JustJS.providers${nearest ? ` (did you mean "${nearest}"?)` : ""}`
+          )
         }
       }
     }
@@ -381,7 +389,20 @@ export class JustJS implements JustJSBoot {
 
   async boot(config: BootConfig): Promise<void> {
     this.validator.validate(config, this)
-    // Boot logic continues...
+
+    const aspects = config.aspects as Record<string, AspectConfig> | undefined
+    if (aspects) {
+      for (const [concern, aspectConfig] of Object.entries(aspects)) {
+        const spec = this.providers.resolve(concern, aspectConfig.strategy)
+        if (!spec) continue // unreachable — validate() already rejected any unregistered strategy
+        const aspect = spec.factory() as JustJSAspect
+        aspect.weave({
+          concern,
+          routes: [...(aspectConfig.routes?.on ?? []), ...(aspectConfig.routes?.except ?? [])],
+          components: [...(aspectConfig.components?.on ?? []), ...(aspectConfig.components?.except ?? [])],
+        })
+      }
+    }
   }
 }
 
