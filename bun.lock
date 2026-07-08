@@ -130,6 +130,7 @@
       "name": "@justjs/osi-layers-integration",
       "version": "0.1.0",
       "devDependencies": {
+        "@happy-dom/global-registrator": "^15.0.0",
         "@justjs/application": "*",
         "@justjs/data": "*",
         "@justjs/network": "*",

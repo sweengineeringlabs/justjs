@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test"
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { DefaultFetchAdapter } from "@justjs/network"
 import { DefaultCacheAdapter } from "@justjs/transport"
 import { DefaultComponentRegistry, DefaultRouter, DefaultLifecycle } from "@justjs/application"
@@ -289,9 +290,11 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         // Initialize all 4 layers
         const fetchAdapter = new DefaultFetchAdapter()
         const cacheAdapter = new DefaultCacheAdapter()
-        const router = new DefaultRouter()
         const componentRegistry = new DefaultComponentRegistry()
-        const lifecycle = new DefaultLifecycle()
+        // justjs#56: DefaultLifecycle needs the registry to actually call
+        // Component.render() — registered below, before router.navigate()
+        // (which now drives lifecycle.run() for real) ever runs.
+        const lifecycle = new DefaultLifecycle(undefined, undefined, componentRegistry)
 
         interface DashboardWidget {
           id: number
@@ -317,11 +320,8 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           }
         )
 
-        // ACTUAL: Layer 3 (Application) — Navigate
-        await router.navigate("/dashboard")
-        expect(router.currentPath()).toBe("/dashboard")
-
-        // ACTUAL: Layer 3 — Register component
+        // ACTUAL: Layer 3 — Register component (before navigate, which now
+        // actually resolves and renders it via lifecycle.run() — justjs#56)
         let lastDashboardHtml = ""
         const dashboardComponent: Component = {
           name: "dashboard",
@@ -331,6 +331,31 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
           },
         }
         componentRegistry.register("x-dashboard", () => dashboardComponent)
+
+        // Scoped to just the router/DOM portion below: happy-dom's global
+        // registration overrides fetch/Response/Headers globally, which
+        // would break the real Bun.serve()-backed fetchAdapter.fetch() call
+        // further down if left registered — unregister before that runs.
+        GlobalRegistrator.register()
+        try {
+          // ACTUAL: real DOM element for the router's tag-based fallback
+          // lookup (no domAddressMap supplied in this test) to resolve.
+          document.body.appendChild(document.createElement("x-dashboard"))
+
+          const router = new DefaultRouter(
+            ["/dashboard"],
+            { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
+            lifecycle
+          )
+
+          // ACTUAL: Layer 3 (Application) — Navigate; drives
+          // lifecycle.run(), which resolves the real DOM element above and
+          // calls dashboardComponent.render() (justjs#56)
+          await router.navigate("/dashboard")
+          expect(router.currentPath()).toBe("/dashboard")
+        } finally {
+          await GlobalRegistrator.unregister()
+        }
 
         // ACTUAL: Layer 1 (Network) — Fetch real HTTP
         const response = await fetchAdapter.fetch({
