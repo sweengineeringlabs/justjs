@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
-import { adaptCustomElementRegistry, type LazyCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
-import { RegistryError } from "../api/registry.js"
+import { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
+import { RegistryError, type LazyCustomElementRegistry } from "../api/registry.js"
 
 class FakeCustomElement {
   readonly attributes: Record<string, string> = {}

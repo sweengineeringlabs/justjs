@@ -1,6 +1,7 @@
 import { observer } from './observability.js'
 import { boot } from './app.gen.ts'
-import { ROUTES, REGISTRY, DOM_ADDRESS_MAP } from './manifest.js'
+import { justjs } from '@justjs/application'
+import { ROUTES, REGISTRY, DOM_ADDRESS_MAP, COMPONENT_REGISTRY } from './manifest.js'
 import '../components/counter.js'
 import '../components/fetch-demo.js'
 import '../components/form-demo.js'
@@ -12,8 +13,22 @@ observer.log('Boot', '→', { event: 'app_init', layers: ['Network', 'Transport'
 // routes/registry/domAddressMap stand in for justweb-generated artifacts
 // this demo doesn't produce - see src/core/manifest.js and justjs#37.
 try {
-  await boot({ routes: ROUTES, registry: REGISTRY, domAddressMap: DOM_ADDRESS_MAP })
-  observer.log('Boot', '←', { event: 'justjs_boot_succeeded' })
+  await boot({
+    routes: ROUTES,
+    registry: REGISTRY,
+    domAddressMap: DOM_ADDRESS_MAP,
+    componentRegistry: COMPONENT_REGISTRY,
+  })
+  observer.log('Boot', '←', {
+    event: 'justjs_boot_succeeded',
+    // justjs#55: boot() is now a real composition root - confirms it
+    // actually built a working ComponentRegistry/Lifecycle/Router/ApiAdapter
+    // from this config, not just validated it.
+    componentRegistry: Boolean(justjs.componentRegistry),
+    lifecycle: Boolean(justjs.lifecycle),
+    router: Boolean(justjs.router),
+    apiAdapter: Boolean(justjs.apiAdapter),
+  })
 } catch (error) {
   observer.log('Boot', '✗', { event: 'justjs_boot_failed', message: String(error) })
   throw error

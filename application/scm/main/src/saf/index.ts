@@ -20,13 +20,12 @@ export type {
 } from "../api/boot.js"
 export { BootError } from "../api/boot.js"
 
-export type { Router } from "../api/registry.js"
+export type { Router, ComponentRegistry, LazyCustomElementRegistry } from "../api/registry.js"
 export { RegistryError } from "../api/registry.js"
 
 export type { DomAddressElement, DomAddressMap } from "../api/dom-address.js"
 
 export { DefaultComponentRegistry } from "../core/registry/component_registry.js"
-export type { LazyCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 export { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 export { DefaultRouter } from "../core/registry/router.js"
 export { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"

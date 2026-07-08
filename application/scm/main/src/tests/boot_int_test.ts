@@ -532,4 +532,121 @@ describe("Boot-time Validation — 4 ACs", () => {
       expect(weaveCalled).toBe(false)
     })
   })
+
+  describe("boot() is a real composition root (ADR-0002 D4)", () => {
+    class FakeCustomElement {
+      readonly attributes: Record<string, string> = {}
+      setAttribute(name: string, value: string): void {
+        this.attributes[name] = value
+      }
+      removeAttribute(name: string): void {
+        delete this.attributes[name]
+      }
+    }
+
+    it("test_boot_builds_a_real_component_registry_from_a_lazy_map", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-widget": { path: "/", component: "Widget" } },
+        domAddressMap: DDAS(["x-widget"]),
+        componentRegistry: {
+          "x-widget": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
+        },
+      }
+
+      await justjs.boot(config)
+
+      expect(justjs.componentRegistry).toBeDefined()
+      const component = await justjs.componentRegistry!.get("x-widget")
+      expect(component.name).toBe("x-widget")
+    })
+
+    it("test_boot_leaves_component_registry_undefined_when_none_supplied", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+      }
+      await justjs.boot(config)
+
+      expect(justjs.componentRegistry).toBeUndefined()
+    })
+
+    it("test_boot_always_builds_a_real_lifecycle_and_router", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+      }
+      await justjs.boot(config)
+
+      expect(justjs.lifecycle).toBeDefined()
+      expect(typeof justjs.lifecycle!.run).toBe("function")
+      expect(justjs.router).toBeDefined()
+      expect(typeof justjs.router!.navigate).toBe("function")
+    })
+
+    it("test_boot_defaults_api_adapter_to_a_real_working_default", async () => {
+      const server = Bun.serve({
+        port: 0,
+        async fetch(req) {
+          if (req.url.includes("/ping")) {
+            return new Response(JSON.stringify({ pong: true }), {
+              headers: { "content-type": "application/json" },
+            })
+          }
+          return new Response("Not found", { status: 404 })
+        },
+      })
+
+      try {
+        const justjs = JustJS.getInstance()
+        justjs.clearProviders()
+
+        const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+      }
+        await justjs.boot(config)
+
+        expect(justjs.apiAdapter).toBeDefined()
+        const result = await justjs.apiAdapter!.get<{ pong: boolean }>(`http://localhost:${server.port}/ping`)
+        expect(result.data.pong).toBe(true)
+      } finally {
+        server.stop()
+      }
+    })
+
+    it("test_boot_uses_a_caller_supplied_api_adapter_instead_of_the_default", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const customApiAdapter = {
+        get: async () => ({ status: 200, data: "custom", headers: {} }),
+        post: async () => ({ status: 200, data: "custom", headers: {} }),
+        put: async () => ({ status: 200, data: "custom", headers: {} }),
+        delete: async () => ({ status: 200, data: "custom", headers: {} }),
+      }
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        apiAdapter: customApiAdapter,
+      }
+      await justjs.boot(config)
+
+      expect(justjs.apiAdapter).toBe(customApiAdapter)
+    })
+  })
 })
