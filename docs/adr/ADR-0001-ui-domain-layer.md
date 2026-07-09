@@ -95,6 +95,22 @@ invariant. No workspace is exempt.
 | `saf/` | Service Abstraction Facade | Sole public export surface |
 | `spi/` | Service Provider Implementation | Extension hooks — providers self-register here |
 
+### `saf/index.ts` exports factories, not concrete classes
+
+"Never imported by consumers" (above) means `saf/index.ts` must not directly re-export a concrete `core/` class by name (`export { DefaultRouter } from "../core/registry/router.js"`) — a consumer holding a reference to the concrete class couples to internal details that should be free to change. Enforced as `interface.toml`'s `core_not_exported_directly` rule (`severity: error`); found unaudited and violated across 12 of 18 workspaces (justjs#26's own sign-off gate never actually checked it), fixed by wrapping every such export in a stable factory function returning the interface type instead:
+
+```typescript
+// saf/index.ts
+import type { Router } from "../api/registry.js"
+import { DefaultRouter } from "../core/registry/router.js"
+
+export function createRouter(/* ... */): Router {
+  return new DefaultRouter(/* ... */)
+}
+```
+
+**Exception:** a plain function (or a value whose own concrete class is never itself exported, like `justjs`/`measurementRegistry`, both typed as an interface at their declaration site) needs no wrapping — there's no concrete implementation to hide, since the function *is* the contract. Error subclasses (`BootError`, `RegistryError`, etc.) are exported directly throughout this repo for the same reason — `instanceof` checks need the real class, and there is no swappable "implementation" behind an error type to protect.
+
 ### Structure invariants
 
 These are the verifiable conditions that must hold for every workspace before sign-off.

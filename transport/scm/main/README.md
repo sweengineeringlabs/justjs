@@ -12,13 +12,14 @@ Depends on @justjs/network. Provides ApiAdapter and CacheAdapter for higher-leve
 ## Usage
 
 ```typescript
-import { ApiAdapter, CacheAdapter } from "@justjs/transport"
+import { createApiAdapter, createCacheAdapter } from "@justjs/transport"
+import { createFetchAdapter } from "@justjs/network"
 
-const api = new DefaultApiAdapter()
-const cache = new DefaultCacheAdapter()
+const api = createApiAdapter(createFetchAdapter())
+const cache = createCacheAdapter()
 
 const response = await api.post("/api/users", { name: "Alice" })
-const cached = await cache.get("users") || await api.get("/api/users")
+const cached = (await cache.get("users")) ?? (await api.get("/api/users")).data
 ```
 
 ## Stability
