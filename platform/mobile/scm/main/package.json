@@ -1,7 +1,7 @@
 {
   "name": "@justjs/platform-mobile",
   "version": "0.1.0",
-  "description": "JustJS mobile platform adapter — blocked: justweb#43",
+  "description": "JustJS mobile platform adapter — defaults to justscript_runtime's native Android shell bridge",
   "type": "module",
   "exports": {
     ".": {
@@ -18,6 +18,7 @@
     "@justjs/application": "^0.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "@happy-dom/global-registrator": "^15.0.0"
   }
 }

@@ -135,9 +135,7 @@ ${rendered.html}
       const isRealInstance = evalJson(
         "document.querySelector('x-hydration-counter') instanceof window.__HydrationCounter"
       )
-      // chromiumctl's --output json stringifies every eval result, booleans
-      // included (confirmed by hand) - "true", not the native boolean.
-      expect(isRealInstance).toBe("true")
+      expect(isRealInstance).toBe(true)
     } finally {
       chromiumctl(["stop", "--port", String(PORT)])
     }
