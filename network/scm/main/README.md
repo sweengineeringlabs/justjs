@@ -12,13 +12,13 @@ Zero runtime dependencies. Provides adapters over native browser APIs.
 ## Usage
 
 ```typescript
-import { FetchAdapter, WsAdapter } from "@justjs/network"
+import { createFetchAdapter, createWsAdapter } from "@justjs/network"
 
-const fetch = new DefaultFetchAdapter()
-const ws = new DefaultWsAdapter()
+const fetch = createFetchAdapter()
+const ws = createWsAdapter()
 
-const response = await fetch.fetch("https://api.example.com/data")
-const socket = ws.connect("wss://api.example.com/stream")
+const response = await fetch.fetch({ url: "https://api.example.com/data" })
+const socket = await ws.connect("wss://api.example.com/stream")
 ```
 
 ## Stability

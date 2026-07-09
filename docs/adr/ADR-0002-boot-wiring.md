@@ -1,6 +1,6 @@
 # ADR-0002: Boot wiring — resolving aspects, connecting the OSI chain, driving the lifecycle from a real navigation
 
-- **Status:** Proposed
+- **Status:** Implemented (justjs#52-#56, all closed)
 - **Date:** 2026-07-08
 
 ## Summary
@@ -170,6 +170,8 @@ get apiAdapter(): ApiAdapter { return this._apiAdapter }
 ```
 
 This is what makes `application` a real, non-optional consumer of `@justjs/network`/`@justjs/transport` — `boot.ts` now statically imports `DefaultFetchAdapter` (network) and `DefaultApiAdapter` (transport) to build the default. `@justjs/data` is deliberately **not** added as a dependency here — nothing in this design consumes it (see Scope).
+
+**Correction note (post-implementation):** a separate fix (`core_not_exported_directly`, `scm/config/arch/policy/rules/interface.toml`) later replaced every direct `Default*` class re-export from `saf/index.ts` across the repo with a stable factory function returning the interface type. The code sketches above (`new DefaultApiAdapter(new DefaultFetchAdapter())`, `new DefaultRouter(...)`, `new DefaultLifecycle(...)`) show the design as decided here; the actually-shipped `core/boot.ts` calls `createApiAdapter(createFetchAdapter())` (cross-package, via `@justjs/transport`/`@justjs/network`'s public factories) — `DefaultRouter`/`DefaultLifecycle` are still constructed via `new` internally, since that's same-package (`application`'s own `core/`) construction, which the fix didn't change. `Router`/`Lifecycle`/`ApiAdapter` getters' return types (`| undefined` before `boot()` runs) are unchanged by this.
 
 ## D5 — `DefaultRouter.navigate()` drives the lifecycle, including the missing DDAS→Element step
 

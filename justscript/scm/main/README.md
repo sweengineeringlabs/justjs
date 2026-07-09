@@ -59,9 +59,9 @@ using conn = makeDisposable(openConnection(), c => c.close())
 Install `@justscript/measurement` to track allocation counts:
 
 ```typescript
-import { AllocationCounter, measurementRegistry } from "@justscript/measurement"
+import { createAllocationCounter, measurementRegistry } from "@justscript/measurement"
 
-const counter = new AllocationCounter()
+const counter = createAllocationCounter()
 measurementRegistry.register(counter)
 
 ok(1); err("x"); some("y"); none()

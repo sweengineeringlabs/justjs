@@ -1,6 +1,6 @@
 # ADR-0003: Data-layer wiring — giving components real access to `FeatureStore`/`UIEventBus`
 
-- **Status:** Proposed
+- **Status:** Implemented (justjs#57-#59, all closed)
 - **Date:** 2026-07-08
 
 ## Summary
