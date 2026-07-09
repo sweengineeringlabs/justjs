@@ -73,6 +73,43 @@ describe("lifecycle", () => {
     expect(mounted[0]?.element).toBe(element)
   })
 
+  it("test_rerender_skips_mount_so_a_runtime_adapters_mount_side_effect_does_not_repeat (justjs#65)", async () => {
+    const mounted: Array<{ ddasId: string; element: Element }> = []
+    const runtimeAdapter: RuntimeAdapter = {
+      mount(ddasId: string, element: Element): MountHandle {
+        mounted.push({ ddasId, element })
+        return { unmount() {} }
+      },
+    }
+    const domAddressMap: DomAddressMap = {
+      elements: { "app:home:x-button:root": { component: "button", tag: "x-button" } },
+    }
+    let renderCount = 0
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => ({
+      name: "button",
+      render() {
+        renderCount++
+      },
+    }))
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+    const element = { tagName: "div" } as unknown as Element
+    const ctx: ComponentContext = { tag: "x-button", props: {}, element }
+
+    await lifecycle.run(ctx)
+    expect(mounted).toHaveLength(1)
+    expect(renderCount).toBe(1)
+
+    await lifecycle.rerender(ctx)
+    await lifecycle.rerender(ctx)
+
+    // mount() must not repeat - the whole point of rerender() - but render()
+    // must still run every time, or this "fix" would just be silently
+    // breaking reactivity instead of narrowing it correctly.
+    expect(mounted).toHaveLength(1)
+    expect(renderCount).toBe(3)
+  })
+
   it("test_mount_step_resolves_against_a_real_justweb_generated_dom_address_map", async () => {
     // Captured verbatim from a real `justw init test-app --features home` +
     // `justw generate app` run (justjs#39/#49, justweb#56) - not a

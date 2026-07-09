@@ -363,4 +363,60 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     expect(errorSpy).toHaveBeenCalled()
   })
+
+  it("test_a_store_triggered_rerender_does_not_repeat_the_runtime_adapters_mount_side_effect (justjs#65)", async () => {
+    const store = createFeatureStore<{ count: number }, { type: "INCREMENT" }>(
+      { count: 0 },
+      (state, action) => (action.type === "INCREMENT" ? { count: state.count + 1 } : state)
+    )
+
+    const mounted: string[] = []
+    const runtimeAdapter = {
+      mount(ddasId: string) {
+        mounted.push(ddasId)
+        return { unmount() {} }
+      },
+    }
+    let renderCount = 0
+    const component: Component = {
+      name: "dashboard",
+      render() {
+        renderCount++
+      },
+    }
+
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => component)
+    const domAddressMap: DomAddressMap = {
+      elements: { "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" } },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:dashboard:root")
+    document.body.appendChild(target)
+
+    const router = new DefaultRouter(
+      ["/dashboard"],
+      { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
+      lifecycle,
+      domAddressMap,
+      store
+    )
+
+    await router.navigate("/dashboard")
+    expect(mounted).toHaveLength(1)
+    expect(renderCount).toBe(1)
+
+    store.dispatch({ type: "INCREMENT" })
+    await flush()
+    store.dispatch({ type: "INCREMENT" })
+    await flush()
+
+    // The real ADR-0004 store-subscription path, not a direct rerender()
+    // call - proves DefaultRouter itself calls rerender(), not run(), for
+    // its store-triggered re-render.
+    expect(mounted).toHaveLength(1)
+    expect(renderCount).toBe(3)
+  })
 })

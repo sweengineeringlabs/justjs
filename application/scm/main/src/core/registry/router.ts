@@ -93,10 +93,13 @@ export class DefaultRouter implements Router {
     // for as long as it stays the current route. DefaultComponentRegistry
     // memoizes the resolved Component per tag, so this re-run hits the same
     // instance and reads fresh state directly off ctx.store - no stale
-    // closures.
+    // closures. Uses rerender() (justjs#65), not run() - ctx is already
+    // resolved and mounted from the navigate() call just above, so re-running
+    // resolve/mount would repeat a RuntimeAdapter's mount() side effects on
+    // every store change instead of once at real navigation time.
     if (this.featureStore) {
       this.unsubscribeStore = this.featureStore.subscribe(() => {
-        this.lifecycle.run(ctx).catch((error: unknown) => {
+        this.lifecycle.rerender(ctx).catch((error: unknown) => {
           console.error(`Error re-rendering "${path}" after a store change:`, error)
         })
       })

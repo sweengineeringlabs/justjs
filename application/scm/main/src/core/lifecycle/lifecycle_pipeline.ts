@@ -154,6 +154,10 @@ export class UnmountStep implements LifecycleStep {
 
 export class DefaultLifecycle implements Lifecycle {
   private steps: LifecycleStep[]
+  // Render+Update only (justjs#65) - the same step instances run() uses, not
+  // separate copies, since RenderStep/UpdateStep carry no run-to-run mutable
+  // state of their own (registry/errorBoundary are constructor-fixed).
+  private rerenderSteps: LifecycleStep[]
 
   constructor(
     domAddressMap?: DomAddressMap,
@@ -161,17 +165,28 @@ export class DefaultLifecycle implements Lifecycle {
     registry?: ComponentRegistry,
     errorBoundary?: ErrorBoundary
   ) {
+    const renderStep = new RenderStep(registry, errorBoundary)
+    const updateStep = new UpdateStep(registry, errorBoundary)
     this.steps = [
       new ResolveStep(),
       new MountStep(domAddressMap, runtimeAdapter),
-      new RenderStep(registry, errorBoundary),
-      new UpdateStep(registry, errorBoundary),
+      renderStep,
+      updateStep,
       new UnmountStep(),
     ]
+    this.rerenderSteps = [renderStep, updateStep]
   }
 
   async run(ctx: ComponentContext): Promise<void> {
-    for (const step of this.steps) {
+    await this.runSteps(this.steps, ctx)
+  }
+
+  async rerender(ctx: ComponentContext): Promise<void> {
+    await this.runSteps(this.rerenderSteps, ctx)
+  }
+
+  private async runSteps(steps: readonly LifecycleStep[], ctx: ComponentContext): Promise<void> {
+    for (const step of steps) {
       try {
         await step.execute(ctx)
       } catch (error) {

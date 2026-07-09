@@ -1,6 +1,6 @@
 # ADR-0004: Automatic re-render when the shared FeatureStore changes
 
-- **Status:** Proposed
+- **Status:** Implemented (justjs#61, closed; justjs#65 follow-up also closed)
 - **Date:** 2026-07-09
 
 ## Summary
@@ -22,7 +22,7 @@ Two real reasons, not just deferral:
 - Fine-grained/selector-based reactivity (only re-render if a specific slice of state changed, à la Redux's `connect`/`useSelector`). Needs its own design once real usage shows whether coarse-grained (re-render on any change) is actually too expensive in practice.
 - Multiple simultaneously-mounted, independently-reactive components. `DefaultRouter` models one current route at a time today (confirmed: `currentRoute` is a single field, not a set) — this ADR doesn't change that.
 - Any change to justweb's own per-component prop/state reactivity (#1 above) — already real, untouched.
-- Optimizing the re-run to just `UpdateStep` instead of the full pipeline — noted as a known limitation below, not solved here.
+- Optimizing the re-run to just `UpdateStep` instead of the full pipeline — noted as a known limitation below at the time of writing; resolved by justjs#65 (see that section's update).
 
 ## Decision
 
@@ -50,7 +50,10 @@ export class DefaultRouter implements Router {
 
     if (this.featureStore) {
       this.unsubscribeStore = this.featureStore.subscribe(() => {
-        this.lifecycle.run(ctx).catch((error) => {
+        // rerender(), not run() - see justjs#65 below; this snippet is kept
+        // updated to match what actually shipped, not left as the original
+        // (superseded) sketch.
+        this.lifecycle.rerender(ctx).catch((error) => {
           console.error(`Error re-rendering "${path}" after a store change:`, error)
         })
       })
@@ -69,19 +72,20 @@ Because `DefaultComponentRegistry.get()` memoizes the resolved `Component` insta
 
 ## Known limitations (disclosed, not papered over)
 
-- **Full pipeline re-run, not just `Update`.** Every store change re-runs `ResolveStep`/`MountStep` too, not just `RenderStep`/`UpdateStep`. Harmless for the shipped `NoopRuntimeAdapter` (its `mount()` is a no-op) and for `DefaultComponentRegistry` (memoized, so no re-construction cost) — but a **custom** `RuntimeAdapter` whose `mount()` has side effects (e.g. registering something) would have those side effects repeat on every store change. Not a problem today since only the noop adapter ships; flagged for whoever builds the next one.
+- ~~**Full pipeline re-run, not just `Update`.**~~ **Resolved by justjs#65.** `Lifecycle` gained a `rerender(ctx)` method (alongside `run(ctx)`) that runs only `RenderStep`/`UpdateStep`, skipping `ResolveStep`/`MountStep`/`UnmountStep` — `DefaultRouter`'s store-subscription callback calls `rerender()`, not `run()`. A custom `RuntimeAdapter`'s `mount()` side effect now fires once at real navigation time, never again on a store change. See `application/api/lifecycle.ts` and `core/lifecycle/lifecycle_pipeline.ts`.
 - **Coarse-grained.** Any change to the store re-renders the current view, regardless of whether the view actually reads the part of state that changed. Acceptable for a first cut; revisit if a real app shows this is too expensive.
 - **One active subscription at a time**, matching `DefaultRouter`'s existing single-current-route model — not a new limitation this ADR introduces, just inherited from what's already there.
 
 ## Acceptance criteria
 
-- [ ] `DefaultRouter.navigate()` subscribes to `this.featureStore` (when present) after a successful navigation, and unsubscribes the previous route's subscription first
-- [ ] Test: `store.dispatch()` called after `navigate()` (not through the router) results in the mounted component's `render()` being called again, against the same DOM element, verified via `happy-dom`
-- [ ] Test: navigating to a **different** route stops the previous route's component from re-rendering on further store changes (subscription cleanup verified, not just assumed)
-- [ ] Test: an error thrown inside a store-triggered re-render is logged, not left as an unhandled rejection
-- [ ] No regression to ADR-0002/ADR-0003's existing tests
+- [x] `DefaultRouter.navigate()` subscribes to `this.featureStore` (when present) after a successful navigation, and unsubscribes the previous route's subscription first
+- [x] Test: `store.dispatch()` called after `navigate()` (not through the router) results in the mounted component's `render()` being called again, against the same DOM element, verified via `happy-dom`
+- [x] Test: navigating to a **different** route stops the previous route's component from re-rendering on further store changes (subscription cleanup verified, not just assumed)
+- [x] Test: an error thrown inside a store-triggered re-render is logged, not left as an unhandled rejection
+- [x] No regression to ADR-0002/ADR-0003's existing tests
 
 ## Relates to
 
 - ADR-0003 (`docs/adr/ADR-0003-data-layer-wiring.md`) — the Scope section that deferred this
 - justweb#52 — the per-component prop/state reactivity this ADR deliberately doesn't touch or duplicate
+- justjs#65 — resolved the full-pipeline-re-run known limitation above

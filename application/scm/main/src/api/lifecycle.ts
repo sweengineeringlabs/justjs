@@ -24,6 +24,14 @@ export interface LifecycleStep {
 
 export interface Lifecycle {
   run(ctx: ComponentContext): Promise<void>
+
+  // Re-runs only render()/update() against an already-mounted ctx - skips
+  // resolve/mount/unmount, which have nothing new to do for a ctx that a
+  // prior run() already resolved and mounted (justjs#65). Used for the
+  // ADR-0004 store-subscribed re-render, so a RuntimeAdapter's mount() side
+  // effects fire once at real navigation time, not again on every
+  // unrelated store change.
+  rerender(ctx: ComponentContext): Promise<void>
 }
 
 export class LifecycleError extends Error {
