@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, watchFile, existsSync } from "fs"
 import { resolve, dirname } from "path"
 import type {
   JustJSConfig,
+  AspectTargetConfig,
   SecurityConfig,
   ObservabilityConfig,
   FlagsConfig,
@@ -12,6 +13,32 @@ import type {
 } from "../api/config.js"
 import { CodegenError } from "../api/config.js"
 import { parseToml } from "./toml-parser.js"
+
+// Generated shape @justjs/application's BootConfig.aspects actually reads
+// (AspectConfig in application/api/boot.ts) - split routes/components, each
+// an optional {on?, except?}. Only present when the TOML config declared at
+// least one of the corresponding on_*/except_* keys, so a concern with no
+// targeting at all generates `{ strategy }` rather than `{ strategy, routes:
+// {}, components: {} }`.
+function toAspectConfig(config: { strategy: string } & AspectTargetConfig): Record<string, unknown> {
+  const aspectConfig: Record<string, unknown> = { strategy: config.strategy }
+
+  if (config.on_routes || config.except_routes) {
+    aspectConfig.routes = {
+      ...(config.on_routes ? { on: config.on_routes } : {}),
+      ...(config.except_routes ? { except: config.except_routes } : {}),
+    }
+  }
+
+  if (config.on_components || config.except_components) {
+    aspectConfig.components = {
+      ...(config.on_components ? { on: config.on_components } : {}),
+      ...(config.except_components ? { except: config.except_components } : {}),
+    }
+  }
+
+  return aspectConfig
+}
 
 const APP_ROOT = process.cwd()
 const CONFIG_PATH = resolve(APP_ROOT, "justjs.config.toml")
@@ -73,6 +100,7 @@ export function generateCodeWithStrategies(
 ): GeneratedOutput {
   const imports: string[] = []
   const bootConfig: Record<string, unknown> = {}
+  const aspects: Record<string, unknown> = {}
 
   if (config.security) {
     const strategyKey = `@justjs/aop-security-${config.security.strategy}`
@@ -82,7 +110,7 @@ export function generateCodeWithStrategies(
       )
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.security = config.security
+    aspects.security = toAspectConfig(config.security)
   }
 
   if (config.observability) {
@@ -93,7 +121,7 @@ export function generateCodeWithStrategies(
       )
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.observability = config.observability
+    aspects.observability = toAspectConfig(config.observability)
   }
 
   if (config.flags) {
@@ -104,7 +132,7 @@ export function generateCodeWithStrategies(
       )
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.flags = config.flags
+    aspects.flags = toAspectConfig(config.flags)
   }
 
   if (config.analytics) {
@@ -115,7 +143,7 @@ export function generateCodeWithStrategies(
       )
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.analytics = config.analytics
+    aspects.analytics = toAspectConfig(config.analytics)
   }
 
   if (config.theming) {
@@ -126,7 +154,7 @@ export function generateCodeWithStrategies(
       )
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.theming = config.theming
+    aspects.theming = toAspectConfig(config.theming)
   }
 
   if (config.i18n) {
@@ -135,7 +163,11 @@ export function generateCodeWithStrategies(
       throw new CodegenError(`Unknown i18n strategy: ${config.i18n.strategy}`)
     }
     imports.push(`import "${strategyKey}"`)
-    bootConfig.i18n = config.i18n
+    aspects.i18n = toAspectConfig(config.i18n)
+  }
+
+  if (Object.keys(aspects).length > 0) {
+    bootConfig.aspects = aspects
   }
 
   const importsStr = imports.length

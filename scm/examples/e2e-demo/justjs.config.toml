@@ -2,7 +2,7 @@
 
 [security]
 strategy = "oauth"
-on = ["/dashboard", "/account"]
+on_routes = ["/dashboard", "/account"]
 
 [observability]
 strategy = "datadog"

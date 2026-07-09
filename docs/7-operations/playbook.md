@@ -50,15 +50,23 @@ import { BearerTokenProvider } from "./spi/security/bearer_token_guard.js"
 aspectRegistry.register(BearerTokenProvider)
 
 JustJS.boot({
-  security: { strategy: "bearer-token", on: ["/dashboard"] },
+  aspects: {
+    security: { strategy: "bearer-token", routes: { on: ["/dashboard"] } },
+  },
   // ...
 })
 ```
 
 **4. Declare in boot config by strategy name — never by import**
 
+Every aspect is declared under a single nested `aspects` map — `BootConfig`
+has no top-level `security`/`observability`/etc. fields (justjs#54, and see
+justjs#60 for what happens when a config-generating layer forgets this):
+
 ```typescript
-security: { strategy: "bearer-token", on: ["/dashboard"] }
+aspects: {
+  security: { strategy: "bearer-token", routes: { on: ["/dashboard"] } },
+}
 ```
 
 **Checklist:**

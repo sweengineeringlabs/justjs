@@ -7,41 +7,41 @@ export interface JustJSConfig {
   readonly i18n?: I18nConfig
 }
 
-export interface SecurityConfig {
-  readonly strategy: string
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
+// Split routes-vs-components targeting, matching @justjs/application's
+// AspectConfig shape exactly (routes: {on?, except?} / components: {on?,
+// except?}) - a single flat `on`/`except` is ambiguous about whether its
+// entries are route paths or component tags (justjs#60). TOML-authored, so
+// snake_case keys read naturally in justjs.config.toml.
+export interface AspectTargetConfig {
+  readonly on_routes?: readonly string[]
+  readonly on_components?: readonly string[]
+  readonly except_routes?: readonly string[]
+  readonly except_components?: readonly string[]
 }
 
-export interface ObservabilityConfig {
+export interface SecurityConfig extends AspectTargetConfig {
+  readonly strategy: string
+}
+
+export interface ObservabilityConfig extends AspectTargetConfig {
   readonly strategy: string
   readonly all?: boolean
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
 }
 
-export interface FlagsConfig {
+export interface FlagsConfig extends AspectTargetConfig {
   readonly strategy: string
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
 }
 
-export interface AnalyticsConfig {
+export interface AnalyticsConfig extends AspectTargetConfig {
   readonly strategy: string
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
 }
 
-export interface ThemingConfig {
+export interface ThemingConfig extends AspectTargetConfig {
   readonly strategy: string
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
 }
 
-export interface I18nConfig {
+export interface I18nConfig extends AspectTargetConfig {
   readonly strategy: string
-  readonly on?: readonly string[]
-  readonly except?: readonly string[]
 }
 
 export class CodegenError extends Error {
