@@ -1,4 +1,5 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 import { RegistryError, type LazyCustomElementRegistry } from "../api/registry.js"
 
@@ -137,5 +138,100 @@ describe("component_registry_adapter", () => {
   it("test_adapter_get_rejects_unregistered_tag", async () => {
     const registry = adaptCustomElementRegistry({})
     await expect(registry.get("x-missing")).rejects.toThrow(RegistryError)
+  })
+})
+
+// Every test above uses FakeCustomElement/FakeContainer - plain JS classes,
+// not real HTMLElement subclasses. `new FakeCustomElement()` is unconditionally
+// legal, so none of them exercise what a real DOM actually does when
+// constructing an autonomous custom element class. That gap let a real bug
+// ship silently (justjs#64): against a real DOM, `new ElementCtor()` throws
+// "Illegal constructor" unless `customElements.define()` has already run for
+// that class - confirmed by hand while building ADR-0005. This block runs
+// the same adapter against a real `happy-dom` DOM and a genuine
+// `HTMLElement` subclass, deliberately never registered by the test itself,
+// to prove the adapter's own guarded `customElements.define()` call (added
+// to fix justjs#64) is what makes construction succeed.
+describe("component_registry_adapter against a real DOM (justjs#64 regression)", () => {
+  beforeAll(() => {
+    GlobalRegistrator.register()
+  })
+
+  afterAll(async () => {
+    await GlobalRegistrator.unregister()
+  })
+
+  it("test_adapter_constructs_a_real_never_registered_custom_element_class_without_throwing", async () => {
+    let connectedCount = 0
+    class RealCounter extends HTMLElement {
+      connectedCallback() {
+        connectedCount++
+        const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" })
+        shadow.innerHTML = `<span>${this.getAttribute("count") ?? "0"}</span>`
+      }
+    }
+    // Deliberately no customElements.define("x-real-counter", RealCounter)
+    // here - proving the adapter itself handles it, not the test.
+    const source: LazyCustomElementRegistry = {
+      "x-real-counter": () => Promise.resolve(RealCounter as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = document.createElement("div")
+    document.body.appendChild(container) // connectedCallback only fires once actually connected
+
+    const component = await registry.get("x-real-counter")
+    await component.render({ count: "5" }, container)
+
+    expect(container.children).toHaveLength(1)
+    expect(container.firstElementChild).toBeInstanceOf(RealCounter)
+    expect(connectedCount).toBe(1)
+    expect(container.firstElementChild?.shadowRoot?.innerHTML).toBe("<span>5</span>")
+  })
+
+  it("test_adapter_reuses_the_real_instance_across_repeated_renders_against_a_real_dom", async () => {
+    class RealBadge extends HTMLElement {
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: "open" })
+      }
+    }
+    const source: LazyCustomElementRegistry = {
+      "x-real-badge": () => Promise.resolve(RealBadge as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+
+    const component = await registry.get("x-real-badge")
+    await component.render({ label: "first" }, container)
+    const firstElement = container.firstElementChild
+    await component.render({ label: "second" }, container)
+
+    expect(container.firstElementChild).toBe(firstElement)
+    expect(container.firstElementChild?.getAttribute("label")).toBe("second")
+  })
+
+  it("test_adapter_does_not_throw_when_the_same_tag_is_resolved_a_second_time", async () => {
+    // A second adaptCustomElementRegistry() call for the same tag+class must
+    // not hit customElements.define()'s "already defined" error - the
+    // adapter's own customElements.get(tag) guard must handle this, since a
+    // real app's boot() can plausibly build more than one registry instance
+    // against the same underlying LazyCustomElementRegistry.
+    class RealPanel extends HTMLElement {
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: "open" })
+      }
+    }
+    const load = () => Promise.resolve(RealPanel as unknown as CustomElementConstructor)
+
+    const firstRegistry = adaptCustomElementRegistry({ "x-real-panel": load })
+    const firstComponent = await firstRegistry.get("x-real-panel")
+    firstComponent.render({}, document.createElement("div"))
+
+    const secondRegistry = adaptCustomElementRegistry({ "x-real-panel": load })
+    const secondComponent = await secondRegistry.get("x-real-panel")
+    // render() is synchronous (void, not Promise<void>) - a synchronous
+    // "already defined" DOMException would throw here directly, not as a
+    // rejected promise, so this must be a sync throw assertion, not `.rejects`.
+    expect(() => secondComponent.render({}, document.createElement("div"))).not.toThrow()
   })
 })

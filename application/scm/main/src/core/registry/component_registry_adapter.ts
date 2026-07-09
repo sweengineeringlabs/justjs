@@ -43,6 +43,20 @@ export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): M
   for (const [tag, load] of Object.entries(source)) {
     registry.register(tag, async (): Promise<Component> => {
       const ElementCtor = await load()
+      // `new ElementCtor()` below throws "Illegal constructor" against a real
+      // DOM for an autonomous custom element class that was never passed to
+      // customElements.define() — confirmed against happy-dom while building
+      // ADR-0005 (justjs#63/#64). Self-registering here, rather than assuming
+      // the module behind `load()` already did it, matches the same fix
+      // applied in @justjs/ssr's renderComponent() (tooling/ssr/scm/main/src/
+      // core/renderer.ts) so both server- and client-side construction of the
+      // same class are equally safe regardless of that module's own behavior.
+      // Guarded on `customElements` existing at all — this codebase's own
+      // non-DOM unit tests construct plain JS stand-ins with no global DOM
+      // present, and must keep working unchanged.
+      if (typeof customElements !== "undefined" && !customElements.get(tag)) {
+        customElements.define(tag, ElementCtor)
+      }
       let previousKeys = new Set<string>()
       return {
         name: tag,
