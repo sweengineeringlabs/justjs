@@ -202,9 +202,10 @@
       "name": "@justjs/ssr",
       "version": "0.1.0",
       "dependencies": {
-        "@justjs/application": "workspace:*",
+        "@justjs/application": "^0.1.0",
       },
       "devDependencies": {
+        "@happy-dom/global-registrator": "^15.0.0",
         "@types/node": "^20.10.0",
         "typescript": "^5.5.0",
       },

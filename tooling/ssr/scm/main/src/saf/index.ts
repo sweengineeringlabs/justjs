@@ -2,7 +2,7 @@ export type {
   ComponentProps,
   ComponentSlot,
   RenderedComponent,
-  ComponentDefinition,
+  LazyCustomElementLoader,
 } from "../api/component.js"
 export { SSRError } from "../api/component.js"
 export {

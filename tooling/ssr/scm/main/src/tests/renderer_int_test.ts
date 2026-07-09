@@ -1,32 +1,63 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import {
   escapeHtml,
   renderComponent,
   renderDeclarativeShadowDom,
 } from "../core/renderer.js"
-import type { ComponentDefinition, ComponentProps } from "../api/component.js"
 import { SSRError } from "../api/component.js"
 
-const mockButton: ComponentDefinition = {
-  renderShadowDom(props: ComponentProps) {
-    const label = props.label ?? "Button"
-    return `<button>${escapeHtml(String(label))}</button>`
-  },
+// renderComponent() constructs a real CustomElementConstructor against
+// whatever DOM global is already registered (ADR-0005) — one register per
+// test file, matching @justjs/application's own tests, not per render call.
+beforeAll(() => {
+  GlobalRegistrator.register()
+})
+
+afterAll(async () => {
+  await GlobalRegistrator.unregister()
+})
+
+let cachedMockButton: CustomElementConstructor | undefined
+async function loadMockButton(): Promise<CustomElementConstructor> {
+  if (!cachedMockButton) {
+    class MockButton extends HTMLElement {
+      connectedCallback() {
+        const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" })
+        const label = this.getAttribute("label") ?? "Button"
+        shadow.innerHTML = `<button>${escapeHtml(label)}</button>`
+      }
+    }
+    cachedMockButton = MockButton
+  }
+  return cachedMockButton
 }
 
-const mockCard: ComponentDefinition = {
-  renderShadowDom(props: ComponentProps) {
-    const title = props.title ?? "Card"
-    return `<div class="card">
-  <h2>${escapeHtml(String(title))}</h2>
+let cachedMockCard: CustomElementConstructor | undefined
+async function loadMockCard(): Promise<CustomElementConstructor> {
+  if (!cachedMockCard) {
+    class MockCard extends HTMLElement {
+      connectedCallback() {
+        const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" })
+        const title = this.getAttribute("title") ?? "Card"
+        shadow.innerHTML = `<div class="card">
+  <h2>${escapeHtml(title)}</h2>
   <slot></slot>
 </div>`
-  },
-  renderSlots(slots) {
-    return slots
-      .map((slot) => `<div slot="${escapeHtml(slot.name)}">${slot.content}</div>`)
-      .join("")
-  },
+      }
+    }
+    cachedMockCard = MockCard
+  }
+  return cachedMockCard
+}
+
+async function loadThrowingComponent(): Promise<CustomElementConstructor> {
+  class Throwing extends HTMLElement {
+    connectedCallback() {
+      throw new Error("boom")
+    }
+  }
+  return Throwing
 }
 
 describe("ssr", () => {
@@ -53,24 +84,45 @@ describe("ssr", () => {
   })
 
   describe("renderComponent", () => {
-    it("test_render_button_with_label", () => {
-      const result = renderComponent("x-button", mockButton, { label: "Click me" })
+    it("test_render_button_with_label", async () => {
+      const result = await renderComponent("x-button", loadMockButton, { label: "Click me" })
 
       expect(result.tag).toBe("x-button")
-      expect(result.html).toContain('<x-button>')
-      expect(result.html).toContain('</x-button>')
+      expect(result.html).toContain("<x-button>")
+      expect(result.html).toContain("</x-button>")
       expect(result.html).toContain('<template shadowrootmode="open">')
       expect(result.html).toContain("<button>Click me</button>")
     })
 
-    it("test_render_component_with_default_props", () => {
-      const result = renderComponent("x-button", mockButton)
+    it("test_render_component_with_default_props", async () => {
+      const result = await renderComponent("x-button", loadMockButton)
 
       expect(result.html).toContain("<button>Button</button>")
     })
 
-    it("test_render_component_with_slots", () => {
-      const result = renderComponent("x-card", mockCard, { title: "My Card" }, [
+    it("test_render_constructs_the_real_class_not_a_hand_written_duplicate", async () => {
+      // Proves renderComponent() is driven by the actual class's own
+      // connectedCallback logic (ADR-0005), not a parallel string template a
+      // developer could let drift out of sync — changing what the class
+      // itself renders changes the SSR output with no second implementation
+      // to update.
+      let renderCount = 0
+      class CountingButton extends HTMLElement {
+        connectedCallback() {
+          renderCount++
+          const shadow = this.attachShadow({ mode: "open" })
+          shadow.innerHTML = `<button>rendered ${renderCount} time(s)</button>`
+        }
+      }
+
+      const result = await renderComponent("x-counting-button", async () => CountingButton, {})
+
+      expect(renderCount).toBe(1)
+      expect(result.shadowDom).toBe("<button>rendered 1 time(s)</button>")
+    })
+
+    it("test_render_component_with_slots", async () => {
+      const result = await renderComponent("x-card", loadMockCard, { title: "My Card" }, [
         { name: "content", content: "<p>Hello</p>" },
       ])
 
@@ -80,21 +132,28 @@ describe("ssr", () => {
       expect(result.lightDom[0]).toEqual({ name: "content", content: "<p>Hello</p>" })
     })
 
-    it("test_render_invalid_tag_throws_error", () => {
-      expect(() =>
-        renderComponent("button", mockButton, {})
-      ).toThrow(SSRError)
+    it("test_render_invalid_tag_throws_error", async () => {
+      await expect(renderComponent("button", loadMockButton, {})).rejects.toThrow(SSRError)
     })
 
-    it("test_shadow_dom_contains_proper_formatting", () => {
-      const result = renderComponent("x-button", mockButton, { label: "Test" })
+    it("test_render_propagates_a_component_construction_error", async () => {
+      // No ErrorBoundary concept exists in @justjs/ssr (ADR-0005 is scoped to
+      // string output, not the @justjs/application Lifecycle) - a component
+      // that throws during connectedCallback fails the render outright.
+      await expect(renderComponent("x-throwing", loadThrowingComponent, {})).rejects.toThrow(
+        "boom"
+      )
+    })
+
+    it("test_shadow_dom_contains_proper_formatting", async () => {
+      const result = await renderComponent("x-button", loadMockButton, { label: "Test" })
 
       expect(result.html).toContain('shadowrootmode="open"')
       expect(result.shadowDom).toBe("<button>Test</button>")
     })
 
-    it("test_render_escapes_xss_in_props", () => {
-      const result = renderComponent("x-button", mockButton, {
+    it("test_render_escapes_xss_in_props", async () => {
+      const result = await renderComponent("x-button", loadMockButton, {
         label: '<script>alert("xss")</script>',
       })
 
