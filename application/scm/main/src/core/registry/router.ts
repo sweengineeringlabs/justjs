@@ -36,6 +36,11 @@ export class DefaultRouter implements Router {
   // navigation moves on - otherwise a store change would keep re-rendering
   // a view that's no longer current.
   private unsubscribeStore: (() => void) | undefined
+  // justjs#67: the previously-mounted route's ctx, so it can be unmounted
+  // (its RuntimeAdapter's MountHandle cleaned up) when navigating to a
+  // genuinely different route - undefined before the first successful
+  // navigate() call.
+  private currentCtx: ComponentContext | undefined
 
   constructor(
     private readonly routes: readonly string[],
@@ -85,9 +90,20 @@ export class DefaultRouter implements Router {
     this.unsubscribeStore?.()
     this.unsubscribeStore = undefined
 
+    // justjs#67: unmount the previous route's ctx (releasing its
+    // RuntimeAdapter's MountHandle) only when actually leaving it for a
+    // different route - re-navigating to the same route re-renders in
+    // place (matching adaptCustomElementRegistry's element-reuse behavior),
+    // not a tear-down-and-remount.
+    if (path !== this.currentRoute && this.currentCtx) {
+      await this.lifecycle.unmount(this.currentCtx)
+      this.currentCtx = undefined
+    }
+
     this.currentRoute = path
     const ctx = this.buildContext(tag, element, props)
     await this.lifecycle.run(ctx)
+    this.currentCtx = ctx
 
     // ADR-0004: re-render this same view whenever the shared store changes,
     // for as long as it stays the current route. DefaultComponentRegistry

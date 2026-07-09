@@ -419,4 +419,92 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
     expect(mounted).toHaveLength(1)
     expect(renderCount).toBe(3)
   })
+
+  it("test_navigating_to_a_different_route_unmounts_the_previous_routes_mount_handle (justjs#67)", async () => {
+    const dashboardUnmounts: number[] = []
+    const settingsUnmounts: number[] = []
+    const runtimeAdapter = {
+      mount(ddasId: string) {
+        return {
+          unmount() {
+            if (ddasId === "app:home:dashboard:root") dashboardUnmounts.push(1)
+            if (ddasId === "app:home:settings:root") settingsUnmounts.push(1)
+          },
+        }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => ({ name: "dashboard", render() {} }))
+    registry.register("x-settings", () => ({ name: "settings", render() {} }))
+    const domAddressMap: DomAddressMap = {
+      elements: {
+        "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" },
+        "app:home:settings:root": { component: "settings", tag: "x-settings" },
+      },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const dashboardTarget = document.createElement("x-dashboard")
+    dashboardTarget.setAttribute("data-ddas-id", "app:home:dashboard:root")
+    document.body.appendChild(dashboardTarget)
+    const settingsTarget = document.createElement("x-settings")
+    settingsTarget.setAttribute("data-ddas-id", "app:home:settings:root")
+    document.body.appendChild(settingsTarget)
+
+    const router = new DefaultRouter(
+      ["/dashboard", "/settings"],
+      {
+        "x-dashboard": { path: "/dashboard", component: "dashboard" },
+        "x-settings": { path: "/settings", component: "settings" },
+      },
+      lifecycle,
+      domAddressMap
+    )
+
+    await router.navigate("/dashboard")
+    expect(dashboardUnmounts).toHaveLength(0)
+
+    await router.navigate("/settings")
+    // Leaving /dashboard for a genuinely different route unmounts its handle.
+    expect(dashboardUnmounts).toHaveLength(1)
+    expect(settingsUnmounts).toHaveLength(0)
+  })
+
+  it("test_renavigating_to_the_same_route_does_not_unmount (justjs#67)", async () => {
+    const unmounts: number[] = []
+    const runtimeAdapter = {
+      mount() {
+        return {
+          unmount() {
+            unmounts.push(1)
+          },
+        }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => ({ name: "dashboard", render() {} }))
+    const domAddressMap: DomAddressMap = {
+      elements: { "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" } },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:dashboard:root")
+    document.body.appendChild(target)
+
+    const router = new DefaultRouter(
+      ["/dashboard"],
+      { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
+      lifecycle,
+      domAddressMap
+    )
+
+    await router.navigate("/dashboard")
+    await router.navigate("/dashboard")
+
+    // Re-navigating to the same route re-renders in place, matching
+    // adaptCustomElementRegistry's element-reuse behavior - it must not be
+    // treated as a tear-down-and-remount.
+    expect(unmounts).toHaveLength(0)
+  })
 })

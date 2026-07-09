@@ -1,4 +1,4 @@
-import type { ComponentContext, ComponentDataContext, RuntimeAdapter } from "../../api/component.js"
+import type { ComponentContext, ComponentDataContext, MountHandle, RuntimeAdapter } from "../../api/component.js"
 import { NoopRuntimeAdapter } from "../../api/component.js"
 import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
@@ -36,7 +36,12 @@ export class ResolveStep implements LifecycleStep {
 export class MountStep implements LifecycleStep {
   constructor(
     private readonly domAddressMap?: DomAddressMap,
-    private readonly runtimeAdapter: RuntimeAdapter = new NoopRuntimeAdapter()
+    private readonly runtimeAdapter: RuntimeAdapter = new NoopRuntimeAdapter(),
+    // Populated with the MountHandle mount() returns, keyed by this exact
+    // ctx object - retrieved later by DefaultLifecycle.unmount(ctx) (justjs#67).
+    // Optional so a caller building a MountStep directly (as existing tests
+    // do) doesn't have to supply one just to keep working.
+    private readonly mountHandles?: WeakMap<ComponentContext, MountHandle>
   ) {}
 
   name(): string {
@@ -70,7 +75,8 @@ export class MountStep implements LifecycleStep {
       if (ddasIds.length === 0) {
         throw new LifecycleError("mount", `No DDAS entry found for component tag "${ctx.tag}"`)
       }
-      this.runtimeAdapter.mount(ddasIds[0]!, ctx.element)
+      const handle = this.runtimeAdapter.mount(ddasIds[0]!, ctx.element)
+      this.mountHandles?.set(ctx, handle)
     }
   }
 }
@@ -142,13 +148,21 @@ export class UpdateStep implements LifecycleStep {
   }
 }
 
+// Intentionally still a no-op (justjs#67). This step runs as the fifth step
+// of every single run(ctx) call - immediately after that same call's
+// Mount/Render/Update, not when a component is later navigated away from -
+// so it never corresponds to a real "this component is being torn down"
+// event and must not call a RuntimeAdapter's MountHandle.unmount() (that
+// would immediately unmount what run() just mounted, moments earlier).
+// DefaultLifecycle.unmount(ctx) is the real teardown trigger; DefaultRouter
+// calls it when navigating away from a route, not through this step.
 export class UnmountStep implements LifecycleStep {
   name(): string {
     return "unmount"
   }
 
   async execute(ctx: ComponentContext): Promise<void> {
-    // Cleanup
+    // Deliberately empty - see class comment above.
   }
 }
 
@@ -158,6 +172,14 @@ export class DefaultLifecycle implements Lifecycle {
   // separate copies, since RenderStep/UpdateStep carry no run-to-run mutable
   // state of their own (registry/errorBoundary are constructor-fixed).
   private rerenderSteps: LifecycleStep[]
+  // The real mount/unmount tracking (justjs#67) - MountStep populates this on
+  // every successful mount; unmount() below reads and clears it. A WeakMap
+  // keyed by the ComponentContext object itself: DefaultRouter builds one
+  // ComponentContext per navigation and reuses that exact object across
+  // run()/rerender()/unmount() calls (justjs#65), so no separate identifier
+  // is needed, and an unmounted or garbage-collected ctx's entry disappears
+  // on its own.
+  private mountHandles = new WeakMap<ComponentContext, MountHandle>()
 
   constructor(
     domAddressMap?: DomAddressMap,
@@ -169,7 +191,7 @@ export class DefaultLifecycle implements Lifecycle {
     const updateStep = new UpdateStep(registry, errorBoundary)
     this.steps = [
       new ResolveStep(),
-      new MountStep(domAddressMap, runtimeAdapter),
+      new MountStep(domAddressMap, runtimeAdapter, this.mountHandles),
       renderStep,
       updateStep,
       new UnmountStep(),
@@ -183,6 +205,15 @@ export class DefaultLifecycle implements Lifecycle {
 
   async rerender(ctx: ComponentContext): Promise<void> {
     await this.runSteps(this.rerenderSteps, ctx)
+  }
+
+  async unmount(ctx: ComponentContext): Promise<void> {
+    const handle = this.mountHandles.get(ctx)
+    if (!handle) {
+      return
+    }
+    this.mountHandles.delete(ctx)
+    handle.unmount()
   }
 
   private async runSteps(steps: readonly LifecycleStep[], ctx: ComponentContext): Promise<void> {

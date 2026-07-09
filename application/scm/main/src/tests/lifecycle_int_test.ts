@@ -110,6 +110,54 @@ describe("lifecycle", () => {
     expect(renderCount).toBe(3)
   })
 
+  it("test_unmount_calls_the_mount_handle_obtained_for_this_ctx (justjs#67)", async () => {
+    let unmountCalls = 0
+    const runtimeAdapter: RuntimeAdapter = {
+      mount(): MountHandle {
+        return {
+          unmount() {
+            unmountCalls++
+          },
+        }
+      },
+    }
+    const domAddressMap: DomAddressMap = {
+      elements: { "app:home:x-button:root": { component: "button", tag: "x-button" } },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await lifecycle.run(ctx)
+    expect(unmountCalls).toBe(0)
+
+    await lifecycle.unmount(ctx)
+    expect(unmountCalls).toBe(1)
+
+    // A second unmount() of the same, already-unmounted ctx must not call
+    // the handle again - it was already torn down and the tracking entry
+    // was cleared.
+    await lifecycle.unmount(ctx)
+    expect(unmountCalls).toBe(1)
+  })
+
+  it("test_unmount_is_a_noop_for_a_ctx_that_was_never_mounted (justjs#67)", async () => {
+    const lifecycle = new DefaultLifecycle()
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    // No domAddressMap supplied, so MountStep never calls the runtime
+    // adapter at all (its `if (this.domAddressMap)` guard is never entered)
+    // - unmount() on a ctx that was never actually mounted must not throw.
+    await expect(lifecycle.unmount(ctx)).resolves.toBeUndefined()
+  })
+
   it("test_mount_step_resolves_against_a_real_justweb_generated_dom_address_map", async () => {
     // Captured verbatim from a real `justw init test-app --features home` +
     // `justw generate app` run (justjs#39/#49, justweb#56) - not a

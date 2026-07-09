@@ -32,6 +32,13 @@ export interface Lifecycle {
   // effects fire once at real navigation time, not again on every
   // unrelated store change.
   rerender(ctx: ComponentContext): Promise<void>
+
+  // Calls the MountHandle a prior run(ctx) obtained for this exact ctx
+  // (justjs#67) - the real teardown trigger a RuntimeAdapter needs, distinct
+  // from UnmountStep's per-run() no-op (which fires immediately after every
+  // mount, not when a component is actually being torn down). A no-op if
+  // this ctx was never mounted, or has already been unmounted.
+  unmount(ctx: ComponentContext): Promise<void>
 }
 
 export class LifecycleError extends Error {
