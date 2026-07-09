@@ -32,6 +32,10 @@ function matchRoutePattern(pattern: string, path: string): Record<string, string
 
 export class DefaultRouter implements Router {
   private currentRoute = "/"
+  // ADR-0004: the previous route's subscription must stop reacting once
+  // navigation moves on - otherwise a store change would keep re-rendering
+  // a view that's no longer current.
+  private unsubscribeStore: (() => void) | undefined
 
   constructor(
     private readonly routes: readonly string[],
@@ -78,8 +82,25 @@ export class DefaultRouter implements Router {
       throw new RegistryError(`No DOM element found for route "${path}" (tag "${tag}")`)
     }
 
+    this.unsubscribeStore?.()
+    this.unsubscribeStore = undefined
+
     this.currentRoute = path
-    await this.lifecycle.run(this.buildContext(tag, element, props))
+    const ctx = this.buildContext(tag, element, props)
+    await this.lifecycle.run(ctx)
+
+    // ADR-0004: re-render this same view whenever the shared store changes,
+    // for as long as it stays the current route. DefaultComponentRegistry
+    // memoizes the resolved Component per tag, so this re-run hits the same
+    // instance and reads fresh state directly off ctx.store - no stale
+    // closures.
+    if (this.featureStore) {
+      this.unsubscribeStore = this.featureStore.subscribe(() => {
+        this.lifecycle.run(ctx).catch((error: unknown) => {
+          console.error(`Error re-rendering "${path}" after a store change:`, error)
+        })
+      })
+    }
   }
 
   private buildContext(tag: string, element: Element, props: ComponentProps): ComponentContext {
