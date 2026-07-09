@@ -5,6 +5,7 @@ import { LifecycleError } from "../../api/lifecycle.js"
 import type { ComponentRegistry } from "../../api/registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { isLegacyDomAddressMap, resolveDdasAddressesForTag } from "../../api/dom-address.js"
+import type { ErrorBoundary } from "../../api/error_boundary.js"
 
 // ADR-0003 D7: only carries a key when the corresponding ComponentContext
 // field is actually present — exactOptionalPropertyTypes forbids assigning
@@ -75,7 +76,10 @@ export class MountStep implements LifecycleStep {
 }
 
 export class RenderStep implements LifecycleStep {
-  constructor(private readonly registry?: ComponentRegistry) {}
+  constructor(
+    private readonly registry?: ComponentRegistry,
+    private readonly errorBoundary?: ErrorBoundary
+  ) {}
 
   name(): string {
     return "render"
@@ -88,13 +92,23 @@ export class RenderStep implements LifecycleStep {
 
     if (this.registry) {
       const component = await this.registry.get(ctx.tag, ctx.props)
-      await component.render(ctx.props, ctx.element, toDataContext(ctx))
+      try {
+        await component.render(ctx.props, ctx.element, toDataContext(ctx))
+      } catch (error) {
+        if (!this.errorBoundary) {
+          throw error
+        }
+        this.errorBoundary.onError(error, ctx)
+      }
     }
   }
 }
 
 export class UpdateStep implements LifecycleStep {
-  constructor(private readonly registry?: ComponentRegistry) {}
+  constructor(
+    private readonly registry?: ComponentRegistry,
+    private readonly errorBoundary?: ErrorBoundary
+  ) {}
 
   name(): string {
     return "update"
@@ -116,7 +130,14 @@ export class UpdateStep implements LifecycleStep {
 
     const component = await this.registry.get(ctx.tag, ctx.props)
     if (component.update) {
-      await component.update(ctx.props, ctx.element, toDataContext(ctx))
+      try {
+        await component.update(ctx.props, ctx.element, toDataContext(ctx))
+      } catch (error) {
+        if (!this.errorBoundary) {
+          throw error
+        }
+        this.errorBoundary.onError(error, ctx)
+      }
     }
   }
 }
@@ -137,13 +158,14 @@ export class DefaultLifecycle implements Lifecycle {
   constructor(
     domAddressMap?: DomAddressMap,
     runtimeAdapter?: RuntimeAdapter,
-    registry?: ComponentRegistry
+    registry?: ComponentRegistry,
+    errorBoundary?: ErrorBoundary
   ) {
     this.steps = [
       new ResolveStep(),
       new MountStep(domAddressMap, runtimeAdapter),
-      new RenderStep(registry),
-      new UpdateStep(registry),
+      new RenderStep(registry, errorBoundary),
+      new UpdateStep(registry, errorBoundary),
       new UnmountStep(),
     ]
   }

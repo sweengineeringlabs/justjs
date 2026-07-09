@@ -2,6 +2,7 @@ import type { DomAddressMap } from "./dom-address.js"
 import type { ComponentRegistry, LazyCustomElementRegistry, Router } from "./registry.js"
 import type { RuntimeAdapter } from "./component.js"
 import type { Lifecycle } from "./lifecycle.js"
+import type { ErrorBoundary } from "./error_boundary.js"
 import type { ApiAdapter } from "@justjs/transport"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
 
@@ -51,6 +52,13 @@ export interface BootConfig {
   // shouldn't pay for a FeatureStore it never uses.
   readonly featureStore?: FeatureStore
   readonly eventBus?: UIEventBus
+
+  // Contains a component render()/update() failure to that component
+  // instead of letting it propagate as an unhandled rejection out of
+  // navigate()/a reactive re-render (ADR-0004). Optional: with none
+  // supplied, a component error still throws exactly as it always has -
+  // no behavior change for a caller that hasn't opted in.
+  readonly errorBoundary?: ErrorBoundary
 
   readonly [key: string]: unknown
 }

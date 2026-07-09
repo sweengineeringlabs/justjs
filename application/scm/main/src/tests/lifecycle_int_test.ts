@@ -11,6 +11,7 @@ import type {
   ComponentProps,
 } from "../api/component.js"
 import type { DomAddressMap } from "../api/dom-address.js"
+import type { ErrorBoundary } from "../api/error_boundary.js"
 
 describe("lifecycle", () => {
   it("test_lifecycle_runs_all_steps", async () => {
@@ -288,6 +289,116 @@ describe("lifecycle", () => {
 
     expect(renderContexts).toHaveLength(1)
     expect(renderContexts[0]).toBeUndefined()
+  })
+
+  it("test_render_error_still_throws_when_no_error_boundary_is_configured", async () => {
+    const component: Component = {
+      name: "x-button",
+      render() {
+        throw new Error("boom")
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    // No behavior change for a caller that hasn't opted into an
+    // ErrorBoundary - the error still propagates exactly as before.
+    await expect(lifecycle.run(ctx)).rejects.toThrow()
+  })
+
+  it("test_render_error_is_contained_by_a_configured_error_boundary", async () => {
+    const component: Component = {
+      name: "x-button",
+      render() {
+        throw new Error("boom")
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+
+    const caught: { error: unknown; ctx: ComponentContext }[] = []
+    const errorBoundary: ErrorBoundary = {
+      onError(error, ctx) {
+        caught.push({ error, ctx })
+      },
+    }
+
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: { label: "Click me" },
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await expect(lifecycle.run(ctx)).resolves.toBeUndefined()
+    expect(caught).toHaveLength(1)
+    expect(caught[0]?.error).toBeInstanceOf(Error)
+    expect((caught[0]?.error as Error).message).toBe("boom")
+    expect(caught[0]?.ctx).toBe(ctx)
+  })
+
+  it("test_update_error_is_contained_by_a_configured_error_boundary_without_affecting_render", async () => {
+    let renderCalled = false
+    const component: Component = {
+      name: "x-button",
+      render() {
+        renderCalled = true
+      },
+      update() {
+        throw new Error("update boom")
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+
+    const caught: unknown[] = []
+    const errorBoundary: ErrorBoundary = {
+      onError(error) {
+        caught.push(error)
+      },
+    }
+
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const ctx: ComponentContext = {
+      tag: "x-button",
+      props: {},
+      element: { tagName: "div" } as unknown as Element,
+    }
+
+    await expect(lifecycle.run(ctx)).resolves.toBeUndefined()
+    expect(renderCalled).toBe(true)
+    expect(caught).toHaveLength(1)
+  })
+
+  it("test_a_later_run_after_a_boundary_contained_error_still_works_normally", async () => {
+    let attempt = 0
+    const renderedProps: ComponentProps[] = []
+    const component: Component = {
+      name: "x-button",
+      render(props) {
+        attempt++
+        if (attempt === 1) {
+          throw new Error("first attempt fails")
+        }
+        renderedProps.push(props)
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-button", () => component)
+    const errorBoundary: ErrorBoundary = { onError() {} }
+    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const element = { tagName: "div" } as unknown as Element
+
+    await lifecycle.run({ tag: "x-button", props: { attempt: 1 }, element })
+    await lifecycle.run({ tag: "x-button", props: { attempt: 2 }, element })
+
+    expect(renderedProps).toEqual([{ attempt: 2 }])
   })
 
   it("test_render_step_fails_when_tag_has_no_registered_component", async () => {

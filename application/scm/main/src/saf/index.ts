@@ -35,6 +35,8 @@ export { RegistryError } from "../api/registry.js"
 
 export type { DomAddressElement, DomAddressMap } from "../api/dom-address.js"
 
+export type { ErrorBoundary } from "../api/error_boundary.js"
+
 export { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 export { justjs } from "../core/boot.js"
 
@@ -44,6 +46,7 @@ import type { DomAddressMap } from "../api/dom-address.js"
 import type { Lifecycle } from "../api/lifecycle.js"
 import type { MutableComponentRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
 import type { RuntimeAdapter } from "../api/component.js"
+import type { ErrorBoundary } from "../api/error_boundary.js"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
 import { DefaultRouter } from "../core/registry/router.js"
@@ -60,9 +63,10 @@ export function createComponentRegistry(): MutableComponentRegistry {
 export function createLifecycle(
   domAddressMap?: DomAddressMap,
   runtimeAdapter?: RuntimeAdapter,
-  registry?: MutableComponentRegistry
+  registry?: MutableComponentRegistry,
+  errorBoundary?: ErrorBoundary
 ): Lifecycle {
-  return new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+  return new DefaultLifecycle(domAddressMap, runtimeAdapter, registry, errorBoundary)
 }
 
 export function createRouter(

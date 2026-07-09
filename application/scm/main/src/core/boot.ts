@@ -445,7 +445,7 @@ export class JustJS implements JustJSInstance {
 
     this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
     this._componentRegistry = registry
-    this._lifecycle = new DefaultLifecycle(config.domAddressMap, config.runtimeAdapter, registry)
+    this._lifecycle = new DefaultLifecycle(config.domAddressMap, config.runtimeAdapter, registry, config.errorBoundary)
     this._router = new DefaultRouter(
       config.routes ?? [],
       (config.registry ?? {}) as Record<string, RouteRegistryEntry>,

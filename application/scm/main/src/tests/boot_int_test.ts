@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { createFeatureStore, createUIEventBus } from "@justjs/data"
 import { BootError, type BootConfig } from "../api/boot.js"
+import type { ErrorBoundary } from "../api/error_boundary.js"
 import { JustJS } from "../core/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import type { Component } from "../api/component.js"
@@ -707,6 +708,57 @@ describe("Boot-time Validation — 4 ACs", () => {
       expect(rendered).toEqual([{ count: 1 }])
       expect(store.state.value.count).toBe(1)
       expect(eventsReceived).toEqual([{ tag: "x-counter" }])
+    })
+  })
+
+  describe("boot() threads an ErrorBoundary through to a real navigate() call", () => {
+    beforeAll(() => {
+      GlobalRegistrator.register()
+    })
+
+    afterAll(async () => {
+      await GlobalRegistrator.unregister()
+    })
+
+    it("test_a_real_navigate_call_survives_a_component_error_when_an_error_boundary_is_configured", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const component: Component = {
+        name: "dashboard",
+        render() {
+          throw new Error("dashboard render boom")
+        },
+      }
+      const registry = new DefaultComponentRegistry()
+      registry.register("x-dashboard", () => component)
+
+      const target = document.createElement("x-dashboard")
+      target.setAttribute("data-ddas-id", "app:home:x-dashboard:root")
+      document.body.appendChild(target)
+
+      const caught: unknown[] = []
+      const errorBoundary: ErrorBoundary = {
+        onError(error) {
+          caught.push(error)
+        },
+      }
+
+      const config: BootConfig = {
+        routes: ["/dashboard"],
+        registry: { "x-dashboard": { path: "/dashboard", component: "Dashboard" } },
+        domAddressMap: DDAS(["x-dashboard"]),
+        componentRegistry: registry,
+        errorBoundary,
+      }
+
+      await justjs.boot(config)
+
+      // Without the boundary this would reject and fail the test - proves
+      // the failure is genuinely contained, not just theoretically possible.
+      await expect(justjs.router!.navigate("/dashboard")).resolves.toBeUndefined()
+      expect(caught).toHaveLength(1)
+      expect((caught[0] as Error).message).toBe("dashboard render boom")
     })
   })
 })
