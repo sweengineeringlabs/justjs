@@ -37,51 +37,64 @@ import { DefaultComponentRegistry } from "./component_registry.js"
 // different logical instance. No caller in this codebase currently passes
 // a non-empty container, so this hasn't been a live bug - flagging it here
 // rather than leaving it undocumented.
+// A named async function, not an inline `async () => {}` passed directly to
+// registry.register() - justc 0.3.4's iife/cjs bundle-lowering strips the
+// `async` modifier off arrow function expressions (confirmed via a minimal
+// repro isolated from this exact call site; async function *declarations*
+// are unaffected), which turns the `await load()` below into a real syntax
+// error in the emitted bundle. registry.register() itself still gets a
+// plain (non-async) arrow that just forwards to this function and returns
+// its promise - no `await` inside that outer arrow, so it isn't affected.
+async function resolveComponent(
+  tag: string,
+  load: () => Promise<CustomElementConstructor>
+): Promise<Component> {
+  const ElementCtor = await load()
+  // `new ElementCtor()` below throws "Illegal constructor" against a real
+  // DOM for an autonomous custom element class that was never passed to
+  // customElements.define() — confirmed against happy-dom while building
+  // ADR-0005 (justjs#63/#64). Self-registering here, rather than assuming
+  // the module behind `load()` already did it, matches the same fix
+  // applied in @justjs/ssr's renderComponent() (tooling/ssr/scm/main/src/
+  // core/renderer.ts) so both server- and client-side construction of the
+  // same class are equally safe regardless of that module's own behavior.
+  // Guarded on `customElements` existing at all — this codebase's own
+  // non-DOM unit tests construct plain JS stand-ins with no global DOM
+  // present, and must keep working unchanged.
+  if (typeof customElements !== "undefined" && !customElements.get(tag)) {
+    customElements.define(tag, ElementCtor)
+  }
+  let previousKeys = new Set<string>()
+  return {
+    name: tag,
+    render(renderProps: ComponentProps, container: Element): void {
+      const existing = container.firstElementChild
+      const reusable = existing instanceof ElementCtor
+      const element = reusable ? existing : new ElementCtor()
+      const nextKeys = new Set(Object.keys(renderProps))
+      if (reusable) {
+        for (const key of previousKeys) {
+          if (!nextKeys.has(key)) {
+            element.removeAttribute(key)
+          }
+        }
+      }
+      for (const [key, value] of Object.entries(renderProps)) {
+        element.setAttribute(key, String(value))
+      }
+      previousKeys = nextKeys
+      if (!reusable) {
+        container.replaceChildren(element)
+      }
+    },
+  }
+}
+
 export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): MutableComponentRegistry {
   const registry = new DefaultComponentRegistry()
 
   for (const [tag, load] of Object.entries(source)) {
-    registry.register(tag, async (): Promise<Component> => {
-      const ElementCtor = await load()
-      // `new ElementCtor()` below throws "Illegal constructor" against a real
-      // DOM for an autonomous custom element class that was never passed to
-      // customElements.define() — confirmed against happy-dom while building
-      // ADR-0005 (justjs#63/#64). Self-registering here, rather than assuming
-      // the module behind `load()` already did it, matches the same fix
-      // applied in @justjs/ssr's renderComponent() (tooling/ssr/scm/main/src/
-      // core/renderer.ts) so both server- and client-side construction of the
-      // same class are equally safe regardless of that module's own behavior.
-      // Guarded on `customElements` existing at all — this codebase's own
-      // non-DOM unit tests construct plain JS stand-ins with no global DOM
-      // present, and must keep working unchanged.
-      if (typeof customElements !== "undefined" && !customElements.get(tag)) {
-        customElements.define(tag, ElementCtor)
-      }
-      let previousKeys = new Set<string>()
-      return {
-        name: tag,
-        render(renderProps: ComponentProps, container: Element): void {
-          const existing = container.firstElementChild
-          const reusable = existing instanceof ElementCtor
-          const element = reusable ? existing : new ElementCtor()
-          const nextKeys = new Set(Object.keys(renderProps))
-          if (reusable) {
-            for (const key of previousKeys) {
-              if (!nextKeys.has(key)) {
-                element.removeAttribute(key)
-              }
-            }
-          }
-          for (const [key, value] of Object.entries(renderProps)) {
-            element.setAttribute(key, String(value))
-          }
-          previousKeys = nextKeys
-          if (!reusable) {
-            container.replaceChildren(element)
-          }
-        },
-      }
-    })
+    registry.register(tag, () => resolveComponent(tag, load))
   }
 
   return registry

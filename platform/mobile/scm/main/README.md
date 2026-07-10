@@ -55,10 +55,40 @@ const { steps } = await bridge.health()
 `justscript_runtime`'s `android-shell` WebView (where `window.AndroidBridge`
 is injected) — calling them anywhere else throws a clear `MobileBridgeError`.
 
-## Known gap
+## Real-hardware verification (justjs#16, closed 2026-07-10)
 
-Nobody has yet verified that a *real* justweb-generated component (as
-opposed to this package's own hand-written tests, or `android-shell`'s
-current hand-written smoke-test component) compiles via `justc` and renders
-correctly inside `android-shell`. That's the one unverified link in this
-chain — see justjs#16.
+Verified end-to-end on a real Samsung SM-A055F over wireless `adb`: a real
+justweb-generated component — `button_component.gen.ts` from justweb's own
+`webschema` test fixtures, copied verbatim, not hand-written — compiles via
+`justc build --target js --bundle --format iife`, mounts through
+`@justjs/application`'s actual `boot()` → `adaptCustomElementRegistry` →
+`DefaultRouter.navigate()` → `DefaultLifecycle` pipeline (not bypassed the
+way `android-shell`'s original hand-written `homeComponent` had to be), and
+renders correctly inside `android-shell`'s live WebView with
+`JsRuntimeShellAdapter` as its `RuntimeAdapter`. Confirmed live via
+`chromiumctl-cli --package` against the real WebView:
+`document.querySelector('jsc-button')` came back `instanceof
+customElements.get('jsc-button')` with `role="button"` set by the real
+component's own `connectedCallback()`. Clicking it round-tripped through
+`createMobileBridge().notify()` → the real `window.AndroidBridge` → JNI →
+`main/features/mobile-bridge`'s Rust `dispatch()` → a real Android
+`NotificationRecord`, confirmed via `adb shell dumpsys notification`. See
+`../../justscript_runtime/scm/app/` for the entry script and
+`vendor/VENDOR.md` for how it's built and vendored.
+
+### Bugs found and fixed along the way
+
+Getting here surfaced a real, reproducible `justc` 0.3.4 bug (isolated to a
+minimal, justjs-independent repro): its `iife`/`cjs` bundle-lowering drops
+any function/method/constructor parameter that carries a default-value
+expression (`x: T = defaultExpr`) from the emitted signature, while leaving
+the body's reference to that parameter intact — a silent
+`ReferenceError` at runtime for every caller, not just ones that omit the
+argument. Three call sites in this package's dependency chain hit it and
+were rewritten to resolve the default inside the function body instead of
+in the parameter list (functionally identical, just compiler-portable):
+`MountStep`'s `runtimeAdapter` (`@justjs/application`),
+`JsRuntimeShellBridge`'s `dispatch()`/`echo()` `args`/`positional`/`flags`
+(this package), and `DefaultCacheAdapter.set()`'s `ttl` (`@justjs/transport`).
+The `justc` bug itself is unfixed upstream — worth filing against
+`justscript_compiler` with the minimal repro if it hasn't been already.

@@ -20,10 +20,17 @@ export class DefaultCacheAdapter implements CacheAdapter {
     return entry.data as T
   }
 
-  async set<T = unknown>(key: string, data: T, ttl: number = DEFAULT_TTL): Promise<void> {
+  // `ttl` resolves its default in the body, not as a parameter default -
+  // justc 0.3.4's iife/cjs bundler drops a parameter carrying a
+  // default-value expression from the emitted signature while leaving the
+  // body's reference to it intact, producing a real
+  // `ReferenceError: ttl is not defined` at runtime for every caller
+  // (confirmed live on real android-shell hardware - justjs#16; same root
+  // cause as MountStep's runtimeAdapter / js_runtime_shell_bridge's args).
+  async set<T = unknown>(key: string, data: T, ttl?: number): Promise<void> {
     const entry: CacheEntry<T> = {
       data,
-      expiresAt: Date.now() + ttl,
+      expiresAt: Date.now() + (ttl ?? DEFAULT_TTL),
     }
 
     this.cache.set(key, entry)
