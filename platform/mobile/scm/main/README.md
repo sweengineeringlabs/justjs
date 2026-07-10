@@ -156,3 +156,65 @@ Also confirmed along the way: a synthesized real input event
 (`chromiumctl click --selector`, real CDP `Input.dispatchMouseEvent` at the
 element's actual on-screen coordinates) drives the same click → bridge →
 notification chain correctly, not just a scripted `element.click()` call.
+
+## Reactive re-render verification (justjs#71, closed 2026-07-10)
+
+Found before any test code was written: `adaptCustomElementRegistry`'s
+`render()` only ever declared 2 parameters, silently discarding
+`RenderStep`'s 3rd (`ComponentDataContext`/`ctx.store`) call argument.
+ADR-0004's re-render mechanism depends entirely on a component reading
+fresh state off `ctx.store` itself — so no `customElements`-registered
+component (the only kind justweb codegen produces) ever had a real path to
+receive a `FeatureStore` change, even though `@justjs/application`'s own
+unit tests already proved the mechanism works for hand-written
+plain-object `Component`s. Fixed in `component_registry_adapter.ts`:
+`render()` now forwards `dataContext` as a plain `dataContext` property —
+a custom element that wants reactivity defines its own
+`set dataContext(ctx)` accessor, the same get/set-accessor idiom real
+justweb codegen already uses for declared props/states. Two new unit tests
+confirm a real `HTMLElement` subclass receives it correctly (and
+confirmed, before shipping, to actually fail without the fix).
+
+Verified end-to-end on the same real hardware: a `FeatureStore` mutation
+made well after initial mount produces an observable DOM change on a real
+`customElements`-registered element in `android-shell`'s live WebView,
+through the real `DefaultRouter` subscription → `rerender()` path — a
+minimal hand-written probe element (deliberately not a justweb codegen
+artifact, since this route tests `@justjs/application`'s own plumbing, not
+codegen fidelity — the same distinction its unit tests already draw)
+showed `count: 0` → `count: 1` → `count: 2` → `count: 3` across
+successive dispatches, confirmed via `chromiumctl-cli eval`.
+
+### Bugs found and fixed along the way (four more `justc` bugs)
+
+Getting this onto real hardware surfaced four more distinct, reproducible
+`justc` 0.3.4 bugs beyond the three from justjs#16:
+
+- **justscript_compiler#14** — `iife`/`cjs` bundling drops all but the
+  last `?.` in a chained optional-access expression (`a?.b?.c` →
+  `a.b?.c`), a real `TypeError`-throwing correctness bug. Worked around
+  with explicit ternaries where hit.
+- **justscript_compiler#15** — an aliased import from an external
+  (`node_modules`) package (`import { x as y }`) loses the alias binding
+  during bundling; the inlined declaration keeps its original name while
+  call sites still reference the never-bound alias. `@justjs/data`'s
+  `signal.ts` no longer aliases `@preact/signals-core`'s `signal` export.
+- **justscript_compiler#16** — more fundamental than #15: an external
+  package imported *through* a local/workspace package (rather than
+  directly from the entry file) gets silently dropped regardless of
+  aliasing — the package's real source is inlined, but nothing ever binds
+  it to the name the intermediate package's code calls. This is why
+  `js-runtime/scm/app/src/app.ts` uses a small hand-written object
+  satisfying the `FeatureStore` interface instead of `@justjs/data`'s real
+  `createFeatureStore()` — it only imports the *type*, never the runtime
+  path.
+- **Unnamed, not yet minimally isolated** — the `dataContext`-forwarding
+  assignment above compiled correctly in every smaller isolated repro
+  tried, yet was silently dropped somewhere in the full production bundle
+  graph. Extracting it into a named function (matching the pattern that
+  already fixed justjs#16's async-arrow bug) fixed it; the exact trigger
+  condition in the larger graph was not tracked down given the time
+  already spent — flagging this as a known gap in this investigation
+  rather than a closed root cause.
+
+All four remain open upstream in `justscript_compiler`.
