@@ -122,3 +122,37 @@ No compiler bugs here — CSS delivery bypasses `justc` entirely, so this was
 purely a wiring gap (`android-shell`'s build never copied or linked a CSS
 file) rather than a compiler-correctness question. Now real, and now real
 verified.
+
+## Interactive state verification (justjs#70, closed 2026-07-10)
+
+Both verifications above exercised exactly one interaction: a click firing
+`AndroidBridge.notify()`. `ButtonBase` has six other real property setters
+(`checked`, `completed`, `disabled`, `expanded`, `invalid`, `loading`,
+`selected`) that mutate attributes directly, with no event/bridge dispatch
+involved — a distinct code path, never previously exercised on real
+hardware.
+
+Verified on the same real hardware: `app.ts` calls `button.disabled = true`
+and `button.loading = true` on the mounted element after render. Confirmed
+via `chromiumctl-cli eval` against the live WebView (on a genuinely clean
+app install — a `-r` reinstall over a running process was found to leave
+the previous session's WebView document state behind, giving a false read;
+a full uninstall/install cycle is required for a trustworthy check):
+`hasAttribute('disabled')`, `getAttribute('aria-disabled')`, and
+`getAttribute('aria-busy')` all came back exactly as `ButtonBase`'s real
+setter source says they should.
+
+Also answered, with evidence rather than assumption: the generated CSS
+targets BEM *classes* (`.button--disabled`), not these DOM *attributes* —
+setting `disabled`/`loading` does **not** change `getComputedStyle()`
+output (`opacity` stayed `1`, `cursor` stayed `pointer`, not
+`.button--disabled`'s `0.5`/`not-allowed`) unless the consuming app also
+toggles the matching class itself. Real justweb codegen keeps attribute
+state and class-based styling as two independent concerns a consumer must
+wire together — not a bug, but worth knowing rather than assuming either
+way.
+
+Also confirmed along the way: a synthesized real input event
+(`chromiumctl click --selector`, real CDP `Input.dispatchMouseEvent` at the
+element's actual on-screen coordinates) drives the same click → bridge →
+notification chain correctly, not just a scripted `element.click()` call.
