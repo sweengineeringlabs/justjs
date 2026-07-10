@@ -92,3 +92,33 @@ in the parameter list (functionally identical, just compiler-portable):
 (this package), and `DefaultCacheAdapter.set()`'s `ttl` (`@justjs/transport`).
 The `justc` bug itself is unfixed upstream — worth filing against
 `justscript_compiler` with the minimal repro if it hasn't been already.
+
+## CSS verification (justjs#69, closed 2026-07-10)
+
+The verification above used `button_component.gen.ts` alone, which has no
+styling at all — it proved component mounting, not CSS. Real justweb codegen
+emits component CSS as a **separate sibling file**
+(`button_component.gen.css`), never routed through `justc` at all: real
+justweb apps link it as a plain global stylesheet directly in the page's own
+HTML (`<link rel="stylesheet" href="....gen.css">`), entirely outside the
+compiled JS bundle. The component itself never applies its own BEM classes
+(`.button`, `.button--primary`, …) — the consuming app's markup does, same
+as any hand-authored HTML.
+
+Verified end-to-end on the same real hardware: `jsc_button_component.gen.css`
+(copied verbatim, same source as the `.ts` fixture) copied into
+`android-shell`'s APK assets and linked from `index.html`
+(`scm/android-shell/build.sh`'s new `--css <path>` flag), with the app
+entry adding `class="button button--primary"` to the mounted element.
+`chromiumctl-cli eval` against the live WebView confirmed real computed
+styles matching the actual CSS rules — `padding: 8px 16px`,
+`display: inline-flex`, `cursor: pointer` (from `.button`), and
+`background-color: #007bff` / `color: white` (from `.button--primary`) all
+came back correct via `getComputedStyle()`. A negative control
+(`.button--disabled`'s `opacity: 0.5`, not applied since that class wasn't
+added) confirmed the match wasn't coincidental default styling.
+
+No compiler bugs here — CSS delivery bypasses `justc` entirely, so this was
+purely a wiring gap (`android-shell`'s build never copied or linked a CSS
+file) rather than a compiler-correctness question. Now real, and now real
+verified.
