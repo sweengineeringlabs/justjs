@@ -1,6 +1,20 @@
-import type { ComponentProps, Component } from "../../api/component.js"
+import type { ComponentProps, Component, ComponentDataContext } from "../../api/component.js"
 import type { LazyCustomElementRegistry, MutableComponentRegistry } from "../../api/registry.js"
 import { DefaultComponentRegistry } from "./component_registry.js"
+
+// A named function, not an inline cast-and-assign expression statement -
+// justc 0.3.4's iife/cjs bundler was found to drop that whole statement
+// (and the render() parameter feeding it) somewhere in the full production
+// bundle graph, despite compiling correctly in every smaller isolated
+// repro tried while diagnosing justjs#71 - narrowing the exact trigger
+// further wasn't practical within that investigation's time budget.
+// Extracting to a named function matches the pattern that already fixed
+// two other justc bugs in this file (async arrow -> named async function);
+// confirmed this one also survives real-bundle compilation where the
+// inline version didn't.
+function assignDataContext(element: Element, dataContext: ComponentDataContext | undefined): void {
+  ;(element as unknown as { dataContext?: ComponentDataContext | undefined }).dataContext = dataContext
+}
 
 // Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's
 // DefaultComponentRegistry — the registry type RenderStep/UpdateStep actually
@@ -67,7 +81,23 @@ async function resolveComponent(
   let previousKeys = new Set<string>()
   return {
     name: tag,
-    render(renderProps: ComponentProps, container: Element): void {
+    // dataContext (ctx.store/ctx.eventBus, ADR-0004) used to be silently
+    // dropped here - this render() only ever declared 2 params, so
+    // RenderStep/UpdateStep's 3rd call argument was discarded before
+    // justjs#71 found it. That left ADR-0004's re-render mechanism with no
+    // real path to ever reach a customElements-registered component - the
+    // only kind justweb codegen actually produces - since the mechanism
+    // depends entirely on a component reading fresh state off ctx.store
+    // itself (ADR-0004: "the component reads fresh state directly off
+    // ctx.store... no stale-closure risk"), and there was nowhere for a
+    // custom element to read it from. Assigning it as a plain
+    // `dataContext` property, not inventing a new lifecycle callback: a
+    // custom element that wants reactivity defines its own
+    // `set dataContext(ctx)` accessor and re-renders itself when it fires,
+    // the same get/set-accessor idiom real justweb codegen already uses
+    // for declared props/states (see ButtonBase's checked/loading/etc.).
+    // A no-op, not a silent failure, for elements that don't define one.
+    render(renderProps: ComponentProps, container: Element, dataContext?: ComponentDataContext): void {
       const existing = container.firstElementChild
       const reusable = existing instanceof ElementCtor
       const element = reusable ? existing : new ElementCtor()
@@ -83,6 +113,7 @@ async function resolveComponent(
         element.setAttribute(key, String(value))
       }
       previousKeys = nextKeys
+      assignDataContext(element, dataContext)
       if (!reusable) {
         container.replaceChildren(element)
       }

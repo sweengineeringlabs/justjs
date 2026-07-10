@@ -234,4 +234,59 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     // rejected promise, so this must be a sync throw assertion, not `.rejects`.
     expect(() => secondComponent.render({}, document.createElement("div"))).not.toThrow()
   })
+
+  // justjs#71: ADR-0004's re-render mechanism depends entirely on a
+  // component reading fresh state off ctx.store itself - but this render()
+  // used to only declare 2 params, silently discarding RenderStep's 3rd
+  // (dataContext) argument, so no customElements-registered component ever
+  // had a way to receive it. This proves the fix: a real custom element
+  // that defines its own `set dataContext(ctx)` accessor (the same
+  // get/set-accessor idiom justweb codegen already uses for declared
+  // props/states) actually receives fresh store state on every render call,
+  // not just the first.
+  it("test_adapter_forwards_data_context_to_an_element_that_defines_a_dataContext_setter", async () => {
+    const receivedContexts: unknown[] = []
+    class RealStoreConsumer extends HTMLElement {
+      set dataContext(ctx: unknown) {
+        receivedContexts.push(ctx)
+      }
+    }
+    const source: LazyCustomElementRegistry = {
+      "x-store-consumer": () => Promise.resolve(RealStoreConsumer as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    const component = await registry.get("x-store-consumer")
+
+    const firstContext = { store: { state: { value: 1 } } }
+    await component.render({}, container, firstContext as never)
+    const secondContext = { store: { state: { value: 2 } } }
+    await component.render({}, container, secondContext as never)
+
+    // Two distinct calls received, not just the last one cached - proves
+    // each render() call actually forwards its own dataContext argument
+    // rather than e.g. capturing it once at construction time.
+    expect(receivedContexts).toEqual([firstContext, secondContext])
+  })
+
+  it("test_adapter_forwards_undefined_data_context_when_none_is_supplied", async () => {
+    let received: unknown = "not-called"
+    class RealOptionalConsumer extends HTMLElement {
+      set dataContext(ctx: unknown) {
+        received = ctx
+      }
+    }
+    const source: LazyCustomElementRegistry = {
+      "x-optional-consumer": () => Promise.resolve(RealOptionalConsumer as unknown as CustomElementConstructor),
+    }
+    const registry = adaptCustomElementRegistry(source)
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    const component = await registry.get("x-optional-consumer")
+
+    await component.render({}, container)
+
+    expect(received).toBeUndefined()
+  })
 })
