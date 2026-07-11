@@ -203,3 +203,8 @@ bootstrap class in unchanged alongside its own `MainActivity`, so the same
 capability subset install side-by-side (`adb shell pm list packages`
 shows both) and both post real notifications through the same library
 with no `UnsatisfiedLinkError`.
+
+All three build scripts above (`build.sh`, `build-aab.sh`,
+`generate-android-app.sh`) also support `--release`, for signing with a
+real key instead of the debug one — see
+[release-signing.md](release-signing.md) (justjs#75).
