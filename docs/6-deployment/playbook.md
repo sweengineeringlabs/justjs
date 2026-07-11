@@ -13,6 +13,29 @@ for either:
 - `sweengineeringlabs/justjs` (this repo) — the `@justjs/*` packages themselves
 - `sweengineeringlabs/js-runtime` (repo dir: `justscript_runtime`) — `scm/app/` (the vendoring + entry script) and `scm/android-shell/` (the APK shell); see that repo's `docs/4-development/runbook/android-webview-verification.md` for the underlying `justc`/APK/`adb` toolchain this playbook builds on
 
+## What CI covers, and what it doesn't (justjs#76)
+
+Both repos have a `.github/workflows/ci.yml` that runs on every push/PR:
+
+- **`justjs`**: `bun run build`/`typecheck`/`test`, plus
+  `test:vendor-external` (justjs#40's integration test) — everything
+  above that doesn't need a device or `justc`.
+- **`js-runtime`**: a `justc build` compile-only check against
+  `scm/app/src/app.ts` — catches a genuinely broken build, but **not**
+  the class of bug that motivated justjs#16/#69-#72 (a bundler bug
+  producing a runtime `ReferenceError` while `justc build` itself reports
+  success).
+
+Neither workflow touches a physical device. Everything below this line —
+installing/launching an APK, `chromiumctl-cli`/`adb`-driven behavioral
+verification (mount, CSS, click-to-notify, state setters, reactive
+re-render, biometric/camera/contacts/health), the Android generator's
+`javac`/`d8`/`aapt2` build steps, and all of `release-signing.md`'s
+release-signed build verification — stays manual, following this
+playbook and the [operations runbook](../7-operations/runbook.md). A
+self-hosted, device-attached runner would be a separate, deliberate
+follow-up, not something either workflow silently assumes.
+
 ## Prerequisites
 
 | Requirement | Notes |
