@@ -146,6 +146,23 @@ layout for a `routes.yaml`-enabled project):
   *data* instead, generating the same eager, single-bundle-compatible
   imports the unrouted mode already used.
 
+Routed mode also wires real in-app back-button navigation (justjs#89) —
+pressing back after navigating to a second route returns to the previous
+route, only exiting the app once there's no more in-app history. This
+needed two non-obvious fixes, both confirmed directly on real hardware
+rather than assumed from documentation: `android:enableOnBackInvokedCallback
+="false"` (`targetSdkVersion` 34 otherwise opts into Android 13+'s
+predictive-back system, which silently skips `MainActivity`'s
+`onBackPressed()`/`onKeyDown()` overrides entirely), and a JS-owned
+visited-path stack instead of the WebView's own history — `WebView.
+canGoBack()` doesn't reflect this app's routing here, for either
+`history.pushState()` (throws a real `SecurityError` against the `file://`
+origin) or `window.location.hash` changes (grow `window.history.length`
+but leave `canGoBack()` reporting `false` regardless). See
+`MainActivity.java.template`'s `JustjsNavBridge` for the real mechanism —
+same push-based, synchronous-`@JavascriptInterface` pattern justjs#85's
+state-persistence bridge already uses.
+
 Either way, justweb's own repo/output is only ever read, never modified —
 confirmed directly (`git status` on the justweb checkout stays clean
 after running this).
