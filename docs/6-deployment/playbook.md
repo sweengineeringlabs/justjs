@@ -245,6 +245,63 @@ value - and re-ran the original save/restore repro immediately before
 that to confirm `clear()`'s addition didn't change `save()`/`load()`'s
 existing behavior.
 
+**State size limits (justjs#88).** `JustjsStateBridge.save()`'s doc
+comment previously claimed the call "never stalls the calling JS
+thread" - measured directly on real hardware (Samsung SM-A055F, via a
+reusable `window.__testStateSize(bytes)` hook in
+`tests/fixtures/app/src/app.ts`, wrapping `performance.now()` around a
+real `save()` call at increasing payload sizes) and found that claim is
+only true for small payloads:
+
+| Payload | `save()` latency | `load()` latency |
+|---|---|---|
+| 1 KB | 4.6ms | - |
+| 10 KB | 2.0ms | - |
+| 50 KB | 8.6ms | - |
+| 100 KB | 8.8ms | - |
+| 250 KB | 10.1ms | - |
+| 500 KB | 18.9ms | - |
+| 1 MB | 40.8ms | - |
+| 2 MB | 75.5ms | - |
+| 5 MB | 163.8ms | - |
+| 10 MB | 338.5ms | 275.3ms |
+
+No crash or exception was observed at any size tested up to 10MB,
+including a real cold boot (`adb shell am kill` + relaunch) with a 10MB
+payload persisted - the app mounted correctly, just slower. This is a
+**latency ceiling, not a correctness or data-loss risk**: both calls
+scale roughly linearly with payload size (~30us/byte on this device),
+crossing two real UX thresholds:
+
+- **~400KB** - crosses one 60fps frame's budget (16ms). Past this, a
+  single `store.subscribe()`-triggered `save()` call can drop a frame.
+- **~2.5-3MB** - crosses the ~100ms threshold past which a blocking call
+  reads as a perceptible pause rather than instant (a common UX
+  guideline, not an Android-specific one).
+
+**No separate large-state backend was implemented.** The issue's own
+suggested fallback - "a file under the app's private storage, written
+off the calling thread" - turns out not to be the simpler option it
+sounds like: `SharedPreferences.Editor.apply()`'s async disk write is
+safe against a real process kill *specifically* because Android's
+`ActivityThread` blocks briefly during `onStop`/`onPause` if a pending
+`apply()` hasn't finished flushing, guaranteeing durability without the
+caller waiting synchronously for it. A naive off-thread file write has
+no such guarantee and would silently lose data on a fast kill - trading
+"slow" for "wrong," a worse failure mode, not a better one. Reproducing
+that guarantee for a hand-rolled file backend is real, nontrivial work
+that no app in this ecosystem currently needs (`tests/fixtures/app/src/app.ts`'s
+counter is trivially small).
+
+**Guidance for app authors:** keep persisted `FeatureStore` state under
+roughly 250KB to stay clear of the one-frame-budget threshold. If your
+app's real state is approaching multiple MB, that's a signal to persist
+only what's needed to resume (a session token, a cursor position - not
+a full in-memory snapshot of everything), not to reach for a faster
+write path. If you genuinely need multi-MB persisted state, this is a
+known, explicitly-unhandled gap - re-open justjs#88 rather than building
+an ad hoc off-thread write without its crash-safety guarantee.
+
 ### 3. Compile via `justc`
 
 ```sh
