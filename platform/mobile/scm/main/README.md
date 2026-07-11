@@ -258,3 +258,46 @@ producing a real `NotificationRecord`, and the real `@justjs/data`
 `@preact/signals-core`-backed re-render — all still correct.
 
 **Minimum `justc` version for this package going forward: 0.3.5.**
+
+## Native system UI verification (justjs#72, closed 2026-07-11)
+
+Every prior verification used `notify()` — deliberately, since it has no
+native UI of its own beyond posting a notification. `biometricAuth()` and
+`camera()` are different: they trigger real native Android dialogs
+(`BiometricPrompt`, a camera runtime-permission prompt) rendered *outside*
+the WebView. `chromiumctl-cli` only sees the WebView's own DOM over CDP —
+it cannot see or interact with either dialog. Verified with a human
+physically present at the device to approve each prompt when triggered
+(the other option considered, blind `adb shell input tap` coordinates, was
+not needed since a person was available and gives a much more reliable
+result).
+
+Both commands wired as on-demand globals (`window.__triggerBiometricAuth`,
+`window.__triggerCamera`, same pattern as justjs#71's
+`__dispatchIncrement`) so they fire only when explicitly invoked via
+`chromiumctl-cli eval`, not automatically on mount.
+
+- **`biometricAuth()`**: triggered, a real system `BiometricPrompt` dialog
+  appeared, approved by fingerprint/face on the device, `document.title`
+  flipped to `"biometricAuth ok"` only after approval — confirming the
+  full real chain (JS → `AndroidBridge` → JNI → Rust's multi-stage
+  pipeline: `checkBiometricAvailability` → `checkSecureLockScreen` →
+  `showBiometricPrompt`).
+- **`camera()`**: triggered on a fresh install (permissions reset), a real
+  camera runtime-permission dialog appeared and was granted, then a real
+  `Camera2` still capture ran automatically (no shutter UI — the bridge
+  captures directly). The resolved base64 was stashed on
+  `window.__lastCameraBase64` and inspected directly, not just measured:
+  it starts with `/9j/` (the fixed base64 encoding of JPEG's `FF D8 FF`
+  magic bytes) followed by `RXhpZgAA` (base64 for the ASCII string
+  `Exif\0\0`) — a genuine, valid JPEG with EXIF metadata, not just a
+  non-empty string.
+
+Both of `@justjs/platform-mobile`'s six real bridge commands
+(`echo`/`notify`/`biometricAuth`/`contacts`/`camera`/`health`) now have at
+least one real-hardware-verified representative from each class of
+behavior this package can drive: no-UI (`notify`), native system dialog
+(`biometricAuth`, `camera`), attribute mutation (justjs#70), and reactive
+re-render (justjs#71). `contacts` and `health` remain unverified on real
+hardware (no native dialog of their own, lower risk, not covered by this
+issue's scope) if closing that gap ever becomes worthwhile.
