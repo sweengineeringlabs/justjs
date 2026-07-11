@@ -227,6 +227,24 @@ device: incremented state, killed the actual process (`adb shell am
 kill`, confirmed via `pidof` it was genuinely gone), relaunched, and the
 state came back correctly - not simulated.
 
+**Clearing persisted state (justjs#87).** Once saved, state persists
+indefinitely (confirmed: survives rotation, real process death, `Force
+Stop`) until overwritten by another `save()` - wrong for a real "log
+out"/"reset session" flow, where restoring the previous session on next
+launch would be a bug, not a feature. `window.JustjsState.clear()` is the
+same synchronous, race-free bridge call as `save()`/`load()` - it
+`remove()`s the underlying `SharedPreferences` entry (not a `save("")`),
+so a subsequent `load()` genuinely returns `null`, the same as a fresh
+install. `tests/fixtures/app/src/app.ts` has no real logout flow to hang
+this off of, so it's exposed as an on-demand `window.__triggerStateClear()`
+global (same pattern as `__triggerCamera`/`__triggerLocation`) purely to
+prove the bridge itself works. Verified on real hardware: saved state
+(`count: 3`), called `clear()`, killed the actual process, relaunched,
+and the state came back as the *default* (`count: 0`), not the pre-clear
+value - and re-ran the original save/restore repro immediately before
+that to confirm `clear()`'s addition didn't change `save()`/`load()`'s
+existing behavior.
+
 ### 3. Compile via `justc`
 
 ```sh
