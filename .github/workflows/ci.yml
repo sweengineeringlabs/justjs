@@ -31,11 +31,17 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Typecheck
-        run: bun run typecheck
-
+      # build before typecheck/test: several packages resolve sibling
+      # @justjs/* imports through each other's built dist/*.d.ts (not
+      # source-level project references), and package.json's own
+      # build/typecheck scripts are already split into explicit
+      # dependency-ordered phases for exactly this reason - see the
+      # _comment_build_order note there.
       - name: Build
         run: bun run build
+
+      - name: Typecheck
+        run: bun run typecheck
 
       - name: Test
         run: bun run test
