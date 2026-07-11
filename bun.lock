@@ -59,7 +59,7 @@
       "name": "@justjs/aop-security",
       "version": "0.1.0",
       "dependencies": {
-        "@justjs/application": "workspace:*",
+        "@justjs/application": "^0.1.0",
       },
       "devDependencies": {
         "typescript": "^5.5.0",
@@ -169,6 +169,26 @@
       },
       "devDependencies": {
         "typescript": "^5.5.0",
+      },
+    },
+    "scm/examples/cross-target-demo": {
+      "name": "cross-target-demo",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/aop-analytics": "^0.1.0",
+        "@justjs/aop-flags": "^0.1.0",
+        "@justjs/aop-i18n": "^0.1.0",
+        "@justjs/aop-observability": "^0.1.0",
+        "@justjs/aop-security": "^0.1.0",
+        "@justjs/aop-theming": "^0.1.0",
+        "@justjs/application": "^0.1.0",
+        "@justjs/data": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "happy-dom": "^15.0.0",
+        "vite": "^5.0.0",
       },
     },
     "scm/examples/hello-justjs": {
@@ -444,6 +464,8 @@
     "chardet": ["chardet@2.2.0", "", {}, "sha512-rddelWYNPRrXq6PtNEN2S3f6t9ILzvqaN5pVgi4kqt9jHQaXIial9PznB5iSPVlQSLNaaH22ItWz3EJtQ10+OA=="],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
+
+    "cross-target-demo": ["cross-target-demo@workspace:scm/examples/cross-target-demo"],
 
     "detect-indent": ["detect-indent@6.1.0", "", {}, "sha512-reYkTUJAZb9gUuZ2RvVCNhVHdg62RHnJ7WJl8ftMi4diZ6NWlciOzQN88pUhSELEwflJht4oQDv0F0BMlwaYtA=="],
 

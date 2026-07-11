@@ -23,7 +23,8 @@
     "tooling/ssr/scm/main",
     "tooling/build/scm/main",
     "osi-layers-integration",
-    "scm/examples/hello-justjs"
+    "scm/examples/hello-justjs",
+    "scm/examples/cross-target-demo"
   ],
   "scripts": {
     "build": "bun run --filter '@justjs/network' --filter '@justjs/data' --filter '@justscript/core' build && bun run --filter '@justjs/transport' build && bun run --filter '@justjs/application' build && bun run --filter '@justscript/measurement' --filter '@justjs/aop-security' --filter '@justjs/aop-observability' --filter '@justjs/aop-i18n' --filter '@justjs/aop-flags' --filter '@justjs/aop-analytics' --filter '@justjs/aop-theming' --filter '@justjs/platform-mobile' --filter '@justjs/platform-desktop' --filter '@justjs/platform-native' --filter '@justjs/vite' --filter '@justjs/ssr' --filter '@justjs/build' build && bun run --filter 'hello-justjs' build",

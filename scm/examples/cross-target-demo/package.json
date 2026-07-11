@@ -1,0 +1,28 @@
+{
+  "name": "cross-target-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One composition root (src/app.ts), compiled unmodified for two targets: a real browser (vite build) and Android (justc build --bundle --format iife via js-runtime's generator) - proves network/transport/application/data + all six AOP aspects work identically on both, through a real DDAS router.navigate() mount, not a narrated version of it.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@justjs/application": "^0.1.0",
+    "@justjs/network": "^0.1.0",
+    "@justjs/transport": "^0.1.0",
+    "@justjs/data": "^0.1.0",
+    "@justjs/aop-security": "^0.1.0",
+    "@justjs/aop-observability": "^0.1.0",
+    "@justjs/aop-flags": "^0.1.0",
+    "@justjs/aop-analytics": "^0.1.0",
+    "@justjs/aop-theming": "^0.1.0",
+    "@justjs/aop-i18n": "^0.1.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "happy-dom": "^15.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "packageName": "io.swelabs.justjs.crosstargetdemo",
+  "displayName": "Cross Target Demo",
+  "versionCode": 1,
+  "versionName": "0.1.0",
+  "debuggable": true,
+  "capabilities": [],
+  "webApp": {
+    "entry": "src/app.ts",
+    "css": [],
+    "html": "index.mobile.html"
+  }
+}
