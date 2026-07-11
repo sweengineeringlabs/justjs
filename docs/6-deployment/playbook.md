@@ -141,3 +141,65 @@ not `@justjs/platform-mobile`'s device-capability facade.
 `build/apk/app-signed.apk` is now installable — see the
 [operations runbook](../7-operations/runbook.md#verify-justjsplatform-mobile-on-a-real-android-device)
 for getting it onto a real device and confirming it actually rendered.
+
+## Generating a full, independent Android app (justjs#74)
+
+Step 4 above (`android-shell/build.sh`) packages a compiled `app.js` into
+the one fixed, hand-maintained `android-shell` project — fine for
+iterating on `@justjs/*` itself, but there was no way for a second,
+independently-branded app (its own package name, its own permission set)
+to exist without breaking `android-shell`'s build. `js-runtime` now has a
+real generator for that: `scm/generate-android-app.sh` +
+`scm/android-template/`. `android-shell` itself is this generator's first
+real output (`scm/android-shell.manifest.json`), not a second, divergent
+hand-maintained path — steps 1-3 above are unchanged, this replaces only
+step 4.
+
+```sh
+cd js-runtime/scm
+bash generate-android-app.sh <manifest.json> <output-dir> [--install]
+```
+
+Manifest shape (paths resolved relative to the manifest file's own
+directory):
+
+```json
+{
+  "packageName": "io.example.app",
+  "displayName": "Example App",
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "debuggable": true,
+  "capabilities": ["notify", "biometricAuth", "contacts", "camera", "health"],
+  "nativeLibs": "../../main/features/mobile-bridge/jniLibs",
+  "webApp": {
+    "entry": "../app/src/app.ts",
+    "css": ["../app/src/some_component.gen.css"],
+    "html": "../app/index.html"
+  }
+}
+```
+
+`capabilities` and `nativeLibs` are both optional and drive which
+`<uses-permission>` entries `AndroidManifest.xml` gets and which
+`Manifest.permission.*` values `MainActivity`'s startup
+`requestPermissions()` call includes — an app with no capabilities gets no
+runtime permission requests, and every `dispatchCommand` call returns a
+graceful `"native bridge unavailable"` error rather than crashing.
+
+**Multiple independently-packaged apps can coexist on one device.**
+`libmobile_bridge.so` used to resolve its native methods via JNI's static
+`Java_<package>_<Class>_<method>` naming convention, which baked the
+library to one specific package (`io.swelabs.jsruntime.shell`) at compile
+time — a second app with a different package crashed with
+`UnsatisfiedLinkError` the instant it called a native method. Fixed by
+registering natives dynamically (`JNIEnv::register_native_methods()`
+against a fixed bootstrap class, `io.swelabs.jsruntime.nativebridge.
+NativeBridge`, called from `MainActivity`'s static init right after
+`System.loadLibrary` succeeds) — every generated app compiles this same
+bootstrap class in unchanged alongside its own `MainActivity`, so the same
+`.so` works from any package. Confirmed on a real device: `android-shell`
+(regenerated) and a second app with a different package and a different
+capability subset install side-by-side (`adb shell pm list packages`
+shows both) and both post real notifications through the same library
+with no `UnsatisfiedLinkError`.
