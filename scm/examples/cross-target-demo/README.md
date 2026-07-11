@@ -28,6 +28,23 @@ calls `navigate()` at all — see below).
 - **All six AOP aspects**: registered and validated by `boot()`'s real
   `justjs.providers.has(concern, strategy)` gate — `boot()` throws a real
   `BootError` if a configured aspect strategy isn't registered.
+- **A real `<form>`**: `x-login`, a dummy login (client-side validation
+  only, no real auth/network call) dispatching into the same shared
+  `FeatureStore` the counter uses — proves inputs, `submit`/
+  `preventDefault`, and validation-error display work through the same
+  reactive `dataContext` pipeline as everything else.
+- **Real navigation**: three real `.nav-btn` links, each a plain
+  `click` → CSS `.active` toggle (all three routes are mounted once at
+  boot via `navigate()`; switching is a visibility toggle on
+  already-mounted containers — `RuntimeAdapter`'s `unmount()` isn't wired
+  to remove anything on either platform, so pre-mounting + show/hide is
+  the correct pattern here, not a workaround).
+- **A real external stylesheet** (`src/app.css`), loaded via `<link
+  rel="stylesheet">` on both targets (Vite processes/hashes it for web;
+  the generator copies it verbatim to `assets/app.css` for mobile).
+  Confirmed on real hardware via `getComputedStyle` — a nav button's
+  background genuinely computed to `rgb(102, 126, 234)`, matching
+  `app.css`'s `#667eea`.
 
 ## Two things found and fixed while building this
 
@@ -71,7 +88,8 @@ management convinced the app is genuinely foregrounded.
 bun install
 bun run build      # -> dist/, or `bun run dev` for a live server
 node verify_web.mjs # real-DOM check via happy-dom - boots, mounts via
-                     # DDAS, clicks increment, clicks fetch, checks results
+                     # DDAS, clicks increment, clicks fetch, clicks nav,
+                     # submits the login form empty then for real, logs out
 
 # Mobile (from js-runtime's main/features/mobile-bridge/)
 bash scripts/generate-android-app.sh \

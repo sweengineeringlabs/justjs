@@ -1,11 +1,5 @@
 import type { FeatureStore } from "@justjs/data";
-
-export interface CounterState {
-  count: number;
-}
-export interface IncrementAction {
-  type: "increment";
-}
+import type { AppState, AppAction } from "../core/state.js";
 
 // Same reactive convention already proven cross-target this session
 // (js-runtime's StoreProbeElement): a plain custom element with a
@@ -16,12 +10,15 @@ export interface IncrementAction {
 export class CounterElement extends HTMLElement {
   private unsubscribe?: () => void;
 
-  set dataContext(ctx: { store?: FeatureStore<CounterState, IncrementAction> } | undefined) {
+  set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.unsubscribe?.();
     const store = ctx?.store;
     const render = () => {
       const count = store?.state.value.count ?? 0;
-      this.innerHTML = `<div>count: <span id="count-value">${count}</span> <button id="inc">increment</button></div>`;
+      this.innerHTML = `
+        <div class="counter-display" id="count-value">${count}</div>
+        <button id="inc">increment</button>
+      `;
       this.querySelector("#inc")?.addEventListener("click", () => {
         store?.dispatch({ type: "increment" });
       });

@@ -7,7 +7,7 @@
   "capabilities": [],
   "webApp": {
     "entry": "src/app.ts",
-    "css": [],
+    "css": ["src/app.css"],
     "html": "index.mobile.html"
   }
 }

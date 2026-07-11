@@ -16,7 +16,7 @@
 // which is plain DOM API calls with no platform dependency at all.
 
 import { justjs, BootError } from "@justjs/application";
-import { createFeatureStore, type FeatureStore } from "@justjs/data";
+import { createFeatureStore } from "@justjs/data";
 import { createSecurityProvider } from "@justjs/aop-security";
 import { createObservabilityProvider } from "@justjs/aop-observability";
 import { createFlagsProvider } from "@justjs/aop-flags";
@@ -25,7 +25,8 @@ import { createThemingProvider } from "@justjs/aop-theming";
 import { createI18nProvider } from "@justjs/aop-i18n";
 import "./components/counter.js";
 import "./components/fetch-demo.js";
-import type { CounterState, IncrementAction } from "./components/counter.js";
+import "./components/login.js";
+import { initialState, reducer } from "./core/state.js";
 
 // justjs#91: a bare side-effect import of @justjs/aop-* does NOT actually
 // register the strategy - the SPI module that does isn't reachable
@@ -53,27 +54,49 @@ for (const [concern, factory] of Object.entries(aspectFactories)) {
   });
 }
 
-const store: FeatureStore<CounterState, IncrementAction> = createFeatureStore<CounterState, IncrementAction>(
-  { count: 0 },
-  (state, action) => (action.type === "increment" ? { count: state.count + 1 } : state)
-);
+const store = createFeatureStore(initialState, reducer);
+
+const ROUTES = ["/counter", "/fetch", "/login"] as const;
+const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
+  "/counter": "mount-counter",
+  "/fetch": "mount-fetch",
+  "/login": "mount-login",
+};
+
+// RuntimeAdapter.mount() is a no-op on both targets (see the top-of-file
+// comment) and unmount() is never wired to remove content either - all
+// three routes are mounted once at boot, and navigating between them is
+// purely a CSS `.active` toggle on the already-mounted containers, the
+// same "mount everything, show/hide" pattern js-runtime's own
+// mount-everything mode already uses.
+function showRoute(path: string): void {
+  for (const [route, mountId] of Object.entries(MOUNT_ID_FOR_ROUTE)) {
+    document.getElementById(mountId)?.classList.toggle("active", route === path);
+  }
+  document.querySelectorAll<HTMLElement>(".nav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.route === path);
+  });
+}
 
 async function main(): Promise<void> {
   try {
     await justjs.boot({
-      routes: ["/counter", "/fetch"],
+      routes: [...ROUTES],
       registry: {
         "x-counter": { path: "/counter", component: "x-counter" },
         "x-fetch": { path: "/fetch", component: "x-fetch" },
+        "x-login": { path: "/login", component: "x-login" },
       },
       componentRegistry: {
         "x-counter": () => Promise.resolve(customElements.get("x-counter") as CustomElementConstructor),
         "x-fetch": () => Promise.resolve(customElements.get("x-fetch") as CustomElementConstructor),
+        "x-login": () => Promise.resolve(customElements.get("x-login") as CustomElementConstructor),
       },
       domAddressMap: {
         elements: {
           "cross-target-demo:home:x-counter:root": { component: "counter", tag: "x-counter" },
           "cross-target-demo:home:x-fetch:root": { component: "fetch", tag: "x-fetch" },
+          "cross-target-demo:home:x-login:root": { component: "login", tag: "x-login" },
         },
       },
       featureStore: store,
@@ -90,8 +113,16 @@ async function main(): Promise<void> {
     // Real DDAS mount, not a narrated one - navigate() is what actually
     // triggers MountStep/RenderStep to resolve the data-ddas-id
     // placeholder and insert the component into it.
-    await justjs.router!.navigate("/counter");
-    await justjs.router!.navigate("/fetch");
+    for (const route of ROUTES) {
+      await justjs.router!.navigate(route);
+    }
+    showRoute("/counter");
+
+    document.querySelectorAll<HTMLElement>(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        showRoute(btn.dataset.route!);
+      });
+    });
 
     document.title = "cross-target-demo: mounted";
   } catch (e) {

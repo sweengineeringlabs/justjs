@@ -33,8 +33,14 @@ globalThis.fetch = nodeFetch;
 document.body.innerHTML = `
   <div id="app">
     <h1>cross-target-demo</h1>
-    <div id="mount-counter" data-ddas-id="cross-target-demo:home:x-counter:root"></div>
-    <div id="mount-fetch" data-ddas-id="cross-target-demo:home:x-fetch:root"></div>
+    <nav class="nav">
+      <button class="nav-btn active" data-route="/counter">Counter</button>
+      <button class="nav-btn" data-route="/fetch">Fetch</button>
+      <button class="nav-btn" data-route="/login">Login</button>
+    </nav>
+    <div id="mount-counter" class="page active" data-ddas-id="cross-target-demo:home:x-counter:root"></div>
+    <div id="mount-fetch" class="page" data-ddas-id="cross-target-demo:home:x-fetch:root"></div>
+    <div id="mount-login" class="page" data-ddas-id="cross-target-demo:home:x-login:root"></div>
   </div>
 `;
 
@@ -70,3 +76,29 @@ if (fetchBtn) {
 } else {
   console.log("no #fetch-btn found - real bug, not expected");
 }
+
+// Nav: click "Login" and confirm the .active class moved to the login page.
+const loginNavBtn = document.querySelector('.nav-btn[data-route="/login"]');
+loginNavBtn.click();
+console.log(
+  "after nav click, counter page active:",
+  document.getElementById("mount-counter").classList.contains("active"),
+  "login page active:",
+  document.getElementById("mount-login").classList.contains("active")
+);
+
+// Login form: submit empty first (expect validation error, no dispatch),
+// then submit real values (expect welcome message), then log out.
+document.querySelector("#login-submit").click();
+await new Promise((r) => setTimeout(r, 20));
+console.log("after empty submit, login mount innerHTML:", document.getElementById("mount-login").innerHTML);
+
+document.querySelector("#login-username").value = "amu";
+document.querySelector("#login-password").value = "hunter2";
+document.querySelector("#login-submit").click();
+await new Promise((r) => setTimeout(r, 20));
+console.log("after real submit, login mount innerHTML:", document.getElementById("mount-login").innerHTML);
+
+document.querySelector("#logout")?.click();
+await new Promise((r) => setTimeout(r, 20));
+console.log("after logout, login mount innerHTML:", document.getElementById("mount-login").innerHTML);
