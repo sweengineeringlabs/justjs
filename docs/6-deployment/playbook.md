@@ -203,6 +203,21 @@ mechanical `registry.gen.ts` → `app.ts` generator can infer). Use this
 path directly for anything beyond what the automated generator covers, or
 as a starting point to hand-edit after running the generator once.
 
+**`FeatureStore` wiring is one of those things, by deliberate decision
+(justjs#86), not an oversight.** Routing automation works because
+`routes.gen.json`/`registry.gen.ts` are real data justweb emits — the
+generator only ever transcribes that into imports/mount points, it never
+invents application logic. `FeatureStore` has no equivalent: justweb's
+generated output has zero state concept, so automating this would always
+mean the generator *guessing* at a state shape and reducer — genuine
+business logic, not data transcription. That would cross the same
+architectural boundary the whole generator exists to respect (justweb
+never knows `@justjs/*` exists; compiled output stays opaque input), for
+a saving of roughly the ~20 lines the manual pattern below already is.
+`generate-app-entry.mjs` will not grow a `featureStore` flag or similar —
+this is the documented, permanent path for state persistence, not a gap
+waiting to be automated.
+
 #### Surviving Android process death (justjs#85)
 
 `FeatureStore` state lives in the WebView's JS heap - if Android
