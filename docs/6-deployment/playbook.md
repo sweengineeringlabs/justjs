@@ -101,23 +101,50 @@ otherwise never resolved).
 
 ### 2. Write the entry script
 
-`js-runtime/scm/app/src/app.ts` is the composition root — it imports a real
-component, calls `@justjs/application`'s `boot()` with a `componentRegistry`
-(a `LazyCustomElementRegistry`: tag → `() => Promise<CustomElementConstructor>`),
+The composition root (`app.ts`) imports each real component, calls
+`@justjs/application`'s `boot()` with a `componentRegistry` (a
+`LazyCustomElementRegistry`: tag → `() => Promise<CustomElementConstructor>`),
 a `domAddressMap` (DDAS, `{ elements: { "<address>": { component, tag } } }`),
 and `runtimeAdapter: createJsRuntimeShellAdapter()`, then calls
 `justjs.router!.navigate(path)` to actually trigger mounting (`boot()` itself
-only validates and constructs the runtime — it does not auto-navigate).
+only validates and constructs the runtime — it does not auto-navigate). The
+DOM element `DefaultRouter` mounts into is resolved via
+`document.querySelector('[data-ddas-id="<address>"]')` — the host HTML needs
+a matching `data-ddas-id` attribute on the mount container.
 
-The DOM element `boot()`'s `DefaultRouter` mounts into is resolved via
-`document.querySelector('[data-ddas-id="<address>"]')` — the host HTML
-(`scm/app/index.html` and `scm/android-shell/assets/index.html`, which must
-be kept in sync by hand; `build.sh` only copies `app.js`, not `index.html`)
-needs a matching `data-ddas-id` attribute on the mount container.
+#### Automated (justjs#81, preferred)
 
-See `js-runtime/scm/app/src/app.ts` for the current real example (a real
-justweb `*_component.gen.ts` fixture wired end-to-end, not a hand-written
-stand-in).
+```sh
+node js-runtime/scm/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir> --app-name <name>
+```
+
+Parses a real, unmodified `registry.gen.ts` — `justw generate app`'s own
+output, `DO NOT EDIT` header and all — for its `[tag, ComponentClass]`
+list and each class's import path, and generates `<output-dir>/src/app.ts`
++ `<output-dir>/index.html`: one synthetic route + DDAS address + mount
+`<div>` per discovered component, `boot()` wired with all of them, and one
+`navigate()` call per component at startup (so every component justweb
+generated actually ends up mounted, matching justweb's own "show
+everything, no routing" unrouted-app shape). justweb's own repo/output is
+only ever read, never modified — confirmed directly (`git status` on the
+justweb checkout stays clean after running this).
+
+This covers what's mechanically derivable from `registry.gen.ts` alone —
+which components exist and their tags. It does **not** infer real
+per-app routing, DDAS addresses that need to match a hand-authored
+layout, or any interaction logic beyond mounting (see
+`js-store-probe`/click-handler logic in the manual example below — that
+kind of app-specific behavior stays hand-written either way).
+
+#### Manual (fallback for anything the automation doesn't cover)
+
+See `js-runtime/scm/app/src/app.ts` for the hand-written reference example
+(a real justweb `*_component.gen.ts` fixture wired end-to-end, plus real
+interaction logic — click-to-notify, a `FeatureStore`-backed reactive
+probe element, on-demand device-capability triggers — none of which a
+mechanical `registry.gen.ts` → `app.ts` generator can infer). Use this
+path directly for anything beyond what the automated generator covers, or
+as a starting point to hand-edit after running the generator once.
 
 ### 3. Compile via `justc`
 
