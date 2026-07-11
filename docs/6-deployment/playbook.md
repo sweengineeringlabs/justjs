@@ -166,6 +166,30 @@ mechanical `registry.gen.ts` → `app.ts` generator can infer). Use this
 path directly for anything beyond what the automated generator covers, or
 as a starting point to hand-edit after running the generator once.
 
+#### Surviving Android process death (justjs#85)
+
+`FeatureStore` state lives in the WebView's JS heap - if Android
+recreates the Activity (rotation, now suppressed by `android:
+configChanges` - see the generator's template) or genuinely kills a
+backgrounded process, that heap and everything in it is gone by default.
+Confirmed directly, not assumed: a real counter incremented to 5 came
+back as 0 after nothing more than a device rotation, before the
+`configChanges` fix.
+
+For apps that use `FeatureStore` and need it to survive, apply the
+convention `scm/app/src/app.ts` uses: read `window.JustjsState.load()`
+(a real, synchronous `@JavascriptInterface` bridge -
+`MainActivity.java`'s `JustjsStateBridge`, backed by `SharedPreferences`)
+as `createFeatureStore()`'s initial state instead of a hardcoded default,
+and call `window.JustjsState.save(JSON.stringify(state))` from
+`store.subscribe()` on every change. This is app-level, not a
+`@justjs/application`/`@justjs/data` API - `generate-app-entry.mjs`
+doesn't wire `FeatureStore` into generated apps at all, so there's
+nothing for the generator itself to automate yet. Verified on a real
+device: incremented state, killed the actual process (`adb shell am
+kill`, confirmed via `pidof` it was genuinely gone), relaunched, and the
+state came back correctly - not simulated.
+
 ### 3. Compile via `justc`
 
 ```sh
