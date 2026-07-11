@@ -54,11 +54,21 @@ export interface HealthResult {
   readonly steps: number
 }
 
+// justjs#84: matches getLocation()'s real Java output exactly (js-runtime
+// scm/android-template/MainActivity.java.template, LocationManager's
+// getLastKnownLocation() - lat/lon in degrees, accuracy in meters), not
+// guessed.
+export interface LocationResult {
+  readonly lat: number
+  readonly lon: number
+  readonly accuracy: number
+}
+
 // The typed facade @justjs/mobile exposes over window.AndroidBridge - the
-// six commands main/features/mobile-bridge/src/lib.rs actually dispatches
-// today. GPS/location is deliberately not included here: it isn't
-// implemented anywhere in js-runtime yet (confirmed by reading lib.rs in
-// full), so this facade doesn't claim a capability that doesn't exist.
+// seven commands main/features/mobile-bridge/src/lib.rs actually
+// dispatches today (justjs#80 added `location` via a registration table,
+// not a new match arm - see that issue for why this facade needed a
+// separate update rather than coming for free).
 export interface MobileBridge {
   echo(positional?: readonly string[], flags?: Record<string, string>): Promise<EchoResult>
   notify(title: string, body: string): Promise<void>
@@ -66,6 +76,7 @@ export interface MobileBridge {
   contacts(): Promise<readonly Contact[]>
   camera(): Promise<string>
   health(): Promise<HealthResult>
+  location(): Promise<LocationResult>
 }
 
 export interface MobilePlatformCapabilities {
@@ -80,8 +91,9 @@ export interface MobilePlatformCapabilities {
 }
 
 // What justscript_runtime's android-shell actually supports today (verified
-// against main/features/mobile-bridge/src/lib.rs's dispatch() match arms) -
-// gps stays false until that project implements it.
+// against main/features/mobile-bridge/src/lib.rs's dispatch() match arms
+// and simple_capabilities table) - gps flipped to true in justjs#84, now
+// that `location` is a real, verified capability (justjs#80).
 export const JS_RUNTIME_SHELL_CAPABILITIES: MobilePlatformCapabilities = {
   touch: true,
   orientation: true,
@@ -90,5 +102,5 @@ export const JS_RUNTIME_SHELL_CAPABILITIES: MobilePlatformCapabilities = {
   biometrics: true,
   contacts: true,
   health: true,
-  gps: false,
+  gps: true,
 }

@@ -5,6 +5,7 @@ import type {
   Contact,
   EchoResult,
   HealthResult,
+  LocationResult,
   MobileBridge,
 } from "../api/bridge.js"
 import { MobileBridgeError } from "../api/bridge.js"
@@ -63,5 +64,10 @@ export class JsRuntimeShellBridge implements MobileBridge {
   async health(): Promise<HealthResult> {
     const response = dispatch(getAndroidBridge(), "health")
     return JSON.parse(unwrap(response, "health")) as HealthResult
+  }
+
+  async location(): Promise<LocationResult> {
+    const response = dispatch(getAndroidBridge(), "location")
+    return JSON.parse(unwrap(response, "location")) as LocationResult
   }
 }

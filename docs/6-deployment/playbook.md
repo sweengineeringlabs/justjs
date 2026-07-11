@@ -271,6 +271,12 @@ multi-stage shapes, register there without touching any of the six
 requires changing it, only adding that capability's own `<!--CAP:x-->`/
 `//CAP:x` blocks to the two Android templates.
 
+`location` also has a typed `bridge.location(): Promise<LocationResult>`
+method now (justjs#84) — `@justjs/platform-mobile`'s `MobileBridge`
+interface doesn't automatically pick up `simple_capabilities`-registered
+capabilities (justjs#80), so each one needs its typed method added by
+hand; see that package's own README for the convention going forward.
+
 `icon` (justjs#79) must be a single square PNG at least 192x192 —
 upscaling a smaller source would ship a visibly blurry icon, so that's a
 hard error at generation time, not a silent degrade. Real per-density

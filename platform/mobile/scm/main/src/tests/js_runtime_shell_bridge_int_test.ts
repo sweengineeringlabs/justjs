@@ -98,6 +98,19 @@ describe("JsRuntimeShellBridge", () => {
     expect(health).toEqual({ steps: 4213 })
   })
 
+  it("test_location_parses_the_json_encoded_lat_lon_accuracy_object", async () => {
+    installMockBridge(() => successEnvelope(JSON.stringify({ lat: -25.78, lon: 28.04, accuracy: 100 })))
+    const bridge = new JsRuntimeShellBridge()
+    const location = await bridge.location()
+    expect(location).toEqual({ lat: -25.78, lon: 28.04, accuracy: 100 })
+  })
+
+  it("test_location_throws_the_real_permission_error_not_a_default_coordinate", async () => {
+    installMockBridge(() => errorEnvelope("ACCESS_FINE_LOCATION not granted"))
+    const bridge = new JsRuntimeShellBridge()
+    await expect(bridge.location()).rejects.toThrow(/ACCESS_FINE_LOCATION not granted/)
+  })
+
   it("test_throws_a_clear_error_when_android_bridge_global_is_missing", async () => {
     const bridge = new JsRuntimeShellBridge()
     await expect(bridge.echo()).rejects.toThrow(/window\.AndroidBridge is not available/)

@@ -34,7 +34,27 @@ Checked directly against `../justscript_runtime`'s
 | `contacts` | real |
 | `camera` | real |
 | `health` (step count) | real |
-| GPS / location | **not implemented anywhere yet** — not exposed by this package |
+| `location()` (justjs#80/#84) | real — `lat`/`lon`/`accuracy` via `LocationManager.getLastKnownLocation()` |
+
+### Keeping this list in sync with `js-runtime` (justjs#84)
+
+`mobile-bridge`'s Rust dispatch (`lib.rs`) has two ways a capability gets
+added: a named `match` arm (the original six), or an entry in the
+`simple_capabilities` registration table (justjs#80 — no-arg capabilities
+that call one Java static method returning a JSON string; `location` was
+the first). **Either way is invisible to this package until someone adds
+the matching `MobileBridge` method by hand** — `simple_capabilities`
+entries especially: they need zero `js-runtime`-side match-arm changes,
+so it's easy to add one there and forget this side exists at all (this is
+exactly what happened between justjs#80 and justjs#84).
+
+**Convention going forward:** any `js-runtime`-side capability addition
+must land a matching typed method on `MobileBridge`
+(`api/bridge.ts`)/`JsRuntimeShellBridge`
+(`core/js_runtime_shell_bridge.ts`) in the same change, following the
+`dispatch()`/`unwrap()` pattern every existing method already uses (see
+`health()` for the no-arg/JSON-object-result shape most new capabilities
+will match) — not a separate, "get to it eventually" follow-up.
 
 ## Usage
 

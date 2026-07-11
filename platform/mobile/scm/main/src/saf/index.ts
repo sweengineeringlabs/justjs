@@ -7,6 +7,7 @@ export type {
   EchoResult,
   Contact,
   HealthResult,
+  LocationResult,
   MobileBridge,
   MobilePlatformCapabilities,
 } from "../api/bridge.js"
