@@ -224,8 +224,9 @@ Getting this onto real hardware surfaced four more distinct, reproducible
   directly from the entry file) gets silently dropped regardless of
   aliasing — the package's real source is inlined, but nothing ever binds
   it to the name the intermediate package's code calls. This is why
-  `js-runtime/scm/app/src/app.ts` uses a small hand-written object
-  satisfying the `FeatureStore` interface instead of `@justjs/data`'s real
+  `js-runtime/main/features/mobile-bridge/tests/fixtures/app/src/app.ts`
+  uses a small hand-written object satisfying the `FeatureStore` interface
+  instead of `@justjs/data`'s real
   `createFeatureStore()` — it only imports the *type*, never the runtime
   path.
 - **Unnamed, not yet minimally isolated** — the `dataContext`-forwarding
@@ -265,8 +266,9 @@ hardware with the reverted code and `justc` 0.3.5:
   extraction needed
 - `@justjs/data`'s `signal.ts` aliases `@preact/signals-core`'s `signal`
   export again (`signal as preactSignal`)
-- `js-runtime/scm/app/src/app.ts` uses `@justjs/data`'s real
-  `createFeatureStore()` again (not the hand-written stand-in), and
+- `js-runtime/main/features/mobile-bridge/tests/fixtures/app/src/app.ts`
+  uses `@justjs/data`'s real `createFeatureStore()` again (not the
+  hand-written stand-in), and
   `StoreProbeElement`'s `dataContext` setter uses a real chained
   `ctx?.store?.state.value.count` again (not the ternary workaround)
 

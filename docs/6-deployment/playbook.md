@@ -11,7 +11,7 @@ playbook is the thing that ties `justjs`'s half together, not a replacement
 for either:
 
 - `sweengineeringlabs/justjs` (this repo) — the `@justjs/*` packages themselves
-- `sweengineeringlabs/js-runtime` (repo dir: `justscript_runtime`) — `scm/app/` (the vendoring + entry script) and `scm/android-shell/` (the APK shell); see that repo's `docs/4-development/runbook/android-webview-verification.md` for the underlying `justc`/APK/`adb` toolchain this playbook builds on
+- `sweengineeringlabs/js-runtime` (repo dir: `justscript_runtime`) — `main/features/mobile-bridge/tests/fixtures/app/` (the vendoring + entry script) and `main/features/mobile-bridge/tests/android-shell/` (the APK shell); see that repo's `docs/4-development/runbook/android-webview-verification.md` for the underlying `justc`/APK/`adb` toolchain this playbook builds on
 
 ## What CI covers, and what it doesn't (justjs#76)
 
@@ -21,7 +21,8 @@ Both repos have a `.github/workflows/ci.yml` that runs on every push/PR:
   `test:vendor-external` (justjs#40's integration test) — everything
   above that doesn't need a device or `justc`.
 - **`js-runtime`**: a `justc build` compile-only check against
-  `scm/app/src/app.ts` — catches a genuinely broken build, but **not**
+  `main/features/mobile-bridge/tests/fixtures/app/src/app.ts` — catches a
+  genuinely broken build, but **not**
   the class of bug that motivated justjs#16/#69-#72 (a bundler bug
   producing a runtime `ReferenceError` while `justc build` itself reports
   success).
@@ -42,15 +43,15 @@ follow-up, not something either workflow silently assumes.
 |---|---|
 | This repo built | `bun install && bun run --filter '@justjs/application' build` (and `network`, `transport`, `platform-mobile` — see "Which packages to vendor" below) |
 | `justc` | From `sweengineeringlabs/justscript_compiler`, **0.3.5 or later**. `justc --version` to confirm — see "Known compiler bugs" below if you're stuck on an older version |
-| `js-runtime` checked out as a sibling directory | `../justscript_runtime` relative to this repo, matching `scm/app/build.sh`'s default `JUSTC` path assumption |
+| `js-runtime` checked out as a sibling directory | `../justscript_runtime` relative to this repo, matching `main/features/mobile-bridge/tests/fixtures/app/build.sh`'s default `JUSTC` path assumption |
 | Android SDK Build Tools + platform jar, `adb` | Same layout as `js-runtime`'s runbook and `appsoluxions`' deployment playbook assume: `C:\tools\android-sdk\android-14\{aapt2.exe,d8.bat,zipalign.exe,apksigner.bat}`, `C:\tools\android-sdk\android-34\android.jar`, `C:\tools\platform-tools\adb.exe` |
 
 ## Which packages to vendor
 
-`js-runtime`'s `scm/app/` consumes `@justjs/*` as vendored `file:` tarballs
-(see that repo's `scm/app/vendor/VENDOR.md` for *why* — no package registry
-exists for these packages). Only what's actually imported at runtime needs
-vendoring:
+`js-runtime`'s `main/features/mobile-bridge/tests/fixtures/app/` consumes
+`@justjs/*` as vendored `file:` tarballs (see that directory's
+`vendor/VENDOR.md` for *why* — no package registry exists for these
+packages). Only what's actually imported at runtime needs vendoring:
 
 | Package | Needed because |
 |---|---|
@@ -89,11 +90,11 @@ done
 # before packing it - edit /tmp/application/package.json by hand or with
 # a one-liner, then:
 for slug in network transport application platform-mobile data; do
-  ( cd "/tmp/$slug" && npm pack --pack-destination ../../justscript_runtime/scm/app/vendor )
+  ( cd "/tmp/$slug" && npm pack --pack-destination ../../justscript_runtime/main/features/mobile-bridge/tests/fixtures/app/vendor )
 done
 ```
 
-Update `scm/app/package.json`'s `dependencies`/`overrides` and
+Update `main/features/mobile-bridge/tests/fixtures/app/package.json`'s `dependencies`/`overrides` and
 `vendor/VENDOR.md`'s pinned commit hash to match — see that file for the
 exact shape (`file:` deps + `overrides` forcing nested `@justjs/*` names to
 their own tarballs, since a packed tarball's own `workspace:*` metadata is
@@ -115,7 +116,7 @@ a matching `data-ddas-id` attribute on the mount container.
 #### Automated (justjs#81/#83, preferred)
 
 ```sh
-node js-runtime/scm/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir> --app-name <name>
+node js-runtime/main/features/mobile-bridge/scripts/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir> --app-name <name>
 ```
 
 Parses a real, unmodified `registry.gen.ts` — `justw generate app`'s own
@@ -193,7 +194,8 @@ app-specific behavior stays hand-written either way).
 
 #### Manual (fallback for anything the automation doesn't cover)
 
-See `js-runtime/scm/app/src/app.ts` for the hand-written reference example
+See `js-runtime/main/features/mobile-bridge/tests/fixtures/app/src/app.ts`
+for the hand-written reference example
 (a real justweb `*_component.gen.ts` fixture wired end-to-end, plus real
 interaction logic — click-to-notify, a `FeatureStore`-backed reactive
 probe element, on-demand device-capability triggers — none of which a
@@ -212,7 +214,7 @@ back as 0 after nothing more than a device rotation, before the
 `configChanges` fix.
 
 For apps that use `FeatureStore` and need it to survive, apply the
-convention `scm/app/src/app.ts` uses: read `window.JustjsState.load()`
+convention `tests/fixtures/app/src/app.ts` uses: read `window.JustjsState.load()`
 (a real, synchronous `@JavascriptInterface` bridge -
 `MainActivity.java`'s `JustjsStateBridge`, backed by `SharedPreferences`)
 as `createFeatureStore()`'s initial state instead of a hardcoded default,
@@ -228,9 +230,9 @@ state came back correctly - not simulated.
 ### 3. Compile via `justc`
 
 ```sh
-cd js-runtime/scm/app
+cd js-runtime/main/features/mobile-bridge/tests/fixtures/app
 npm install   # picks up the vendored tarballs
-../../../justscript_compiler/target/release/justc.exe build src/app.ts \
+../../../../../../../justscript_compiler/target/release/justc.exe build src/app.ts \
   -o app --target js --bundle --format iife --global-name JustRuntimeApp
 ```
 
@@ -254,11 +256,11 @@ upgrade first before assuming the bug is in your own logic.
 ### 4. Package into the APK
 
 ```sh
-cd js-runtime/scm/android-shell
+cd js-runtime/main/features/mobile-bridge/tests/android-shell
 export ANDROID_BUILD_TOOLS="C:/tools/android-sdk/android-14"
 export ANDROID_JAR="C:/tools/android-sdk/android-34/android.jar"
 export DEBUG_KEYSTORE="$HOME/.android/debug.keystore"
-bash build.sh ../app/app.js --native-libs ../../main/features/mobile-bridge/jniLibs
+bash build.sh ../fixtures/app/app.js --native-libs ../../jniLibs
 ```
 
 `--native-libs` is optional — without it, the WebView still loads and
@@ -278,15 +280,19 @@ the one fixed, hand-maintained `android-shell` project — fine for
 iterating on `@justjs/*` itself, but there was no way for a second,
 independently-branded app (its own package name, its own permission set)
 to exist without breaking `android-shell`'s build. `js-runtime` now has a
-real generator for that: `scm/generate-android-app.sh` +
-`scm/android-template/`. `android-shell` itself is this generator's first
-real output (`scm/android-shell.manifest.json`), not a second, divergent
-hand-maintained path — steps 1-3 above are unchanged, this replaces only
-step 4.
+real generator for that: `main/features/mobile-bridge/scripts/generate-android-app.sh` +
+`main/features/mobile-bridge/templates/`. `android-shell` itself is this
+generator's first real output
+(`main/features/mobile-bridge/tests/manifests/android-shell.manifest.json`),
+not a second, divergent hand-maintained path — steps 1-3 above are
+unchanged, this replaces only step 4. `android-shell` and the other
+generated-app manifests/fixtures live under `tests/` because their
+ongoing role is verifying the generator/template on real hardware, not
+as maintained products in their own right.
 
 ```sh
-cd js-runtime/scm
-bash generate-android-app.sh <manifest.json> <output-dir> [--install]
+cd js-runtime/main/features/mobile-bridge
+bash scripts/generate-android-app.sh tests/manifests/<manifest>.json <output-dir> [--install]
 ```
 
 Manifest shape (paths resolved relative to the manifest file's own

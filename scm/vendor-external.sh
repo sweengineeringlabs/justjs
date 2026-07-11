@@ -5,7 +5,9 @@
 # has no way to resolve `workspace:*`/local packages (justjs#40 - this repo
 # has no published registry).
 #
-# This formalizes what js-runtime/scm/app/vendor/VENDOR.md documented by
+# This formalizes what
+# js-runtime/main/features/mobile-bridge/tests/fixtures/app/vendor/VENDOR.md
+# documented by
 # hand (npm pack + `overrides` forcing nested @justjs/* ranges to local
 # tarballs) into a real, repeatable script - the previous version required
 # manually deciding whether to strip an unused-but-declared dependency

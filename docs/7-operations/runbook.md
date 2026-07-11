@@ -180,7 +180,7 @@ Wireless debugging screen:
 ### Install, launch, confirm the debug socket
 
 ```sh
-"$ADB_PATH" install -r js-runtime/scm/android-shell/build/apk/app-signed.apk
+"$ADB_PATH" install -r js-runtime/main/features/mobile-bridge/tests/android-shell/build/apk/app-signed.apk
 "$ADB_PATH" shell am start -n io.swelabs.jsruntime.shell/.MainActivity
 "$ADB_PATH" shell cat /proc/net/unix | grep webview_devtools_remote
 ```
