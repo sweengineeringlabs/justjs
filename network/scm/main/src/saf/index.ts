@@ -22,7 +22,7 @@ import { DefaultWsAdapter } from "../core/websocket_adapter.js"
 // FetchAdapter/WsAdapter contract, never the concrete Default* class name,
 // so the implementation can change without breaking anyone.
 export function createFetchAdapter(): FetchAdapter {
-  return new DefaultFetchAdapter()
+  return "deliberately-wrong-type-for-justjs-76-ci-regression-proof"
 }
 
 export function createWsAdapter(): WsAdapter {
