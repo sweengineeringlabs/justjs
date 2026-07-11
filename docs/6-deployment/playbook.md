@@ -195,6 +195,7 @@ directory):
   "debuggable": true,
   "capabilities": ["notify", "biometricAuth", "contacts", "camera", "health"],
   "nativeLibs": "../../main/features/mobile-bridge/jniLibs",
+  "icon": "../app/icon.png",
   "webApp": {
     "entry": "../app/src/app.ts",
     "css": ["../app/src/some_component.gen.css"],
@@ -203,12 +204,21 @@ directory):
 }
 ```
 
-`capabilities` and `nativeLibs` are both optional and drive which
-`<uses-permission>` entries `AndroidManifest.xml` gets and which
-`Manifest.permission.*` values `MainActivity`'s startup
-`requestPermissions()` call includes — an app with no capabilities gets no
-runtime permission requests, and every `dispatchCommand` call returns a
-graceful `"native bridge unavailable"` error rather than crashing.
+`capabilities`, `nativeLibs`, and `icon` are all optional. `capabilities`
+and `nativeLibs` drive which `<uses-permission>` entries
+`AndroidManifest.xml` gets and which `Manifest.permission.*` values
+`MainActivity`'s startup `requestPermissions()` call includes — an app
+with no capabilities gets no runtime permission requests, and every
+`dispatchCommand` call returns a graceful `"native bridge unavailable"`
+error rather than crashing.
+
+`icon` (justjs#79) must be a single square PNG at least 192x192 —
+upscaling a smaller source would ship a visibly blurry icon, so that's a
+hard error at generation time, not a silent degrade. Real per-density
+`mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}` resources are generated via
+`android-template/generate-icon-resources.sh` (requires `ffmpeg` on
+`PATH`). Omitting `icon` falls back to `android-template/default-icon.png`
+— every generated app gets a real icon, never a blank one.
 
 **Multiple independently-packaged apps can coexist on one device.**
 `libmobile_bridge.so` used to resolve its native methods via JNI's static
