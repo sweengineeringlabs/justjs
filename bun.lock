@@ -119,6 +119,16 @@
         "typescript": "^5.5.0",
       },
     },
+    "memory/scm/main": {
+      "name": "@justjs/memory",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
     "network/scm/main": {
       "name": "@justjs/network",
       "version": "0.1.0",
@@ -169,6 +179,27 @@
       },
       "devDependencies": {
         "typescript": "^5.5.0",
+      },
+    },
+    "scm/examples/agentic-memory-demo": {
+      "name": "agentic-memory-demo",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/aop-analytics": "^0.1.0",
+        "@justjs/aop-flags": "^0.1.0",
+        "@justjs/aop-i18n": "^0.1.0",
+        "@justjs/aop-observability": "^0.1.0",
+        "@justjs/aop-security": "^0.1.0",
+        "@justjs/aop-theming": "^0.1.0",
+        "@justjs/application": "^0.1.0",
+        "@justjs/data": "^0.1.0",
+        "@justjs/memory": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "happy-dom": "^15.0.0",
+        "vite": "^5.0.0",
       },
     },
     "scm/examples/cross-target-demo": {
@@ -359,6 +390,8 @@
 
     "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
 
+    "@justjs/memory": ["@justjs/memory@workspace:memory/scm/main"],
+
     "@justjs/network": ["@justjs/network@workspace:network/scm/main"],
 
     "@justjs/osi-layers-integration": ["@justjs/osi-layers-integration@workspace:osi-layers-integration"],
@@ -446,6 +479,8 @@
     "@types/estree": ["@types/estree@1.0.9", "", {}, "sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg=="],
 
     "@types/node": ["@types/node@26.0.1", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw=="],
+
+    "agentic-memory-demo": ["agentic-memory-demo@workspace:scm/examples/agentic-memory-demo"],
 
     "ansi-colors": ["ansi-colors@4.1.3", "", {}, "sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw=="],
 

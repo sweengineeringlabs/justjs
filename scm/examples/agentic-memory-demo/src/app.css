@@ -1,0 +1,152 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 640px;
+  margin: 32px auto;
+  padding: 0 16px;
+  color: #222;
+}
+
+h1 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+h3 {
+  font-size: 14px;
+  margin: 12px 0 4px;
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.nav button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #667eea;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.nav button.active {
+  background: #764ba2;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #667eea;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+input,
+select {
+  padding: 8px;
+  margin: 4px 4px 4px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Chat */
+#chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.chat-message {
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  background: #667eea;
+  color: white;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+  background: #f0f0f0;
+  color: #222;
+}
+
+#chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+#chat-input {
+  flex: 1;
+}
+
+/* Dashboard */
+#dashboard-search-form,
+#dashboard-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.memory-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+}
+
+.memory-kind {
+  background: #764ba2;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.memory-content {
+  flex: 1;
+}
+
+.memory-score {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+/* Curation */
+#curation-log li {
+  margin: 4px 0;
+}
+
+#curation-created li,
+#curation-deleted li {
+  font-size: 13px;
+  margin: 4px 0;
+}

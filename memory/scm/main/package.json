@@ -1,0 +1,27 @@
+{
+  "name": "@justjs/memory",
+  "version": "0.1.0",
+  "description": "Pluggable LLM memory storage/retrieval/curation SPI - unified record shape for episodic/structured/semantic memory, dummy in-memory/localStorage provider by default.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    },
+    "./spi": {
+      "import": "./dist/spi/index.js",
+      "types": "./dist/spi/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

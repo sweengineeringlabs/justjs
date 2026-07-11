@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>agentic-memory-demo</title>
+  <link rel="stylesheet" href="/src/app.css" />
+</head>
+<body>
+  <div id="app">
+    <h1>agentic-memory-demo</h1>
+    <nav class="nav">
+      <button class="nav-btn active" data-route="/chat">Chat</button>
+      <button class="nav-btn" data-route="/dashboard">Dashboard</button>
+      <button class="nav-btn" data-route="/curation">Curation</button>
+    </nav>
+    <div id="mount-chat" class="page active" data-ddas-id="agentic-memory-demo:home:x-chat:root"></div>
+    <div id="mount-dashboard" class="page" data-ddas-id="agentic-memory-demo:home:x-dashboard:root"></div>
+    <div id="mount-curation" class="page" data-ddas-id="agentic-memory-demo:home:x-curation:root"></div>
+  </div>
+  <script type="module" src="/src/app.ts"></script>
+</body>
+</html>
