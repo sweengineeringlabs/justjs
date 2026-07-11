@@ -259,6 +259,18 @@ with no capabilities gets no runtime permission requests, and every
 `dispatchCommand` call returns a graceful `"native bridge unavailable"`
 error rather than crashing.
 
+Seven capabilities exist today: `echo`/`notify`/`biometricAuth`/
+`contacts`/`camera`/`health` (js-runtime#22/#27, wired via a dedicated
+`match` arm each in `mobile-bridge/src/lib.rs`) and `location` (justjs#80,
+wired via a `simple_capabilities` registration table instead — no-arg
+capabilities that call one Java static method returning a JSON string,
+which covers everything except `notify`/`biometricAuth`'s argument/
+multi-stage shapes, register there without touching any of the six
+`match` arms). The generator's own manifest/template rendering
+(`render-template.mjs`) is fully data-driven — adding a capability never
+requires changing it, only adding that capability's own `<!--CAP:x-->`/
+`//CAP:x` blocks to the two Android templates.
+
 `icon` (justjs#79) must be a single square PNG at least 192x192 —
 upscaling a smaller source would ship a visibly blurry icon, so that's a
 hard error at generation time, not a silent degrade. Real per-density
