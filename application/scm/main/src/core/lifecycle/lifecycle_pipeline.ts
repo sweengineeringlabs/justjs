@@ -34,27 +34,15 @@ export class ResolveStep implements LifecycleStep {
 }
 
 export class MountStep implements LifecycleStep {
-  private readonly runtimeAdapter: RuntimeAdapter
-
   constructor(
     private readonly domAddressMap?: DomAddressMap,
-    // Not a parameter-property default (`runtimeAdapter: RuntimeAdapter = new
-    // NoopRuntimeAdapter()`) - justc 0.3.4's bundler drops a constructor
-    // parameter that carries a default-value expression from the emitted
-    // parameter list while leaving the body's reference to it intact,
-    // producing a real `ReferenceError: runtimeAdapter is not defined` at
-    // runtime (confirmed via a minimal repro isolated from this exact call
-    // site, and live on real android-shell hardware - justjs#16). Resolving
-    // the default inside the constructor body instead sidesteps it.
-    runtimeAdapter?: RuntimeAdapter,
+    private readonly runtimeAdapter: RuntimeAdapter = new NoopRuntimeAdapter(),
     // Populated with the MountHandle mount() returns, keyed by this exact
     // ctx object - retrieved later by DefaultLifecycle.unmount(ctx) (justjs#67).
     // Optional so a caller building a MountStep directly (as existing tests
     // do) doesn't have to supply one just to keep working.
     private readonly mountHandles?: WeakMap<ComponentContext, MountHandle>
-  ) {
-    this.runtimeAdapter = runtimeAdapter ?? new NoopRuntimeAdapter()
-  }
+  ) {}
 
   name(): string {
     return "mount"

@@ -22,15 +22,8 @@ function getAndroidBridge(): AndroidBridgeGlobal {
   return bridge
 }
 
-// `args` resolves its default inside the body rather than as a parameter
-// default (`args: BridgeRequestArgs = {}`) - justc 0.3.4's iife/cjs bundler
-// drops a parameter carrying a default-value expression from the emitted
-// signature while leaving the body's reference to it intact, producing a
-// real `ReferenceError: args is not defined` at runtime for every caller,
-// not just ones that omit the argument (confirmed live on real android-shell
-// hardware - justjs#16; same root cause as MountStep's runtimeAdapter fix).
-function dispatch(bridge: AndroidBridgeGlobal, name: string, args?: BridgeRequestArgs): BridgeResponse {
-  const raw = bridge.dispatchCommand(name, JSON.stringify(args ?? {}))
+function dispatch(bridge: AndroidBridgeGlobal, name: string, args: BridgeRequestArgs = {}): BridgeResponse {
+  const raw = bridge.dispatchCommand(name, JSON.stringify(args))
   return JSON.parse(raw) as BridgeResponse
 }
 
@@ -42,10 +35,8 @@ function unwrap(response: BridgeResponse, command: string): string {
 }
 
 export class JsRuntimeShellBridge implements MobileBridge {
-  // Same justc default-parameter bug as dispatch() above - defaults resolved
-  // in the body, not the parameter list.
-  async echo(positional?: readonly string[], flags?: Record<string, string>): Promise<EchoResult> {
-    const response = dispatch(getAndroidBridge(), "echo", { positional: positional ?? [], flags: flags ?? {} })
+  async echo(positional: readonly string[] = [], flags: Record<string, string> = {}): Promise<EchoResult> {
+    const response = dispatch(getAndroidBridge(), "echo", { positional, flags })
     return JSON.parse(unwrap(response, "echo")) as EchoResult
   }
 

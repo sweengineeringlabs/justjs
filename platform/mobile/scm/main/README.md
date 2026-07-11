@@ -217,4 +217,44 @@ Getting this onto real hardware surfaced four more distinct, reproducible
   already spent — flagging this as a known gap in this investigation
   rather than a closed root cause.
 
-All four remain open upstream in `justscript_compiler`.
+All four remain open upstream in `justscript_compiler` (superseded below —
+turned out three of them were never filed at all before being fixed, see
+next section).
+
+## All five `justc` bugs fixed upstream (justc 0.3.5, 2026-07-11)
+
+`justscript_compiler` shipped 0.3.5 (commit `c3123fe`), fixing
+justscript_compiler#3, #13, #14, and #16 directly (confirmed by re-running
+each original repro and *executing* the output, not just recompiling it —
+compiling clean was never the failure mode, these bugs only ever manifested
+as a runtime `ReferenceError`/`TypeError`). #15 (aliased imports) shared the
+same root cause as #16's bare-re-export-list handling and was fixed by the
+same commit, confirmed the same way. The unfiled `dataContext`-forwarding
+drop noted above no longer reproduces at all on 0.3.5 either.
+
+Every workaround listed above and in justjs#16/#69/#70/#71's history has
+since been **reverted** back to the natural code shape, and the whole
+verification chain was re-run end-to-end on the same real Samsung SM-A055F
+hardware with the reverted code and `justc` 0.3.5:
+
+- `MountStep`'s `runtimeAdapter` and `DefaultCacheAdapter.set()`'s `ttl`
+  are real parameter defaults again, not body-resolved workarounds
+- `adaptCustomElementRegistry` uses an inline `async () => {}` passed
+  directly to `registry.register()` again, and an inline
+  `element.dataContext = dataContext` assignment again — no named-function
+  extraction needed
+- `@justjs/data`'s `signal.ts` aliases `@preact/signals-core`'s `signal`
+  export again (`signal as preactSignal`)
+- `js-runtime/scm/app/src/app.ts` uses `@justjs/data`'s real
+  `createFeatureStore()` again (not the hand-written stand-in), and
+  `StoreProbeElement`'s `dataContext` setter uses a real chained
+  `ctx?.store?.state.value.count` again (not the ternary workaround)
+
+Full re-verification with all of the above reverted: real component mount,
+CSS (`background-color: rgb(0, 123, 255)`, `padding-top: 8px`), state
+setters (`disabled`/`aria-busy` attributes), a real synthesized click
+producing a real `NotificationRecord`, and the real `@justjs/data`
+`FeatureStore` driving `count: 0` → `count: 1` through a genuine
+`@preact/signals-core`-backed re-render — all still correct.
+
+**Minimum `justc` version for this package going forward: 0.3.5.**

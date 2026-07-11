@@ -18,7 +18,7 @@ for either:
 | Requirement | Notes |
 |---|---|
 | This repo built | `bun install && bun run --filter '@justjs/application' build` (and `network`, `transport`, `platform-mobile` — see "Which packages to vendor" below) |
-| `justc` | From `sweengineeringlabs/justscript_compiler`. `justc --version` to confirm — this playbook's fixes assume `0.3.4`; check justscript_compiler#3 and #13 for open bundler bugs that affect any consumer, not just this one |
+| `justc` | From `sweengineeringlabs/justscript_compiler`, **0.3.5 or later**. `justc --version` to confirm — see "Known compiler bugs" below if you're stuck on an older version |
 | `js-runtime` checked out as a sibling directory | `../justscript_runtime` relative to this repo, matching `scm/app/build.sh`'s default `JUSTC` path assumption |
 | Android SDK Build Tools + platform jar, `adb` | Same layout as `js-runtime`'s runbook and `appsoluxions`' deployment playbook assume: `C:\tools\android-sdk\android-14\{aapt2.exe,d8.bat,zipalign.exe,apksigner.bat}`, `C:\tools\android-sdk\android-34\android.jar`, `C:\tools\platform-tools\adb.exe` |
 
@@ -35,12 +35,14 @@ vendoring:
 | `@justjs/transport` | `boot()`'s default `apiAdapter` construction |
 | `@justjs/application` | `boot()`, `adaptCustomElementRegistry`, `DefaultRouter`, `DefaultLifecycle` |
 | `@justjs/platform-mobile` | `createJsRuntimeShellAdapter()`, `createMobileBridge()` |
+| `@justjs/data` | Only if the app actually calls `createFeatureStore()`/`createUIEventBus()` for real (ADR-0004 reactive re-render) — its own runtime dependency, `@preact/signals-core`, is a real public npm package and resolves normally via `npm install`, no extra vendoring needed for it |
 
-`@justjs/data` is **not** vendored — `@justjs/application`'s `boot()` path
-used here only reaches it via `import type` (`FeatureStore`/`UIEventBus`),
-erased at compile time. Its declared `dependencies` entry in the packed
-`package.json` must be stripped before `npm pack`, or `npm install` 404s
-trying to resolve it from the (nonexistent) public registry.
+`@justjs/application`'s own declared `dependencies` still include
+`@justjs/data` in source, but since it's only ever reached via `import
+type` inside `@justjs/application` itself (erased at compile time), strip
+that entry from the packed `package.json` before `npm pack` — otherwise
+`npm install` 404s trying to resolve it from the (nonexistent) public
+registry, even in an app that never uses `@justjs/data` at all.
 
 ## Steps
 
@@ -48,7 +50,7 @@ trying to resolve it from the (nonexistent) public registry.
 
 ```sh
 cd justjs
-for pkg in network transport application platform/mobile; do
+for pkg in network transport application platform/mobile data; do
   slug=$(basename "$pkg")
   bun run --filter "@justjs/$slug" build   # produces dist/ via tsc
 
@@ -63,7 +65,7 @@ done
 # Strip @justjs/data from application's packed dependencies (see above)
 # before packing it - edit /tmp/application/package.json by hand or with
 # a one-liner, then:
-for slug in network transport application platform-mobile; do
+for slug in network transport application platform-mobile data; do
   ( cd "/tmp/$slug" && npm pack --pack-destination ../../justscript_runtime/scm/app/vendor )
 done
 ```
@@ -106,21 +108,19 @@ npm install   # picks up the vendored tarballs
 `--format iife` matters — `android-shell`'s bare WebView loads
 `<script src="app.js">` with no module-loader support.
 
-**Known compiler bugs to watch for** (justscript_compiler#3, #13 — both
-confirmed still open as of `0.3.4`): any function/method/constructor
-parameter with a default-value expression (`x: T = expr`) gets dropped from
-the emitted signature under `--bundle --format iife`/`cjs`, and an inline
-`async () => {}` arrow function expression passed as a call argument loses
-its `async` modifier the same way. Both manifest as a `ReferenceError` at
-**runtime**, not a compile error — `justc build` succeeds and produces a
-bundle that throws the first time the affected code path actually runs. If
-`document.title` (or similar) comes back
+**`justc` 0.3.5+ required.** Versions through `0.3.4` had five bundling
+bugs (justscript_compiler#3, #13, #14, #15, #16) that all manifested as a
+`ReferenceError`/`TypeError` at **runtime**, not a compile error — default
+parameter values, inline async arrow function expressions, chained `?.`
+expressions, and aliased/nested-package imports could all silently drop a
+binding while `justc build` reported success. All five were fixed in
+`0.3.5` (commit `c3123fe`) and confirmed by actually executing the
+compiled output, not just recompiling it — see
+`platform/mobile/scm/main/README.md`'s "All five `justc` bugs fixed
+upstream" section for the verification detail. If you're on an older
+`justc` and `document.title` (or similar) comes back
 `"...boot failed - ReferenceError: <name> is not defined"` after install,
-suspect this class of bug first and grep the compiled `app.js` for the
-offending constructor/function before assuming the bug is in your own logic.
-Workaround: resolve the default inside the function body (`x ?? fallback`)
-instead of in the parameter list; extract an inline async arrow into a named
-`async function` declaration.
+upgrade first before assuming the bug is in your own logic.
 
 ### 4. Package into the APK
 
