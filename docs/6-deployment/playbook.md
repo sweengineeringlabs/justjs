@@ -112,7 +112,7 @@ DOM element `DefaultRouter` mounts into is resolved via
 `document.querySelector('[data-ddas-id="<address>"]')` — the host HTML needs
 a matching `data-ddas-id` attribute on the mount container.
 
-#### Automated (justjs#81, preferred)
+#### Automated (justjs#81/#83, preferred)
 
 ```sh
 node js-runtime/scm/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir> --app-name <name>
@@ -121,20 +121,40 @@ node js-runtime/scm/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir
 Parses a real, unmodified `registry.gen.ts` — `justw generate app`'s own
 output, `DO NOT EDIT` header and all — for its `[tag, ComponentClass]`
 list and each class's import path, and generates `<output-dir>/src/app.ts`
-+ `<output-dir>/index.html`: one synthetic route + DDAS address + mount
-`<div>` per discovered component, `boot()` wired with all of them, and one
-`navigate()` call per component at startup (so every component justweb
-generated actually ends up mounted, matching justweb's own "show
-everything, no routing" unrouted-app shape). justweb's own repo/output is
-only ever read, never modified — confirmed directly (`git status` on the
-justweb checkout stays clean after running this).
++ `<output-dir>/index.html`. Two modes, auto-detected by whether a real
+`public/routes.gen.json` sits next to `registry.gen.ts` (justweb's real
+layout for a `routes.yaml`-enabled project):
 
-This covers what's mechanically derivable from `registry.gen.ts` alone —
-which components exist and their tags. It does **not** infer real
-per-app routing, DDAS addresses that need to match a hand-authored
-layout, or any interaction logic beyond mounting (see
-`js-store-probe`/click-handler logic in the manual example below — that
-kind of app-specific behavior stays hand-written either way).
+- **No `routes.yaml`** (mount-everything mode): one synthetic route +
+  DDAS address + mount `<div>` per discovered component, `boot()` wired
+  with all of them, one `navigate()` call per component at startup — so
+  every component justweb generated actually ends up mounted, matching
+  justweb's own "show everything, no routing" unrouted-app shape.
+- **`routes.yaml` present** (routed mode, justjs#83): real per-route
+  paths from `routes.gen.json`, one mount `<div>` per route, and a
+  `navigateTo()` helper that shows only the current route's container and
+  hides the rest — `RuntimeAdapter`'s `unmount()` is an intentional no-op
+  for this WebView shell (see `js_runtime_shell_adapter.ts`), so nothing
+  else would ever hide a previous route. justweb's own real routing
+  output (`routes.gen.ts`/`component-registry.gen.ts`, ADR-0006/0008)
+  can't be used directly — confirmed directly, not assumed: it
+  lazy-loads each route via dynamic `import()`, which `justc`'s
+  `--bundle --format iife` refuses to inline (`"unsupported
+  configuration: dynamic import() requires --out-dir when --bundle is
+  used"` — android-shell's bare WebView has no module loader to serve
+  split chunks to). This mode reads `routes.gen.json`'s real path/tag
+  *data* instead, generating the same eager, single-bundle-compatible
+  imports the unrouted mode already used.
+
+Either way, justweb's own repo/output is only ever read, never modified —
+confirmed directly (`git status` on the justweb checkout stays clean
+after running this).
+
+This covers what's mechanically derivable from `registry.gen.ts` (+
+`routes.gen.json`, when present) alone. It does **not** infer any
+interaction logic beyond mounting/navigation (see `js-store-probe`/
+click-handler logic in the manual example below — that kind of
+app-specific behavior stays hand-written either way).
 
 #### Manual (fallback for anything the automation doesn't cover)
 
