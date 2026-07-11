@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc --build tsconfig.json",
     "typecheck": "tsc --build tsconfig.json",
-    "test": "bun test"
+    "test": "echo 'no tests yet - stub package with zero implementation, blocked on justweb#43' && exit 0"
   },
   "dependencies": {
     "@justjs/application": "^0.1.0"

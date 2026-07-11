@@ -1,0 +1,44 @@
+name: CI
+
+# What this covers (justjs#76): typecheck/build/test across every
+# workspace package, plus justjs#40's vendor-external integration test
+# (proves the tarballs scm/vendor-external.sh produces genuinely install
+# and execute via plain `npm install`, not just that the script exits 0).
+#
+# What this does NOT cover: anything requiring a physical Android device -
+# installing/launching an APK, chromiumctl-cli/adb-driven behavioral
+# verification (CSS/state-setter/reactive-re-render/biometric/camera
+# checks), or release-signed build verification. Those stay manual,
+# following docs/6-deployment/playbook.md and docs/6-deployment/
+# release-signing.md - see js-runtime's own CI workflow for the
+# compile-only Android checks that ARE automatable without a device.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.5"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Test
+        run: bun run test
+
+      - name: Test external consumption (vendor-external.sh)
+        run: bun run test:vendor-external
