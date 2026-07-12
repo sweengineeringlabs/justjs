@@ -329,6 +329,34 @@ select:focus {
   padding: 10px 20px;
 }
 
+#chat-mic-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#chat-mic-btn.listening {
+  background: var(--danger);
+  color: #fff;
+  animation: mic-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--danger) 0%, transparent);
+  }
+}
+
 /* Dashboard */
 .db-section {
   margin-bottom: 18px;

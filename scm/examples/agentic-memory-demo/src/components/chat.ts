@@ -2,6 +2,8 @@ import type { FeatureStore } from "@justjs/data";
 import { computeFakeEmbedding } from "@justjs/memory";
 import type { AppState, AppAction, ChatMessage } from "../core/state.js";
 import { memoryProvider } from "../core/memory.js";
+import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
+import type { VoicePromptHandle } from "../core/speech.js";
 
 // The "assistant remembers things about the user" surface. No real LLM
 // call in v1 - the "response" is a dummy generator that either echoes a
@@ -19,6 +21,7 @@ import { memoryProvider } from "../core/memory.js";
 export class ChatElement extends HTMLElement {
   private unsubscribe?: () => void;
   private store?: FeatureStore<AppState, AppAction>;
+  private voiceHandle: VoicePromptHandle | null = null;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.unsubscribe?.();
@@ -33,6 +36,7 @@ export class ChatElement extends HTMLElement {
       <div id="chat-messages"></div>
       <form id="chat-form">
         <input id="chat-input" type="text" placeholder="Tell me something..." autocomplete="off" />
+        ${isVoicePromptSupported() ? `<button id="chat-mic-btn" type="button" aria-label="Voice input">🎤</button>` : ""}
         <button type="submit">send</button>
       </form>
     `;
@@ -40,7 +44,50 @@ export class ChatElement extends HTMLElement {
       e.preventDefault();
       void this.handleSubmit();
     });
+    this.querySelector("#chat-mic-btn")?.addEventListener("click", () => this.toggleVoicePrompt());
     this.renderMessages();
+  }
+
+  disconnectedCallback(): void {
+    this.voiceHandle?.stop();
+  }
+
+  private toggleVoicePrompt(): void {
+    if (this.voiceHandle) {
+      this.voiceHandle.stop();
+      return;
+    }
+    const input = this.querySelector<HTMLInputElement>("#chat-input")!;
+    const micBtn = this.querySelector<HTMLButtonElement>("#chat-mic-btn")!;
+    input.value = "";
+    micBtn.classList.add("listening");
+    micBtn.textContent = "⏺️";
+
+    this.voiceHandle = startVoicePrompt({
+      onTranscript: ({ transcript }) => {
+        input.value = transcript;
+      },
+      onEnd: () => {
+        this.voiceHandle = null;
+        micBtn.classList.remove("listening");
+        micBtn.textContent = "🎤";
+        if (input.value.trim()) {
+          void this.handleSubmit();
+        }
+      },
+      onError: (code) => {
+        this.voiceHandle = null;
+        micBtn.classList.remove("listening");
+        micBtn.textContent = "🎤";
+        if (code === "aborted") {
+          return;
+        }
+        this.store?.dispatch({
+          type: "CHAT_APPEND",
+          message: { role: "assistant", text: `⚠️ ${describeVoiceError(code)}`, ts: Date.now() },
+        });
+      },
+    });
   }
 
   private renderMessages(): void {
