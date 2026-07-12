@@ -26,6 +26,14 @@ import "./components/dashboard.js";
 import "./components/curation.js";
 import { initialState, reducer, getOrCreateDeviceUserId } from "./core/state.js";
 import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
+import {
+  getStoredVoiceLanguage,
+  getTtsEnabled,
+  isTtsSupported,
+  setStoredVoiceLanguage,
+  setTtsEnabled,
+  VOICE_LANGUAGES,
+} from "./core/speech.js";
 
 // Applied before boot (not inside main()'s try block) so a stored
 // override takes effect on the very first paint - no flash of the
@@ -102,6 +110,47 @@ function setupThemeToggle(): void {
   });
 }
 
+// Cross-cutting, header-level preferences (voice language, TTS toggle)
+// live in one panel rather than scattered across the views that use
+// them (chat.ts reads them straight from src/core/speech.ts's
+// localStorage-backed getters - no wiring needed between this panel
+// and chat.ts beyond sharing those storage keys).
+function setupSettingsPanel(): void {
+  const panel = document.getElementById("settings-panel");
+  const openBtn = document.getElementById("settings-btn");
+  const closeBtn = document.getElementById("settings-close-btn");
+  const backdrop = document.getElementById("settings-backdrop");
+  const langSelect = document.getElementById("settings-lang-select") as HTMLSelectElement | null;
+  const ttsRow = document.getElementById("settings-tts-row");
+  const ttsToggle = document.getElementById("settings-tts-toggle") as HTMLInputElement | null;
+
+  if (langSelect) {
+    langSelect.innerHTML = VOICE_LANGUAGES.map(
+      (l) => `<option value="${l.code}">${l.label}</option>`
+    ).join("");
+    langSelect.value = getStoredVoiceLanguage();
+    langSelect.addEventListener("change", () => setStoredVoiceLanguage(langSelect.value));
+  }
+
+  // Genuinely absent on this app's Android WebView target (window.
+  // speechSynthesis is undefined there, confirmed on real hardware, not
+  // assumed - js-runtime#36's investigation surfaced this separately
+  // from the mic-exclusivity finding it's actually about). Hidden
+  // rather than shown-but-broken, same feature-detection convention as
+  // the chat mic button.
+  if (ttsRow && ttsToggle && isTtsSupported()) {
+    ttsRow.hidden = false;
+    ttsToggle.checked = getTtsEnabled();
+    ttsToggle.addEventListener("change", () => setTtsEnabled(ttsToggle.checked));
+  }
+
+  const open = () => panel?.removeAttribute("hidden");
+  const close = () => panel?.setAttribute("hidden", "");
+  openBtn?.addEventListener("click", open);
+  closeBtn?.addEventListener("click", close);
+  backdrop?.addEventListener("click", close);
+}
+
 async function main(): Promise<void> {
   try {
     await justjs.boot({
@@ -147,6 +196,7 @@ async function main(): Promise<void> {
     });
 
     setupThemeToggle();
+    setupSettingsPanel();
 
     document.title = "agentic-memory-demo: mounted";
   } catch (e) {

@@ -15,6 +15,7 @@
           <h1>Memory Assistant</h1>
           <p class="brand-subtitle">Remembers what matters</p>
         </div>
+        <button id="settings-btn" type="button" aria-label="Settings">⚙️</button>
         <button id="theme-toggle-btn" type="button" aria-label="Toggle light/dark theme"></button>
       </div>
     </header>
@@ -28,6 +29,23 @@
       <button class="nav-btn" data-route="/dashboard"><span class="nav-icon">🗂️</span><span class="nav-label">Memories</span></button>
       <button class="nav-btn" data-route="/curation"><span class="nav-icon">🧠</span><span class="nav-label">Curate</span></button>
     </nav>
+    <div id="settings-panel" class="settings-panel" hidden>
+      <div id="settings-backdrop" class="settings-backdrop"></div>
+      <div class="settings-sheet">
+        <div class="settings-sheet-header">
+          <h2>Settings</h2>
+          <button id="settings-close-btn" type="button" aria-label="Close settings">✕</button>
+        </div>
+        <div class="field">
+          <label class="field-label" for="settings-lang-select">Voice input language</label>
+          <select id="settings-lang-select"></select>
+        </div>
+        <label id="settings-tts-row" class="settings-toggle-row" hidden>
+          <input id="settings-tts-toggle" type="checkbox" />
+          <span>Read assistant replies aloud</span>
+        </label>
+      </div>
+    </div>
   </div>
   <script type="module" src="/src/app.ts"></script>
 </body>

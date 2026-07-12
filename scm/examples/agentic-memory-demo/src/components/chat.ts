@@ -2,7 +2,7 @@ import type { FeatureStore } from "@justjs/data";
 import { computeFakeEmbedding } from "@justjs/memory";
 import type { AppState, AppAction, ChatMessage } from "../core/state.js";
 import { memoryProvider } from "../core/memory.js";
-import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
+import { describeVoiceError, getTtsEnabled, isVoicePromptSupported, speakText, startVoicePrompt } from "../core/speech.js";
 import type { VoicePromptHandle } from "../core/speech.js";
 
 // The "assistant remembers things about the user" surface. No real LLM
@@ -32,11 +32,14 @@ export class ChatElement extends HTMLElement {
   }
 
   connectedCallback(): void {
+    const voiceSupported = isVoicePromptSupported();
     this.innerHTML = `
       <div id="chat-messages"></div>
       <form id="chat-form">
-        <input id="chat-input" type="text" placeholder="Tell me something..." autocomplete="off" />
-        ${isVoicePromptSupported() ? `<button id="chat-mic-btn" type="button" aria-label="Voice input">🎤</button>` : ""}
+        <div class="chat-input-wrap">
+          <input id="chat-input" type="text" placeholder="Tell me something..." autocomplete="off" />
+          ${voiceSupported ? `<button id="chat-mic-btn" type="button" aria-label="Hold to speak">🎤</button>` : ""}
+        </div>
         <button type="submit">send</button>
       </form>
     `;
@@ -44,7 +47,9 @@ export class ChatElement extends HTMLElement {
       e.preventDefault();
       void this.handleSubmit();
     });
-    this.querySelector("#chat-mic-btn")?.addEventListener("click", () => this.toggleVoicePrompt());
+    if (voiceSupported) {
+      this.setupVoicePrompt();
+    }
     this.renderMessages();
   }
 
@@ -52,9 +57,26 @@ export class ChatElement extends HTMLElement {
     this.voiceHandle?.stop();
   }
 
-  private toggleVoicePrompt(): void {
+  private setupVoicePrompt(): void {
+    const micBtn = this.querySelector<HTMLButtonElement>("#chat-mic-btn")!;
+    // Press-and-hold, not tap-to-toggle: pointerdown starts, releasing
+    // (pointerup/cancel/leave) stops - matching a real voice-message
+    // gesture, and pairing with startVoicePrompt's continuous:true so a
+    // long prompt with mid-sentence pauses isn't cut short by the
+    // engine's own silence detection. preventDefault on pointerdown
+    // stops mobile's text-selection/long-press-context-menu gesture
+    // from firing on the same press.
+    micBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.startHold();
+    });
+    micBtn.addEventListener("pointerup", () => this.endHold());
+    micBtn.addEventListener("pointercancel", () => this.endHold());
+    micBtn.addEventListener("pointerleave", () => this.endHold());
+  }
+
+  private startHold(): void {
     if (this.voiceHandle) {
-      this.voiceHandle.stop();
       return;
     }
     const input = this.querySelector<HTMLInputElement>("#chat-input")!;
@@ -64,6 +86,9 @@ export class ChatElement extends HTMLElement {
     micBtn.textContent = "⏺️";
 
     this.voiceHandle = startVoicePrompt({
+      // No explicit lang - startVoicePrompt resolves from the settings
+      // panel's persisted choice (src/core/speech.ts's
+      // getStoredVoiceLanguage()), falling back to navigator.language.
       onTranscript: ({ transcript }) => {
         input.value = transcript;
       },
@@ -88,6 +113,10 @@ export class ChatElement extends HTMLElement {
         });
       },
     });
+  }
+
+  private endHold(): void {
+    this.voiceHandle?.stop();
   }
 
   private renderMessages(): void {
@@ -152,6 +181,9 @@ export class ChatElement extends HTMLElement {
       type: "CHAT_APPEND",
       message: { role: "assistant", text: replyText, ts: Date.now() },
     });
+    if (getTtsEnabled()) {
+      speakText(replyText);
+    }
   }
 }
 
