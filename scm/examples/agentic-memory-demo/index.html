@@ -8,15 +8,19 @@
 </head>
 <body>
   <div id="app">
-    <h1>agentic-memory-demo</h1>
+    <header class="app-header">
+      <h1>Memory Assistant</h1>
+    </header>
+    <main class="page-container">
+      <div id="mount-chat" class="page active" data-ddas-id="agentic-memory-demo:home:x-chat:root"></div>
+      <div id="mount-dashboard" class="page" data-ddas-id="agentic-memory-demo:home:x-dashboard:root"></div>
+      <div id="mount-curation" class="page" data-ddas-id="agentic-memory-demo:home:x-curation:root"></div>
+    </main>
     <nav class="nav">
-      <button class="nav-btn active" data-route="/chat">Chat</button>
-      <button class="nav-btn" data-route="/dashboard">Dashboard</button>
-      <button class="nav-btn" data-route="/curation">Curation</button>
+      <button class="nav-btn active" data-route="/chat"><span class="nav-icon">💬</span><span class="nav-label">Chat</span></button>
+      <button class="nav-btn" data-route="/dashboard"><span class="nav-icon">🗂️</span><span class="nav-label">Memories</span></button>
+      <button class="nav-btn" data-route="/curation"><span class="nav-icon">🧠</span><span class="nav-label">Curate</span></button>
     </nav>
-    <div id="mount-chat" class="page active" data-ddas-id="agentic-memory-demo:home:x-chat:root"></div>
-    <div id="mount-dashboard" class="page" data-ddas-id="agentic-memory-demo:home:x-dashboard:root"></div>
-    <div id="mount-curation" class="page" data-ddas-id="agentic-memory-demo:home:x-curation:root"></div>
   </div>
   <script type="module" src="/src/app.ts"></script>
 </body>
