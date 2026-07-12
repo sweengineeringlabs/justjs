@@ -43,11 +43,80 @@ stand-in.
   Deployment, Operations), same widget-grid-then-drill-down architecture
   `agentic-memory-demo`'s Memories tab established. Four stages link to
   real, working tabs this app already has — Ideation→Chat,
-  Planning→Scaffold, Development→Editor, Testing→Review. The other four
-  (Requirement, Design, Deployment, Operations) show honestly-labeled
-  "Coming soon" entries, not fake-functional buttons — this hub currently
-  ships the widget shell only, not new tooling (e.g. Deployment's "Git"/
-  "Cloud" entries don't run git commands or talk to any cloud provider).
+  Planning→Scaffold, Development→Editor, Testing→Review. **Design**'s two
+  entries, Architecture and Wireframes, are both real (not stubs) — both
+  open the same inline capability (below), since one generated doc
+  genuinely covers both. The remaining three (Requirement, Deployment,
+  Operations) show honestly-labeled "Coming soon" entries, not
+  fake-functional buttons — e.g. Deployment's "Git"/"Cloud" entries don't
+  run git commands or talk to any cloud provider.
+
+## Design — Markdown + Mermaid doc generator
+
+Design's Architecture and Wireframes entries both open the same real,
+inline generator — a new `generateDesignDoc()` capability (own prompt,
+not `scaffold()` reused — `scaffold()` explicitly tells Claude to omit
+markdown fences, which fights intentionally emitting a ` ```mermaid `
+one) that produces a Markdown document with an embedded Mermaid diagram
+from a description, with an Edit/Preview toggle (Edit: raw source,
+editable; Preview: rendered HTML + diagram) and a "Create file" action
+that reuses the real file explorer's collision check (`core/fs.ts`'s
+`pathExists()`) exactly like Scaffold's own "Create file" flow —
+generated docs land in the real project, not a dead end. Tapping either
+Architecture or Wireframes opens the exact same generator with whatever
+was last generated still there (not two separate, half-built copies) —
+`workspace.ts`'s own drill-down goes one level deeper here than every
+other stage (Workspace → Design's Architecture/Wireframes list → the
+shared generator), since two distinct entries both needed to lead
+somewhere real.
+
+**This is the first real third-party npm dependency (`mermaid`, pinned
+exact at `11.16.0`) in any example app in this repo** — a deliberate,
+acknowledged reversal of the line this app's own "Why a hand-rolled
+editor" section draws (every dependency across all four example apps
+before this was `@justjs/*` plus dev-only tooling). Mermaid's real SVG
+diagram rendering has no reasonable hand-rolled equivalent, unlike
+`core/highlight.ts`'s regex syntax highlighter.
+
+**The import is never static.** `import mermaid from "mermaid"` never
+appears as a top-level import anywhere reachable from `app.ts`. This app
+is one composition root compiled unmodified for both `vite build` (web)
+and `justc build --bundle --format iife` (Android), and every route
+mounts eagerly at boot — a static import would execute at module-
+evaluation time on **both** targets regardless of whether Design is ever
+opened, and given `justscript_compiler#4` (`--bundle` a no-op for
+`--target js`), that risks taking down the app's *entire* Android boot,
+not just gracefully degrading one feature. `core/markdown.ts` instead
+uses a lazy `await import("mermaid")` inside the one function that
+actually renders a diagram, wrapped in try/catch — confirmed via a real
+build that Vite code-splits it into its own lazily-loaded chunks (the
+main `index-*.js` entry stays ~88KB; `mermaid.core-*.js` and dozens of
+per-diagram-type chunks, several hundred KB combined, load only when
+Design's Preview is actually used).
+
+**`happy-dom` (this app's `verify_web.mjs` test environment) genuinely
+cannot render Mermaid** — confirmed via research, not assumed: Mermaid
+depends on `SVGTextElement.getBBox()` for text measurement, which
+DOM-emulation libraries don't implement meaningfully; Mermaid's own
+maintainers point headless/server-side users at Puppeteer (a real
+browser engine) for exactly this reason. `core/markdown.ts` catches this
+and falls back to the raw ` ```mermaid ` source plus a "couldn't be
+rendered in this environment" note — required for the app to degrade
+gracefully in any constrained environment, not just for the test suite.
+`verify_web.mjs` asserts this real fallback path (via a temporary fake
+API key + a mocked `globalThis.fetch` returning a canned Anthropic-
+shaped response — not a real network call, but real app logic:
+`generate()` → Edit/Preview toggle → real dynamic `import("mermaid")` →
+real attempted render → real fallback → "Create file" reusing the real
+collision check), not a hand-waved assumption that rendering works.
+
+**Real Mermaid SVG rendering in an actual browser has not been visually
+confirmed this session** — the Chrome browser-automation tooling wasn't
+connected in this environment. This is a genuine, stated gap, not a
+silent assumption: before calling this feature fully done, open
+`bun run dev`, add a real Anthropic API key in Settings, generate a
+design doc, and confirm Preview shows a real rendered diagram (not just
+that the fallback note correctly *doesn't* appear).
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -184,15 +253,25 @@ vs. the real singleton the app actually uses" pattern
 
 ## Verification status — honest, not inflated
 
-**Verified:** `@justjs/ai-assist`'s `bun test` passes 22/22 (includes
+**Verified:** `@justjs/ai-assist`'s `bun test` passes 23/23 (includes
 `scaffoldProject()`'s structured-output parsing, truncation handling via
-`stop_reason`, duplicate/malformed-file rejection, and the three new
-image-content-block tests for `chat()`/`review()`/`scaffoldProject()`).
-`vite build` succeeds; `node verify_web.mjs` (real DOM via happy-dom
-against the real built bundle) passes all 85 assertions — boot, DDAS
-mounting into all five routes, the Workspace hub's 8 widgets (in the
-right SDLC order) drilling into real live links vs. honestly-labeled
-stubs correctly, the starter tree rendering real nested
+`stop_reason`, duplicate/malformed-file rejection, the three
+image-content-block tests for `chat()`/`review()`/`scaffoldProject()`,
+and `generateDesignDoc()`'s prompt/model/max_tokens shape). `vite build`
+succeeds and confirms real code-splitting (the main entry stays ~88KB;
+`mermaid` and its per-diagram-type chunks load lazily, several hundred
+KB combined, only when Design's Preview is actually used); `node
+verify_web.mjs` (real DOM via happy-dom against the real built bundle)
+passes all 105 assertions — boot, DDAS mounting into all five routes,
+the Workspace hub's 8 widgets (in the right SDLC order) drilling into
+real live links vs. honestly-labeled stubs correctly, Design's
+Architecture and Wireframes both opening the same real generator (with
+the same in-progress doc, not two separate copies) and its
+generate→Edit/Preview→Mermaid-fallback→Create-file flow via a mocked-
+fetch/real-app-logic technique (no real network call, but the real
+dynamic `import("mermaid")`, the real attempted render, and the real,
+confirmed-necessary fallback all genuinely execute), the starter tree
+rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/
 delete for both files and folders (including collision rejection and the
@@ -216,7 +295,11 @@ regression introduced elsewhere.
 to Anthropic. `verify_web.mjs` has an opt-in live-call section gated
 behind `AI_CODE_EDITOR_LIVE_TEST=1` **and** a real `ANTHROPIC_API_KEY`
 env var (costs a real, billed API call — skipped by default, same
-pattern as `agentic-memory-demo`'s `VERIFY_FORGETTING=1`).
+pattern as `agentic-memory-demo`'s `VERIFY_FORGETTING=1`). Also not
+verified: real Mermaid SVG rendering in an actual browser (see "Design —
+Markdown + Mermaid doc generator" above) — `happy-dom` genuinely cannot
+render it, so the fast path only proves the fallback path works, not
+that a real diagram renders when Mermaid genuinely can run.
 
 **Not verified at all yet:** real Android hardware. This would be the
 first authenticated third-party POST from the Android target in this

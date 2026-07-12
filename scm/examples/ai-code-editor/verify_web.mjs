@@ -76,7 +76,13 @@ document.body.innerHTML = `
   </div>
 `;
 
-const distFile = readdirSync("./dist/assets").find((f) => f.endsWith(".js"));
+// Matches Vite's own naming convention for the main entry chunk
+// specifically (index-<hash>.js) - a bare ".js" suffix match was enough
+// back when this app's own code was the only thing in dist/assets/, but
+// mermaid's lazy-loaded diagram-type chunks now put dozens of other .js
+// files there too, and fs.readdirSync's order isn't guaranteed to put
+// the real entry first.
+const distFile = readdirSync("./dist/assets").find((f) => /^index-.*\.js$/.test(f));
 const bundlePath = `./dist/assets/${distFile}`;
 console.log("loading bundle:", bundlePath);
 await import(new URL(bundlePath, import.meta.url).href);
@@ -91,6 +97,22 @@ function assert(condition, message) {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+// A flat sleep doesn't fit real Mermaid rendering - the dynamic
+// import("mermaid") loads a genuinely large module graph (d3, cytoscape,
+// katex, ...) from disk, and how long that takes isn't a small, bounded
+// margin the way a FileReader read or a DOM update is. Poll instead of
+// guessing a bigger fixed number.
+async function waitUntil(predicate, timeoutMs = 15_000, intervalMs = 50) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return true;
+    }
+    await sleep(intervalMs);
+  }
+  return false;
 }
 
 function treeRow(path) {
@@ -150,6 +172,106 @@ developmentLink.click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "tapping a live function navigates to the real tab it points at");
 assert(document.getElementById("mount-editor").classList.contains("active"), "the Editor tab is now the active page");
+
+// 1c. Design doc generator proof - the one stage with real inline
+// functionality (not a link elsewhere, not a stub). No real Anthropic
+// call happens here either: past the no-key check, a temporary fake key
+// plus a mocked globalThis.fetch (not a real network call) exercises the
+// REAL generate/render/create-file flow against a canned Anthropic-
+// shaped response - real app logic, no real network, no cost.
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+// Workspace kept its own internal drill-down state from section 1b
+// (still showing Development's detail view, same "sub-view state
+// persists across tab switches" behavior agentic-memory-demo's
+// dashboard.ts already established) - its own back button, not the
+// bottom nav, returns to the 8-widget overview.
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector('#mount-workspace [data-stage="design"]').click();
+await sleep(20);
+assert(document.querySelector("#design-description") === null, "Design opens its own Architecture/Wireframes list first, not straight into the generator");
+const designFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(
+  designFunctions.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Architecture,Wireframes",
+  `Architecture and Wireframes are both real, clickable entries (found ${designFunctions.map((el) => el.textContent).join(" | ")})`
+);
+assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "neither is a stub - both are enabled by the one real capability, not replaced or left fake");
+
+designFunctions[0].click(); // Architecture
+await sleep(20);
+assert(document.querySelector("#design-description") !== null, "tapping Architecture opens the real generator");
+
+document.querySelector("#design-description").value = "the auth flow for this app";
+document.querySelector("#design-generate-btn").click();
+await sleep(20);
+assert(document.querySelector("#design-status").textContent.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
+assert(document.getElementById("design-result").hidden, "no result panel is shown when generation never ran");
+
+window.localStorage.setItem("justjs:ai-editor:api-key", "sk-ant-test-fake-key-not-real");
+const originalFetch = globalThis.fetch;
+const fakeDesignDoc =
+  "# Auth Flow\n\nDescribes the login sequence.\n\n```mermaid\nsequenceDiagram\n  User->>App: submit credentials\n```\n";
+globalThis.fetch = async () =>
+  new window.Response(JSON.stringify({ content: [{ type: "text", text: fakeDesignDoc }] }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+
+document.querySelector("#design-generate-btn").click();
+await sleep(50);
+assert(!document.getElementById("design-result").hidden, "a successful generate shows the result panel");
+assert(document.querySelector("#design-source").value === fakeDesignDoc, "the raw Markdown+Mermaid source is shown in Edit mode by default");
+assert(document.querySelector("#design-mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
+
+document.querySelector("#design-mode-preview-btn").click();
+assert(document.querySelector("#design-mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
+const finishedRendering = await waitUntil(() => !document.querySelector("#design-preview").innerHTML.includes("Rendering…"));
+assert(finishedRendering, "the real dynamic import(\"mermaid\") plus attempted render (falling back in this environment) completes within a reasonable time, not hung");
+const previewHtml = document.querySelector("#design-preview").innerHTML;
+assert(previewHtml.includes("<h1>Auth Flow</h1>"), "the Markdown heading renders as real HTML, not raw escaped text");
+assert(
+  previewHtml.includes("mermaid-fallback") && previewHtml.includes("couldn"),
+  "happy-dom genuinely cannot render Mermaid (getBBox() unsupported) - the real fallback path renders here, not a mocked success, with an honest note rather than a silent blank space"
+);
+assert(previewHtml.includes("sequenceDiagram"), "the raw mermaid source is still visible inside the fallback, not discarded");
+
+document.querySelector("#design-mode-edit-btn").click();
+await sleep(20);
+assert(document.querySelector("#design-mode-edit-btn").classList.contains("active"), "toggling back to Edit works");
+
+// "← Design" backs out one level to the Architecture/Wireframes list,
+// not all the way to the Workspace overview - and Wireframes opens the
+// SAME generator (same in-progress doc still there), proving both
+// entries are genuinely backed by the one capability, not two separate
+// half-built ones.
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+assert(document.querySelector("#design-description") === null, "the generator's own back button returns to Design's function list, not the Workspace overview");
+const designFunctionsAgain = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(designFunctionsAgain.length === 2, "Architecture and Wireframes are both still there after backing out");
+designFunctionsAgain[1].click(); // Wireframes
+await sleep(20);
+assert(document.querySelector("#design-source").value.includes("Auth Flow"), "Wireframes opens the same generator with the same in-progress doc, not a separate/reset one");
+
+document.querySelector("#design-file-path").value = "src/main.js";
+document.querySelector("#design-create-btn").click();
+await sleep(20);
+assert(document.querySelector("#design-create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Scaffold's");
+
+document.querySelector("#design-file-path").value = "design.md";
+document.querySelector("#design-create-btn").click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "a successful Create file navigates to the Editor tab");
+assert(document.querySelector("#editor-textarea").value.includes("Auth Flow"), "the created file's real generated content is now open in the editor");
+assert(treeRow("design.md") !== null, "the new design.md file appears in the real file tree, not a dead end");
+
+globalThis.fetch = originalFetch;
+window.localStorage.removeItem("justjs:ai-editor:api-key");
+
+// Restores the state every later section assumes (src/main.js active) -
+// creating design.md made it the active file instead.
+treeRow("src/main.js").querySelector('[data-action="open"]').click();
+await sleep(20);
 
 // 2. Starter tree proof - real nested folders, not a flat list, and the
 // active file's ancestor chain is auto-expanded so it's visible without

@@ -69,6 +69,7 @@ const EXTENSION_LANGUAGE: Record<string, string> = {
   rs: "rust",
   go: "go",
   java: "java",
+  md: "text",
 };
 
 export function inferLanguage(path: string): string {

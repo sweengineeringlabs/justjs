@@ -4,6 +4,7 @@ export type {
   ChatMessage,
   ChatRequest,
   CompletionRequest,
+  DesignDocRequest,
   ImageAttachment,
   ReviewFinding,
   ReviewRequest,

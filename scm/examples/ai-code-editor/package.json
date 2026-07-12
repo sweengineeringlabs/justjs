@@ -10,17 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@justjs/ai-assist": "^0.1.0",
+    "@justjs/aop-analytics": "^0.1.0",
+    "@justjs/aop-flags": "^0.1.0",
+    "@justjs/aop-i18n": "^0.1.0",
+    "@justjs/aop-observability": "^0.1.0",
+    "@justjs/aop-security": "^0.1.0",
+    "@justjs/aop-theming": "^0.1.0",
     "@justjs/application": "^0.1.0",
+    "@justjs/data": "^0.1.0",
     "@justjs/network": "^0.1.0",
     "@justjs/transport": "^0.1.0",
-    "@justjs/data": "^0.1.0",
-    "@justjs/ai-assist": "^0.1.0",
-    "@justjs/aop-security": "^0.1.0",
-    "@justjs/aop-observability": "^0.1.0",
-    "@justjs/aop-flags": "^0.1.0",
-    "@justjs/aop-analytics": "^0.1.0",
-    "@justjs/aop-theming": "^0.1.0",
-    "@justjs/aop-i18n": "^0.1.0"
+    "mermaid": "11.16.0"
   },
   "devDependencies": {
     "vite": "^5.0.0",

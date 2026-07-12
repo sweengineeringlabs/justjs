@@ -147,6 +147,22 @@ describe("AnthropicAiAssistProvider request shape", () => {
 
     expect(result).toBe("export function main() {}");
   });
+
+  it("test_generate_design_doc_returns_the_full_markdown_document_and_asks_for_a_mermaid_fence", async () => {
+    const fake = new FakeApiAdapter();
+    const doc = "# Auth flow\n\n```mermaid\nsequenceDiagram\n  A->>B: login\n```\n";
+    fake.queueResponse(async () => textResponse(doc));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const result = await provider.generateDesignDoc({ description: "a login sequence" });
+
+    expect(result).toBe(doc);
+    const body = fake.calls[0]!.body as { model: string; max_tokens: number; messages: Array<{ content: string }> };
+    expect(body.model).toBe("claude-opus-4-8");
+    expect(body.max_tokens).toBe(4096);
+    expect(body.messages[0]!.content).toContain("```mermaid");
+    expect(body.messages[0]!.content).toContain("a login sequence");
+  });
 });
 
 describe("AnthropicAiAssistProvider.review()", () => {

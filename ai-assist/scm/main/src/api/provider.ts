@@ -70,6 +70,10 @@ export interface ScaffoldProjectRequest {
   readonly image?: ImageAttachment;
 }
 
+export interface DesignDocRequest {
+  readonly description: string;
+}
+
 export interface AiAssistProvider {
   readonly concern: "aiAssist";
   readonly strategy: string;
@@ -83,6 +87,12 @@ export interface AiAssistProvider {
   // overload, since callers need to explicitly opt into "replace
   // everything" semantics.
   scaffoldProject(req: ScaffoldProjectRequest): Promise<ScaffoldedFile[]>;
+  // A Markdown design document with an embedded Mermaid diagram - free
+  // text out, not scaffold() reused, because scaffold()'s prompt
+  // explicitly tells the model to omit markdown fences (to stop it
+  // wrapping code responses in backticks), which fights intentionally
+  // emitting a real ```mermaid fence.
+  generateDesignDoc(req: DesignDocRequest): Promise<string>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)` call
   // for every concern actually listed in the `aspects` config it's given
   // (application/scm/main/src/core/boot.ts) - aiAssist isn't a

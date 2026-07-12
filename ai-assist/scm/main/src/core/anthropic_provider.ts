@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ChatRequest,
   CompletionRequest,
+  DesignDocRequest,
   ImageAttachment,
   ReviewFinding,
   ReviewRequest,
@@ -37,6 +38,11 @@ const SCAFFOLD_MAX_TOKENS = 4096;
 // escape hatch), and the prompt itself asks for a small, focused project
 // on top of this cap rather than relying on the cap alone.
 const SCAFFOLD_PROJECT_MAX_TOKENS = 16000;
+// Same tier as CHAT/REVIEW/SCAFFOLD_MAX_TOKENS - a design doc (markdown
+// text plus one embedded diagram's source) is closer in scale to one
+// file's content than to SCAFFOLD_PROJECT_MAX_TOKENS's whole-project
+// generation.
+const DESIGN_DOC_MAX_TOKENS = 4096;
 
 const REVIEW_TOOL_NAME = "report_findings";
 const PROJECT_TOOL_NAME = "report_project_files";
@@ -327,6 +333,20 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
     }
     const input = toolUse.input as { files?: unknown };
     return validateScaffoldedFiles(input.files);
+  }
+
+  async generateDesignDoc(req: DesignDocRequest): Promise<string> {
+    const prompt =
+      `Generate a Markdown design document for this description. Include exactly one Mermaid ` +
+      `diagram (a fenced \`\`\`mermaid code block) illustrating the architecture, flow, or ` +
+      `structure - use whatever Mermaid diagram type fits best (flowchart, sequence, class, etc). ` +
+      `Return the complete Markdown document, including that fence.\n\n${req.description}`;
+    const response = await this.send({
+      model: this.capableModel,
+      max_tokens: DESIGN_DOC_MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return this.firstText(response);
   }
 
   private firstText(response: AnthropicMessageResponse): string {
