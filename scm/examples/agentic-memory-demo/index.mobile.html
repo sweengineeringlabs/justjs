@@ -33,26 +33,16 @@
       <div id="settings-backdrop" class="settings-backdrop"></div>
       <div class="settings-sheet">
         <div class="settings-sheet-header">
-          <h2 id="settings-sheet-title">Settings</h2>
+          <h2>Voice input language</h2>
           <button id="settings-close-btn" type="button" aria-label="Close settings">✕</button>
         </div>
-        <div id="settings-main">
-          <div class="field">
-            <span class="field-label">Voice input language</span>
-            <button id="settings-lang-field" type="button" class="picker-field">
-              <span id="settings-lang-value">Auto</span>
-              <span class="picker-chevron">›</span>
-            </button>
-          </div>
-          <label id="settings-tts-row" class="settings-toggle-row" hidden>
-            <input id="settings-tts-toggle" type="checkbox" />
-            <span>Read assistant replies aloud</span>
-          </label>
-        </div>
-        <div id="settings-lang-picker" class="lang-picker" hidden>
-          <button id="lang-picker-back-btn" type="button" class="dash-back-btn">← Settings</button>
-          <div id="lang-picker-list" class="lang-picker-list"></div>
-        </div>
+        <input id="settings-lang-search" type="text" placeholder="Search language..." autocomplete="off" />
+        <div id="settings-lang-list" class="lang-picker-list"></div>
+        <div id="settings-lang-pagination" class="pagination"></div>
+        <label id="settings-tts-row" class="settings-toggle-row" hidden>
+          <input id="settings-tts-toggle" type="checkbox" />
+          <span>Read assistant replies aloud</span>
+        </label>
       </div>
     </div>
   </div>

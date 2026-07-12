@@ -44,23 +44,15 @@ document.body.innerHTML = `
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
         <div class="settings-sheet-header">
-          <h2 id="settings-sheet-title">Settings</h2>
+          <h2>Voice input language</h2>
           <button id="settings-close-btn" type="button">close</button>
         </div>
-        <div id="settings-main">
-          <div class="field">
-            <button id="settings-lang-field" type="button">
-              <span id="settings-lang-value">Auto</span>
-            </button>
-          </div>
-          <label id="settings-tts-row" hidden>
-            <input id="settings-tts-toggle" type="checkbox" />
-          </label>
-        </div>
-        <div id="settings-lang-picker" hidden>
-          <button id="lang-picker-back-btn" type="button">back</button>
-          <div id="lang-picker-list"></div>
-        </div>
+        <input id="settings-lang-search" type="text" />
+        <div id="settings-lang-list"></div>
+        <div id="settings-lang-pagination"></div>
+        <label id="settings-tts-row" hidden>
+          <input id="settings-tts-toggle" type="checkbox" />
+        </label>
       </div>
     </div>
   </div>
@@ -85,31 +77,85 @@ assert(document.getElementById("mount-chat").innerHTML.length > 0, "chat mount h
 assert(document.getElementById("mount-dashboard").innerHTML.length > 0, "dashboard mount has content");
 assert(document.getElementById("mount-curation").innerHTML.length > 0, "curation mount has content");
 
-// 1b. Settings / voice-language picker proof - the settings panel and
-// its custom language picker aren't tied to the router (no data-ddas-id
-// mount), so they're just plain DOM elements set up once at boot by
-// app.ts's setupSettingsPanel(), tested directly rather than through a
-// route.
+// 1b. Settings / voice-language picker proof - the settings panel
+// isn't tied to the router (no data-ddas-id mount), so it's just a
+// plain DOM element set up once at boot by app.ts's
+// setupSettingsPanel(), tested directly rather than through a route.
+// One tap on the gear shows the paginated language list directly - an
+// earlier version required a second tap on a field to open a separate
+// modal; collapsed into one sheet after that proved to be an extra,
+// unnecessary click. 21 curated languages, 6 per page = 4 pages
+// (6,6,6,3).
 document.querySelector("#settings-btn").click();
-assert(!document.getElementById("settings-panel").hidden, "settings panel opens on gear click");
-assert(document.getElementById("settings-lang-value").textContent === "Auto", "language field defaults to Auto with no stored preference");
+assert(!document.getElementById("settings-panel").hidden, "one tap on the gear opens the settings sheet");
+let langRows = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")];
+assert(langRows.length === 6, `the sheet shows the paginated language list immediately, no extra click (found ${langRows.length} rows)`);
+assert(document.getElementById("settings-lang-pagination").textContent.includes("Page 1 of 4"), "pagination reads Page 1 of 4 for 21 languages at 6 per page");
+assert(langRows.some((r) => r.classList.contains("active") && r.textContent.includes("Auto")), "Auto is marked active with no stored preference, on page 1");
 
-document.querySelector("#settings-lang-field").click();
-assert(document.getElementById("settings-main").hidden, "opening the language picker hides the main settings content");
-let langRows = [...document.querySelectorAll("#lang-picker-list .lang-picker-row")];
-assert(langRows.length === 21, `language picker lists all curated languages (found ${langRows.length})`);
-assert(langRows.some((r) => r.classList.contains("active") && r.textContent.includes("Auto")), "Auto is marked active with no stored preference");
+document.querySelector("#lang-page-next").click();
+langRows = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")];
+assert(document.getElementById("settings-lang-pagination").textContent.includes("Page 2 of 4"), "Next advances to page 2");
+assert(
+  langRows.length === 6 && !langRows.some((r) => r.textContent.includes("Auto")),
+  "page 2 shows a different 6 languages, not page 1's Auto"
+);
 
-const spanishRow = langRows.find((r) => r.dataset.code === "es-ES");
-spanishRow.click();
-assert(document.getElementById("settings-lang-value").textContent === "Spanish (Spain)", "picking a language updates the field's displayed value");
-assert(!document.getElementById("settings-main").hidden, "picking a language returns to the main settings view");
+langRows.find((r) => r.dataset.code === "es-ES").click();
+assert(!document.getElementById("settings-panel").hidden, "picking a language updates the list in place, it doesn't close the sheet");
+// renderLangPage() rebuilds #settings-lang-list's innerHTML on every
+// pick (to move the checkmark), which detaches the row element just
+// clicked - re-query the freshly-rendered row rather than reuse that
+// now-stale reference.
+const updatedSpanishRow = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")].find((r) => r.dataset.code === "es-ES");
+assert(
+  updatedSpanishRow.classList.contains("active") && updatedSpanishRow.querySelector(".lang-picker-check"),
+  "the picked language is immediately marked active with a checkmark, without leaving the page"
+);
 assert(window.localStorage.getItem("justjs:memory-demo:voice-lang") === "es-ES", "the picked language is persisted to localStorage");
 
-document.querySelector("#settings-lang-field").click();
-langRows = [...document.querySelectorAll("#lang-picker-list .lang-picker-row")];
-assert(langRows.find((r) => r.dataset.code === "es-ES").classList.contains("active"), "re-opening the picker shows the persisted language as active");
-document.querySelector("#lang-picker-back-btn").click();
+document.querySelector("#settings-close-btn").click();
+assert(document.getElementById("settings-panel").hidden, "close button hides the settings sheet");
+
+document.querySelector("#settings-btn").click();
+assert(
+  document.getElementById("settings-lang-pagination").textContent.includes("Page 2 of 4"),
+  "re-opening the sheet jumps straight to the page containing the persisted selection, not back to page 1"
+);
+langRows = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")];
+assert(langRows.find((r) => r.dataset.code === "es-ES").classList.contains("active"), "the persisted language is marked active on that page");
+
+document.querySelector("#lang-page-prev").click();
+assert(document.getElementById("settings-lang-pagination").textContent.includes("Page 1 of 4"), "Prev returns to page 1");
+
+// Search filters the same paged list rather than replacing it with an
+// unpaged scroll - a narrow match collapses to a single page instead
+// of a special "search results" layout.
+const langSearchInput = document.getElementById("settings-lang-search");
+langSearchInput.value = "spanish";
+langSearchInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+langRows = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")];
+assert(
+  langRows.length === 2 && langRows.every((r) => r.textContent.includes("Spanish")),
+  `searching "spanish" narrows the list to just the 2 Spanish variants (found ${langRows.map((r) => r.textContent).join(", ")})`
+);
+assert(document.getElementById("settings-lang-pagination").textContent === "", "a 2-result search fits on one page - no pagination controls shown");
+
+langSearchInput.value = "klingon";
+langSearchInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+assert(
+  document.querySelector("#settings-lang-list").textContent.includes('No languages match "klingon"'),
+  "a search with no matches shows a real empty state, not a blank list"
+);
+
+langSearchInput.value = "";
+langSearchInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+langRows = [...document.querySelectorAll("#settings-lang-list .lang-picker-row")];
+assert(
+  langRows.length === 6 && langRows.some((r) => r.textContent.includes("Auto")),
+  "clearing the search restores the full paged list from page 1"
+);
+
 document.querySelector("#settings-close-btn").click();
 assert(document.getElementById("settings-panel").hidden, "close button hides the settings panel");
 
@@ -157,6 +203,59 @@ document.querySelector("#dashboard-add-content").value = "a manually added struc
 document.querySelector("#dashboard-add-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
 await new Promise((r) => setTimeout(r, 50));
 assert(!document.querySelector("#dashboard-add-confirm").hidden, "add view shows a confirmation after a successful add");
+
+// Image attachment proof - a File is attached via input.files (using a
+// real DataTransfer, not a direct property hack) and dispatched as a
+// genuine 'change' event, exercising the real
+// FileReader.readAsDataURL() pipeline happy-dom actually implements,
+// not a mocked shortcut. Added then immediately deleted in this same
+// block so it doesn't shift the exact record counts later assertions
+// (analytics breakdown, browse pagination) depend on.
+const imageInput = document.querySelector("#dashboard-add-image");
+const fakeImageFile = new window.File(["fake-png-bytes"], "screenshot.png", { type: "image/png" });
+const dataTransfer = new window.DataTransfer();
+dataTransfer.items.add(fakeImageFile);
+imageInput.files = dataTransfer.files;
+imageInput.dispatchEvent(new window.Event("change", { bubbles: true }));
+await new Promise((r) => setTimeout(r, 50));
+assert(!document.querySelector("#dashboard-add-image-preview").hidden, "selecting an image shows a live preview");
+assert(
+  document.querySelector("#dashboard-add-image-thumb").src.startsWith("data:image/png"),
+  "the preview thumbnail is a real data URL read from the file, not a placeholder"
+);
+
+// Leave content blank - an attached image is a real memory on its own,
+// content shouldn't be a hard requirement when there's a photo.
+document.querySelector("#dashboard-add-content").value = "";
+document.querySelector("#dashboard-add-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
+await new Promise((r) => setTimeout(r, 50));
+
+document.querySelector('.dash-subnav-btn[data-view="browse"]').click();
+await new Promise((r) => setTimeout(r, 50));
+rows = [...document.querySelectorAll("#dashboard-results .memory-row")];
+const imageRow = rows.find((r) => r.querySelector(".memory-image"));
+assert(!!imageRow, "the newly added image-only record renders with a visible thumbnail in its card");
+assert(
+  imageRow.querySelector(".memory-content").textContent === "📷 Image memory",
+  "a blank content field falls back to a real caption when an image is attached, not an empty string"
+);
+assert(
+  imageRow.querySelector(".memory-image").src.startsWith("data:image/png"),
+  "the rendered thumbnail is the same data URL that was read from the file"
+);
+
+const imageRecordId = imageRow.dataset.id;
+assert(
+  JSON.parse(window.localStorage.getItem("justjs:memory-demo:images") || "{}")[imageRecordId] !== undefined,
+  "the image is persisted to its own localStorage entry, keyed by record id"
+);
+
+imageRow.querySelector(".memory-delete").click();
+await new Promise((r) => setTimeout(r, 50));
+assert(
+  JSON.parse(window.localStorage.getItem("justjs:memory-demo:images") || "{}")[imageRecordId] === undefined,
+  "deleting the record also cleans up its stored image, not leaving an orphaned entry"
+);
 
 document.querySelector('.dash-subnav-btn[data-view="search"]').click();
 await new Promise((r) => setTimeout(r, 50));
@@ -265,6 +364,29 @@ assert(
   `top tags reflect the post-curation summary, not the 3 deleted diet notes (found "${topTagsText}")`
 );
 
+// Dashboard results pagination proof - post-curation there are exactly
+// 6 records (2 untagged episodic + 3 structured running/veggie notes +
+// 1 consolidated summary), and RESULTS_PAGE_SIZE is 5, so Browse's
+// unfiltered list is a real, naturally-occurring 2-page case - no need
+// to seed extra throwaway records just to exercise pagination.
+document.querySelector('.dash-subnav-btn[data-view="browse"]').click();
+await new Promise((r) => setTimeout(r, 50));
+rows = document.querySelectorAll("#dashboard-results .memory-row");
+assert(rows.length === 5, `browse page 1 shows RESULTS_PAGE_SIZE (5) of the 6 total records (found ${rows.length})`);
+assert(document.getElementById("dashboard-pagination").textContent.includes("Page 1 of 2"), "pagination reads Page 1 of 2 for 6 records at 5 per page");
+assert(document.querySelector("#dashboard-page-prev").disabled, "Prev is disabled on page 1");
+assert(!document.querySelector("#dashboard-page-next").disabled, "Next is enabled on page 1");
+
+document.querySelector("#dashboard-page-next").click();
+rows = document.querySelectorAll("#dashboard-results .memory-row");
+assert(rows.length === 1, `browse page 2 shows the 1 remaining record (found ${rows.length})`);
+assert(document.getElementById("dashboard-pagination").textContent.includes("Page 2 of 2"), "pagination reads Page 2 of 2 after clicking Next");
+assert(document.querySelector("#dashboard-page-next").disabled, "Next is disabled on the last page");
+
+document.querySelector("#dashboard-page-prev").click();
+rows = document.querySelectorAll("#dashboard-results .memory-row");
+assert(rows.length === 5, "Prev returns to page 1's 5 records");
+
 // 7. Forgetting proof - real-time costly (this app's provider uses a
 // 60s demo-tuned staleAfterMsForForgetting), gated behind an explicit
 // opt-in so the fast path above stays the default dev-loop check.
@@ -279,9 +401,9 @@ if (process.env.VERIFY_FORGETTING === "1") {
   // dashboard.ts's DashboardElement keeps its own internal view state
   // across nav-tab switches (the .page div's active class toggles, but
   // the component instance - and its `view` field - persists) - it was
-  // last left on "analytics" above, so a plain dashboard-tab click
-  // doesn't show the search form. The sub-nav is how a drill-down view
-  // reaches another one directly.
+  // last left on "browse" above, so a plain dashboard-tab click doesn't
+  // show the search form. The sub-nav is how a drill-down view reaches
+  // another one directly.
   document.querySelector('.nav-btn[data-route="/dashboard"]').click();
   document.querySelector('.dash-subnav-btn[data-view="search"]').click();
   await new Promise((r) => setTimeout(r, 50));

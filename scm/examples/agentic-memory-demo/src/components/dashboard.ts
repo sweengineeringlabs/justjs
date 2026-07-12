@@ -3,8 +3,10 @@ import { computeFakeEmbedding } from "@justjs/memory";
 import type { MemoryKind, MemoryQuery } from "@justjs/memory";
 import type { AppState, AppAction } from "../core/state.js";
 import { memoryProvider } from "../core/memory.js";
+import { deleteImageForRecord, getImageForRecord, readImageFileAsDataUrl, setImageForRecord } from "../core/images.js";
 
 const KINDS: MemoryKind[] = ["episodic", "structured", "semantic"];
+const RESULTS_PAGE_SIZE = 5;
 
 type DashboardView = "overview" | "search" | "add" | "browse" | "analytics";
 
@@ -52,6 +54,8 @@ export class DashboardElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private editingIds = new Set<string>();
   private view: DashboardView = "overview";
+  private resultsPage = 0;
+  private pendingImageDataUrl: string | null = null;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.unsubscribe?.();
@@ -216,6 +220,7 @@ export class DashboardElement extends HTMLElement {
       <section class="db-section db-results-section">
         <h2 class="db-section-title" id="dashboard-results-title">Results</h2>
         <div id="dashboard-results"></div>
+        <div id="dashboard-pagination" class="pagination"></div>
       </section>
     `;
     this.bindSubnav();
@@ -227,6 +232,11 @@ export class DashboardElement extends HTMLElement {
   }
 
   private renderAddView(container: Element): void {
+    // Reset rather than carry over - if the user picked an image on a
+    // previous visit to this view and navigated away without
+    // submitting, re-entering "add" should start fresh, not silently
+    // attach a stale image to whatever gets submitted next.
+    this.pendingImageDataUrl = null;
     container.innerHTML = `
       ${this.subnavHtml("add")}
       <section class="db-section">
@@ -248,6 +258,14 @@ export class DashboardElement extends HTMLElement {
             <label class="field-label" for="dashboard-add-content">Content</label>
             <input id="dashboard-add-content" type="text" placeholder="What do you want to remember?" autocomplete="off" />
           </div>
+          <div class="field">
+            <label class="field-label" for="dashboard-add-image">Image (optional)</label>
+            <input id="dashboard-add-image" type="file" accept="image/*" />
+            <div id="dashboard-add-image-preview" class="image-preview" hidden>
+              <img id="dashboard-add-image-thumb" alt="Selected image preview" />
+              <button id="dashboard-add-image-remove" type="button" class="pagination-btn">Remove image</button>
+            </div>
+          </div>
           <button id="dashboard-add-submit" type="submit">Add memory</button>
         </form>
         <p id="dashboard-add-confirm" class="db-add-confirm" hidden>Added ✓</p>
@@ -258,6 +276,34 @@ export class DashboardElement extends HTMLElement {
       e.preventDefault();
       void this.addRecord();
     });
+
+    const imageInput = this.querySelector<HTMLInputElement>("#dashboard-add-image");
+    const imagePreview = this.querySelector<HTMLElement>("#dashboard-add-image-preview");
+    const imageThumb = this.querySelector<HTMLImageElement>("#dashboard-add-image-thumb");
+    imageInput?.addEventListener("change", () => {
+      const file = imageInput.files?.[0];
+      if (!file) {
+        return;
+      }
+      void readImageFileAsDataUrl(file).then((dataUrl) => {
+        this.pendingImageDataUrl = dataUrl;
+        if (imageThumb) {
+          imageThumb.src = dataUrl;
+        }
+        if (imagePreview) {
+          imagePreview.hidden = false;
+        }
+      });
+    });
+    this.querySelector("#dashboard-add-image-remove")?.addEventListener("click", () => {
+      this.pendingImageDataUrl = null;
+      if (imageInput) {
+        imageInput.value = "";
+      }
+      if (imagePreview) {
+        imagePreview.hidden = true;
+      }
+    });
   }
 
   private async renderBrowseView(container: Element): Promise<void> {
@@ -266,9 +312,11 @@ export class DashboardElement extends HTMLElement {
       <section class="db-section db-results-section">
         <h2 class="db-section-title" id="dashboard-results-title">All memories</h2>
         <div id="dashboard-results"></div>
+        <div id="dashboard-pagination" class="pagination"></div>
       </section>
     `;
     this.bindSubnav();
+    this.resultsPage = 0;
     const userId = this.store!.state.value.userId;
     const results = await memoryProvider.query({ userId });
     this.store!.dispatch({ type: "DASHBOARD_SET_RESULTS", results });
@@ -367,6 +415,7 @@ export class DashboardElement extends HTMLElement {
     if (!this.store) {
       return;
     }
+    this.resultsPage = 0;
     const results = await memoryProvider.query(this.currentFilterQuery());
     this.store.dispatch({ type: "DASHBOARD_SET_RESULTS", results });
   }
@@ -389,12 +438,16 @@ export class DashboardElement extends HTMLElement {
     const kind = this.querySelector<HTMLSelectElement>("#dashboard-add-kind")!.value as MemoryKind;
     const tags = parseTags(this.querySelector<HTMLInputElement>("#dashboard-add-tags")!.value);
     const contentInput = this.querySelector<HTMLInputElement>("#dashboard-add-content")!;
-    const content = contentInput.value.trim();
+    // Content is only required when there's no image - an attached
+    // photo is a real memory on its own (e.g. a screenshot), and
+    // forcing a caption just to satisfy a required-text-field rule
+    // would be busywork, not a real constraint of the data model.
+    const content = contentInput.value.trim() || (this.pendingImageDataUrl ? "📷 Image memory" : "");
     if (!content) {
       return;
     }
 
-    await memoryProvider.write({
+    const written = await memoryProvider.write({
       userId,
       kind,
       content,
@@ -402,8 +455,21 @@ export class DashboardElement extends HTMLElement {
       source: "user",
     });
 
+    if (this.pendingImageDataUrl) {
+      setImageForRecord(written.id, this.pendingImageDataUrl);
+      this.pendingImageDataUrl = null;
+    }
+
     contentInput.value = "";
     this.querySelector<HTMLInputElement>("#dashboard-add-tags")!.value = "";
+    const imageInput = this.querySelector<HTMLInputElement>("#dashboard-add-image");
+    const imagePreview = this.querySelector<HTMLElement>("#dashboard-add-image-preview");
+    if (imageInput) {
+      imageInput.value = "";
+    }
+    if (imagePreview) {
+      imagePreview.hidden = true;
+    }
     const confirm = this.querySelector<HTMLElement>("#dashboard-add-confirm");
     if (confirm) {
       confirm.hidden = false;
@@ -413,6 +479,7 @@ export class DashboardElement extends HTMLElement {
   private renderResultsList(): void {
     const container = this.querySelector("#dashboard-results");
     const title = this.querySelector("#dashboard-results-title");
+    const pagination = this.querySelector("#dashboard-pagination");
     if (!container || !this.store) {
       return;
     }
@@ -429,10 +496,22 @@ export class DashboardElement extends HTMLElement {
           <p class="db-empty-hint">Try clearing filters, or add one from the Add tab.</p>
         </div>
       `;
+      if (pagination) {
+        pagination.innerHTML = "";
+      }
       return;
     }
 
-    container.innerHTML = results
+    // Editing/deleting a mid-list record and re-rendering could leave
+    // resultsPage pointing past the new last page (e.g. delete the only
+    // item on the last page) - clamp before slicing rather than let
+    // Array.slice() silently return an empty page.
+    const totalPages = Math.max(1, Math.ceil(results.length / RESULTS_PAGE_SIZE));
+    this.resultsPage = Math.min(Math.max(this.resultsPage, 0), totalPages - 1);
+    const pageStart = this.resultsPage * RESULTS_PAGE_SIZE;
+    const pageResults = results.slice(pageStart, pageStart + RESULTS_PAGE_SIZE);
+
+    container.innerHTML = pageResults
       .map((r) => {
         const record = r.record;
         if (this.editingIds.has(record.id)) {
@@ -451,12 +530,14 @@ export class DashboardElement extends HTMLElement {
           `;
         }
         const tags = record.tags ?? [];
+        const image = getImageForRecord(record.id);
         return `
           <div class="memory-row" data-id="${record.id}">
             <div class="memory-row-top">
               <span class="memory-kind memory-kind-${record.kind}">${record.kind}</span>
               ${r.score !== undefined ? `<span class="memory-score-wrap"><span class="memory-score-label">match</span><span class="memory-score">${r.score.toFixed(2)}</span></span>` : ""}
             </div>
+            ${image ? `<img class="memory-image" src="${image}" alt="Attached image" />` : ""}
             <p class="memory-content">${escapeHtml(record.content)}</p>
             ${tags.length > 0 ? `<div class="memory-tags">${tags.map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
             <div class="memory-row-bottom">
@@ -484,6 +565,25 @@ export class DashboardElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>(".memory-delete").forEach((btn) => {
       btn.addEventListener("click", () => void this.deleteRecord(btn.dataset.id!));
     });
+
+    if (pagination) {
+      pagination.innerHTML =
+        totalPages > 1
+          ? `
+            <button id="dashboard-page-prev" type="button" class="pagination-btn" ${this.resultsPage === 0 ? "disabled" : ""}>‹ Prev</button>
+            <span class="pagination-info">Page ${this.resultsPage + 1} of ${totalPages}</span>
+            <button id="dashboard-page-next" type="button" class="pagination-btn" ${this.resultsPage >= totalPages - 1 ? "disabled" : ""}>Next ›</button>
+          `
+          : "";
+      this.querySelector("#dashboard-page-prev")?.addEventListener("click", () => {
+        this.resultsPage -= 1;
+        this.renderResultsList();
+      });
+      this.querySelector("#dashboard-page-next")?.addEventListener("click", () => {
+        this.resultsPage += 1;
+        this.renderResultsList();
+      });
+    }
   }
 
   private async saveEdit(id: string): Promise<void> {
@@ -516,6 +616,7 @@ export class DashboardElement extends HTMLElement {
       return;
     }
     await memoryProvider.delete(this.store.state.value.userId, id);
+    deleteImageForRecord(id);
     await this.refreshCurrentResults();
   }
 }

@@ -235,41 +235,11 @@ body {
   accent-color: var(--accent);
 }
 
-.picker-field {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 400;
-  box-shadow: none;
-}
-
-.picker-chevron {
-  color: var(--text-muted);
-  font-size: 18px;
-}
-
-.lang-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 55vh;
-}
-
-.lang-picker .dash-back-btn {
-  align-self: flex-start;
-}
-
 .lang-picker-list {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-height: 50vh;
   overflow-y: auto;
   border-radius: 14px;
   background: var(--surface-alt);
@@ -299,6 +269,32 @@ body {
 .lang-picker-check {
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pagination-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 13px;
+  background: var(--surface-alt);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+}
+
+.pagination-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .page-container {
@@ -858,6 +854,27 @@ select:focus {
   color: var(--text);
   font-size: 14px;
   line-height: 1.4;
+}
+
+.memory-image {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.image-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-preview img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
 
 .memory-tags {

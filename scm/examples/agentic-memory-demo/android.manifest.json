@@ -5,7 +5,7 @@
   "versionName": "0.1.0",
   "debuggable": true,
   "icon": "icon.png",
-  "capabilities": ["voice"],
+  "capabilities": ["voice", "image"],
   "webApp": {
     "entry": "src/app.ts",
     "css": ["src/app.css"],

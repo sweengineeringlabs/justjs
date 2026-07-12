@@ -126,72 +126,115 @@ function setupThemeToggle(): void {
 // them (chat.ts reads them straight from src/core/speech.ts's
 // localStorage-backed getters - no wiring needed between this panel
 // and chat.ts beyond sharing those storage keys).
+//
+// One tap on the gear icon shows the paginated language list directly
+// - an earlier version required a second tap on a "Voice input
+// language" field to open a separate modal on top of this sheet.
+// Collapsed into one sheet after real usage feedback that the extra
+// click made a one-thing-to-configure panel feel like two steps.
+const LANG_PAGE_SIZE = 6;
+
+function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function setupSettingsPanel(): void {
   const panel = document.getElementById("settings-panel");
   const openBtn = document.getElementById("settings-btn");
   const closeBtn = document.getElementById("settings-close-btn");
   const backdrop = document.getElementById("settings-backdrop");
-  const mainView = document.getElementById("settings-main");
-  const langField = document.getElementById("settings-lang-field");
-  const langValue = document.getElementById("settings-lang-value");
-  const langPicker = document.getElementById("settings-lang-picker");
-  const langPickerList = document.getElementById("lang-picker-list");
-  const langPickerBackBtn = document.getElementById("lang-picker-back-btn");
+  const langSearch = document.getElementById("settings-lang-search") as HTMLInputElement | null;
+  const langList = document.getElementById("settings-lang-list");
+  const langPagination = document.getElementById("settings-lang-pagination");
   const ttsRow = document.getElementById("settings-tts-row");
   const ttsToggle = document.getElementById("settings-tts-toggle") as HTMLInputElement | null;
+  let langPage = 0;
 
-  function labelFor(code: string): string {
-    return VOICE_LANGUAGES.find((l) => l.code === code)?.label ?? "Auto";
-  }
-
-  function renderLangValue(): void {
-    if (langValue) {
-      langValue.textContent = labelFor(getStoredVoiceLanguage());
+  function filteredLanguages(): typeof VOICE_LANGUAGES {
+    const term = (langSearch?.value ?? "").trim().toLowerCase();
+    if (!term) {
+      return VOICE_LANGUAGES;
     }
+    return VOICE_LANGUAGES.filter((l) => l.label.toLowerCase().includes(term));
   }
 
-  // A real, custom-styled picker instead of the platform <select> - the
+  function langTotalPages(items: typeof VOICE_LANGUAGES): number {
+    return Math.max(1, Math.ceil(items.length / LANG_PAGE_SIZE));
+  }
+
+  // A real, custom-styled list instead of the platform <select> - the
   // native dropdown's popup styling (colors, spacing, font) can't be
   // meaningfully themed via CSS on either target, which is what made it
-  // look out of place against the rest of this app's own design.
-  function renderLangPickerList(): void {
-    if (!langPickerList) {
+  // look out of place against the rest of this app's own design. Paged
+  // rather than one long scroll, LANG_PAGE_SIZE at a time - the search
+  // box filters within that same paged list rather than replacing it
+  // with an unpaged scroll, so a narrow match (e.g. "Spanish") still
+  // renders as a normal one-page result instead of a special case.
+  function renderLangPage(): void {
+    if (!langList) {
       return;
     }
     const current = getStoredVoiceLanguage();
-    langPickerList.innerHTML = VOICE_LANGUAGES.map(
-      (l) => `
-        <button class="lang-picker-row${l.code === current ? " active" : ""}" type="button" data-code="${l.code}">
-          <span>${l.label}</span>
-          ${l.code === current ? `<span class="lang-picker-check">✓</span>` : ""}
-        </button>
-      `
-    ).join("");
-    langPickerList.querySelectorAll<HTMLButtonElement>(".lang-picker-row").forEach((btn) => {
+    const items = filteredLanguages();
+    const pages = langTotalPages(items);
+    langPage = Math.min(Math.max(langPage, 0), pages - 1);
+    const start = langPage * LANG_PAGE_SIZE;
+    const pageItems = items.slice(start, start + LANG_PAGE_SIZE);
+
+    langList.innerHTML =
+      pageItems.length > 0
+        ? pageItems
+            .map(
+              (l) => `
+                <button class="lang-picker-row${l.code === current ? " active" : ""}" type="button" data-code="${l.code}">
+                  <span>${l.label}</span>
+                  ${l.code === current ? `<span class="lang-picker-check">✓</span>` : ""}
+                </button>
+              `
+            )
+            .join("")
+        : `<p class="db-empty-hint">No languages match "${escapeHtml(langSearch?.value ?? "")}".</p>`;
+    // Re-renders the same page in place rather than closing the sheet -
+    // picking a language just moves the checkmark, no forced close/
+    // reopen cycle if the user wants to keep browsing other pages or
+    // also flip the TTS toggle right after.
+    langList.querySelectorAll<HTMLButtonElement>(".lang-picker-row").forEach((btn) => {
       btn.addEventListener("click", () => {
         setStoredVoiceLanguage(btn.dataset.code ?? "");
-        renderLangValue();
-        closeLangPicker();
+        renderLangPage();
       });
     });
+
+    if (langPagination) {
+      langPagination.innerHTML =
+        pages > 1
+          ? `
+            <button id="lang-page-prev" type="button" class="pagination-btn" ${langPage === 0 ? "disabled" : ""}>‹ Prev</button>
+            <span class="pagination-info">Page ${langPage + 1} of ${pages}</span>
+            <button id="lang-page-next" type="button" class="pagination-btn" ${langPage >= pages - 1 ? "disabled" : ""}>Next ›</button>
+          `
+          : "";
+      document.getElementById("lang-page-prev")?.addEventListener("click", () => {
+        if (langPage > 0) {
+          langPage -= 1;
+          renderLangPage();
+        }
+      });
+      document.getElementById("lang-page-next")?.addEventListener("click", () => {
+        if (langPage < pages - 1) {
+          langPage += 1;
+          renderLangPage();
+        }
+      });
+    }
   }
 
-  function openLangPicker(): void {
-    renderLangPickerList();
-    mainView?.setAttribute("hidden", "");
-    langPicker?.removeAttribute("hidden");
-  }
-
-  function closeLangPicker(): void {
-    langPicker?.setAttribute("hidden", "");
-    mainView?.removeAttribute("hidden");
-  }
-
-  if (langField) {
-    renderLangValue();
-    langField.addEventListener("click", openLangPicker);
-  }
-  langPickerBackBtn?.addEventListener("click", closeLangPicker);
+  langSearch?.addEventListener("input", () => {
+    langPage = 0;
+    renderLangPage();
+  });
 
   // Genuinely absent on this app's Android WebView target (window.
   // speechSynthesis is undefined there, confirmed on real hardware, not
@@ -206,7 +249,18 @@ function setupSettingsPanel(): void {
   }
 
   const open = () => {
-    closeLangPicker();
+    if (langSearch) {
+      langSearch.value = "";
+    }
+    // Jump straight to the page containing the current selection,
+    // rather than always starting at page 1 - nicer than making the
+    // user page-hunt for their own existing choice. Only meaningful
+    // against the unfiltered list, which is what's showing since the
+    // search box was just cleared above.
+    const current = getStoredVoiceLanguage();
+    const idx = VOICE_LANGUAGES.findIndex((l) => l.code === current);
+    langPage = idx >= 0 ? Math.floor(idx / LANG_PAGE_SIZE) : 0;
+    renderLangPage();
     panel?.removeAttribute("hidden");
   };
   const close = () => panel?.setAttribute("hidden", "");
