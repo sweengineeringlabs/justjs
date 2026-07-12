@@ -110,6 +110,34 @@ describe("AnthropicAiAssistProvider request shape", () => {
     expect(body.messages).toEqual([{ role: "user", content: "is this ok?" }]);
   });
 
+  it("test_chat_sends_image_and_text_as_content_blocks_when_an_image_is_attached", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("That's a syntax error on line 2."));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    await provider.chat({
+      code: "const x = 1",
+      messages: [
+        {
+          role: "user",
+          content: "what's wrong here?",
+          image: { mediaType: "image/png", base64Data: "ZmFrZS1wbmctYnl0ZXM=" },
+        },
+      ],
+    });
+
+    const body = fake.calls[0]!.body as { messages: Array<{ content: unknown }> };
+    expect(body.messages).toEqual([
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/png", data: "ZmFrZS1wbmctYnl0ZXM=" } },
+          { type: "text", text: "what's wrong here?" },
+        ],
+      },
+    ]);
+  });
+
   it("test_scaffold_returns_generated_code_for_a_description", async () => {
     const fake = new FakeApiAdapter();
     fake.queueResponse(async () => textResponse("export function main() {}"));
@@ -154,6 +182,26 @@ describe("AnthropicAiAssistProvider.review()", () => {
 
     await expect(provider.review({ code: "x" })).rejects.toThrow(AiAssistProviderError);
   });
+
+  it("test_review_includes_the_attached_image_as_a_content_block", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { content: [{ type: "tool_use", name: "report_findings", input: { issues: [] } }] },
+    }));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    await provider.review({
+      code: "let y = 2;",
+      image: { mediaType: "image/jpeg", base64Data: "ZmFrZS1qcGVnLWJ5dGVz" },
+    });
+
+    const body = fake.calls[0]!.body as { messages: Array<{ content: unknown }> };
+    const content = body.messages[0]!.content as Array<{ type: string; source?: unknown }>;
+    expect(Array.isArray(content)).toBe(true);
+    expect(content[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: "ZmFrZS1qcGVnLWJ5dGVz" } });
+  });
 });
 
 describe("AnthropicAiAssistProvider.scaffoldProject()", () => {
@@ -189,6 +237,30 @@ describe("AnthropicAiAssistProvider.scaffoldProject()", () => {
     expect(body.max_tokens).toBe(16000);
     expect(body.tool_choice).toEqual({ type: "tool", name: "report_project_files" });
     expect(body.tools[0]!.name).toBe("report_project_files");
+  });
+
+  it("test_scaffold_project_includes_the_attached_image_as_a_content_block", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: {
+        content: [
+          { type: "tool_use", name: "report_project_files", input: { files: [{ path: "index.html", content: "<html></html>" }] } },
+        ],
+      },
+    }));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    await provider.scaffoldProject({
+      description: "recreate this UI",
+      image: { mediaType: "image/webp", base64Data: "ZmFrZS13ZWJwLWJ5dGVz" },
+    });
+
+    const body = fake.calls[0]!.body as { messages: Array<{ content: unknown }> };
+    const content = body.messages[0]!.content as Array<{ type: string; source?: unknown }>;
+    expect(Array.isArray(content)).toBe(true);
+    expect(content[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/webp", data: "ZmFrZS13ZWJwLWJ5dGVz" } });
   });
 
   it("test_scaffold_project_throws_before_reading_a_truncated_response", async () => {

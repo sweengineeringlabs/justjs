@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ChatRequest,
   CompletionRequest,
+  ImageAttachment,
   ReviewFinding,
   ReviewRequest,
   ScaffoldedFile,
@@ -118,6 +119,27 @@ interface AnthropicErrorBody {
   readonly error: { readonly type: string; readonly message: string };
 }
 
+// Outbound content blocks - distinct from AnthropicContentBlock above,
+// which models the response. Anthropic's Messages API accepts a
+// message's `content` as either a plain string (the common case, used
+// everywhere no image is attached) or an array of blocks when it needs
+// to carry more than text.
+interface OutboundTextBlock {
+  readonly type: "text";
+  readonly text: string;
+}
+
+interface OutboundImageBlock {
+  readonly type: "image";
+  readonly source: {
+    readonly type: "base64";
+    readonly media_type: string;
+    readonly data: string;
+  };
+}
+
+type AnthropicContent = string | Array<OutboundImageBlock | OutboundTextBlock>;
+
 function isTextBlock(block: AnthropicContentBlock): block is AnthropicTextBlock {
   return block.type === "text";
 }
@@ -126,8 +148,30 @@ function isToolUseBlock(block: AnthropicContentBlock): block is AnthropicToolUse
   return block.type === "tool_use";
 }
 
-function toAnthropicMessage(message: ChatMessage): { role: "user" | "assistant"; content: string } {
-  return { role: message.role, content: message.content };
+// Shared by every call site that sends a user message that might carry
+// an image - toAnthropicMessage() (chat()'s real ChatMessage[] history)
+// and review()/scaffoldProject()'s own ad hoc single-message bodies
+// (neither builds a ChatMessage, so they route through this directly
+// rather than through toAnthropicMessage()). Text-only stays a plain
+// string - every existing text-only request keeps the exact same body
+// shape it always has.
+function toAnthropicContent(source: { content: string; image?: ImageAttachment }): AnthropicContent {
+  if (!source.image) {
+    return source.content;
+  }
+  return [
+    {
+      type: "image",
+      source: { type: "base64", media_type: source.image.mediaType, data: source.image.base64Data },
+    },
+    // Image before text - Anthropic's documented ordering for best
+    // results when a message mixes both.
+    { type: "text", text: source.content },
+  ];
+}
+
+function toAnthropicMessage(message: ChatMessage): { role: "user" | "assistant"; content: AnthropicContent } {
+  return { role: message.role, content: toAnthropicContent(message) };
 }
 
 // Validated at this boundary, not left to the caller - unlike review()'s
@@ -221,10 +265,11 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
       `Review the following${req.language ? ` ${req.language}` : ""} code for bugs, correctness ` +
       `issues, and style problems. Call ${REVIEW_TOOL_NAME} with your findings - an empty issues ` +
       `array if you find nothing worth flagging.\n\n${req.code}`;
+    const content = toAnthropicContent({ content: prompt, ...(req.image !== undefined ? { image: req.image } : {}) });
     const response = await this.send({
       model: this.capableModel,
       max_tokens: REVIEW_MAX_TOKENS,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       tools: [REVIEW_TOOL],
       tool_choice: { type: "tool", name: REVIEW_TOOL_NAME },
     });
@@ -256,10 +301,11 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
       `Generate a small, focused project from this description - at most ~6 files, skip build ` +
       `config or test scaffolding unless asked. Call ${PROJECT_TOOL_NAME} with the generated ` +
       `files, each with a relative path (e.g. "src/index.js") and its full content.\n\n${req.description}`;
+    const content = toAnthropicContent({ content: prompt, ...(req.image !== undefined ? { image: req.image } : {}) });
     const response = await this.send({
       model: this.capableModel,
       max_tokens: SCAFFOLD_PROJECT_MAX_TOKENS,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       tools: [PROJECT_TOOL],
       tool_choice: { type: "tool", name: PROJECT_TOOL_NAME },
     });

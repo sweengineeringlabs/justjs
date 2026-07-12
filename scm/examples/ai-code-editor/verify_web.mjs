@@ -288,9 +288,94 @@ await sleep(20);
 assert(document.querySelector("#scaffold-status").textContent.includes("Add an Anthropic API key"), "Scaffold New Project with no key shows the same actionable error");
 assert(document.querySelector("#scaffold-project-result").hidden, "no project preview is shown when generation never ran");
 
+// 14. Voice input proof - happy-dom genuinely has no SpeechRecognition/
+// webkitSpeechRecognition (confirmed directly, not assumed: `typeof new
+// Window().SpeechRecognition === "undefined"`), so isVoicePromptSupported()
+// correctly returns false in this environment and every mic button this
+// app would otherwise render stays absent - the same feature-detection
+// gate this app's design relies on for real browsers that also lack it.
+assert(document.querySelector("#chat-mic-btn") === null, "no SpeechRecognition in this test env - the chat mic button correctly doesn't render");
+document.querySelector('.nav-btn[data-route="/scaffold"]').click();
+document.querySelector("#scaffold-mode-file-btn").click();
+assert(document.querySelector("#scaffold-description-mic-btn") === null, "Scaffold New File's mic button correctly doesn't render either");
+document.querySelector("#scaffold-mode-project-btn").click();
+assert(document.querySelector("#scaffold-project-description-mic-btn") === null, "Scaffold New Project's mic button correctly doesn't render either");
+assert(
+  document.querySelector('#scaffold-file-mode input[type="file"]') === null,
+  "Scaffold New File has no screenshot-attach control at all - vision is New-Project-only, per the locked scope"
+);
+
+// 15. Screenshot attachment proof - a real File attached via input.files
+// (using a real DataTransfer, not a direct property hack) and dispatched
+// as a genuine 'change' event, exercising the real
+// FileReader.readAsDataURL() pipeline happy-dom actually implements -
+// same technique agentic-memory-demo/verify_web.mjs already uses for its
+// own (local-only) image test. Here the attachment is real vision input
+// - Chat/Review/Scaffold-New-Project all send it to Anthropic when a key
+// is configured; this fast path proves the attach/preview/reject/clear
+// mechanics without ever making that real call.
+function attachFakeImage(inputSelector, bytes, filename, mediaType) {
+  const input = document.querySelector(inputSelector);
+  const file = new window.File([bytes], filename, { type: mediaType });
+  const dataTransfer = new window.DataTransfer();
+  dataTransfer.items.add(file);
+  input.files = dataTransfer.files;
+  input.dispatchEvent(new window.Event("change", { bubbles: true }));
+  return sleep(30);
+}
+
+document.querySelector('.nav-btn[data-route="/chat"]').click();
+await attachFakeImage("#chat-image-input", "fake-png-bytes", "screenshot.png", "image/png");
+assert(!document.getElementById("chat-image-preview").hidden, "attaching a valid screenshot shows a live preview");
+assert(document.getElementById("chat-image-thumb").src.startsWith("data:image/png"), "the preview thumbnail is a real data URL read from the file, not a placeholder");
+
+document.querySelector("#chat-image-remove").click();
+assert(document.getElementById("chat-image-preview").hidden, "Remove clears the preview");
+
+await attachFakeImage("#chat-image-input", "not-really-an-image", "diagram.svg", "image/svg+xml");
+assert(!document.getElementById("chat-image-error").hidden, "an unsupported image type is rejected with a real inline error");
+assert(document.getElementById("chat-image-preview").hidden, "no preview is shown for a rejected file");
+
+const oversizedBytes = "x".repeat(5 * 1024 * 1024); // 5MB > this app's 4MB cap
+await attachFakeImage("#chat-image-input", oversizedBytes, "huge.png", "image/png");
+assert(document.getElementById("chat-image-error").textContent.includes("too large"), "an oversized image is rejected before FileReader ever runs, with a specific error");
+
+await attachFakeImage("#chat-image-input", "fake-png-bytes", "screenshot.png", "image/png");
+document.querySelector("#chat-input").value = "what's wrong with this?";
+document.querySelector("#chat-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
+await sleep(30);
+const chatMessagesWithImage = [...document.querySelectorAll(".chat-message")];
+assert(
+  chatMessagesWithImage.some((m) => m.classList.contains("user") && m.querySelector(".chat-message-image")),
+  "the sent message's bubble shows the attached screenshot's thumbnail for the user's own reference"
+);
+assert(
+  chatMessagesWithImage.some((m) => m.classList.contains("assistant") && m.textContent.includes("Add an Anthropic API key")),
+  "sending a message with an attached screenshot still hits the same no-key error path - no real vision call happens in this fast path"
+);
+assert(document.getElementById("chat-image-preview").hidden, "the attachment clears after send regardless of outcome, same as the text input");
+
+document.querySelector('.nav-btn[data-route="/review"]').click();
+await attachFakeImage("#review-image-input", "fake-jpeg-bytes", "error.jpg", "image/jpeg");
+assert(!document.getElementById("review-image-preview").hidden, "Review's attach-screenshot control shows a live preview too");
+document.querySelector("#review-run-btn").click();
+await sleep(30);
+assert(document.querySelector("#review-status").textContent.includes("Add an Anthropic API key"), "Review with an attached screenshot still hits the no-key error path");
+assert(document.getElementById("review-image-preview").hidden, "Review's attachment also clears after running, regardless of outcome");
+
+document.querySelector('.nav-btn[data-route="/scaffold"]').click();
+document.querySelector("#scaffold-mode-project-btn").click();
+await attachFakeImage("#scaffold-project-image-input", "fake-webp-bytes", "mockup.webp", "image/webp");
+assert(!document.getElementById("scaffold-project-image-preview").hidden, "Scaffold New Project's attach-screenshot control shows a live preview too");
+document.querySelector("#scaffold-project-description").value = "build this UI";
+document.querySelector("#scaffold-generate-project-btn").click();
+await sleep(30);
+assert(document.querySelector("#scaffold-status").textContent.includes("Add an Anthropic API key"), "Scaffold New Project with an attached screenshot still hits the no-key error path");
+assert(document.getElementById("scaffold-project-image-preview").hidden, "Scaffold's attachment also clears after generating, regardless of outcome");
+
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 
-// 14. Persistence proof - the whole project (files/emptyFolders/
+// 16. Persistence proof - the whole project (files/emptyFolders/
 // activeFilePath) round-trips through localStorage, debounced so a
 // keystroke doesn't synchronously stringify the whole project on every
 // input event.
@@ -304,7 +389,7 @@ assert(
 assert(stored.emptyFolders.includes("docs"), "an explicitly-created empty folder is persisted even with nothing inside it");
 assert(stored.activeFilePath === "src/main.js", "the currently active file (set by the cross-file jump) is persisted");
 
-// 15. Live Anthropic call proof - real-time and real-cost (an actual
+// 17. Live Anthropic call proof - real-time and real-cost (an actual
 // billed API call), gated behind an explicit opt-in so the fast path
 // above stays the default dev-loop check. Requires both flags: the
 // env-var opt-in AND a real key, matching agentic-memory-demo's

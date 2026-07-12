@@ -10,9 +10,23 @@ export interface AiAssistProviderConfig {
   readonly capableModel?: string;
 }
 
+// A single image attached to a request - real vision input, sent as an
+// Anthropic Messages API image content block, not just stored/displayed
+// locally. base64Data is the raw payload only, no "data:...;base64,"
+// prefix - callers (e.g. ai-code-editor's core/images.ts) are
+// responsible for stripping that themselves.
+export interface ImageAttachment {
+  readonly mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  readonly base64Data: string;
+}
+
 export interface ChatMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
+  // Only meaningful on the message actually being sent this turn -
+  // history entries don't carry one, keeping the payload from growing
+  // with old images on every subsequent turn.
+  readonly image?: ImageAttachment;
 }
 
 export interface CompletionRequest {
@@ -30,6 +44,7 @@ export interface ChatRequest {
 export interface ReviewRequest {
   readonly code: string;
   readonly language?: string;
+  readonly image?: ImageAttachment;
 }
 
 export type ReviewSeverity = "error" | "warning" | "info";
@@ -52,6 +67,7 @@ export interface ScaffoldedFile {
 
 export interface ScaffoldProjectRequest {
   readonly description: string;
+  readonly image?: ImageAttachment;
 }
 
 export interface AiAssistProvider {

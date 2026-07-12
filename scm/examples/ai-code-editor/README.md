@@ -17,19 +17,27 @@ stand-in.
   before/after the cursor and inserts the result. "🔍 Review" calls
   `review()` on the active file and jumps to the Review tab.
 - **Chat** (`x-chat`, `/chat`) — a real conversation with Claude, given
-  the active file's content as context on every turn via `chat()`.
+  the active file's content as context on every turn via `chat()`. Press-
+  and-hold the mic to dictate instead of typing (auto-sends on release).
+  Attach a screenshot (📷) and Claude actually sees it — real vision
+  input, not just local display — e.g. "what's wrong with this error".
 - **Review** (`x-review`, `/review`) — the last structured `review()`
   result for whichever file it ran against ("Reviewing: `<path>`"):
   severity-badged findings, clickable when they carry a line number
   (jumps back to Editor, switching to that file first if a different one
-  is currently open, then selects the line).
+  is currently open, then selects the line). Can also attach a screenshot
+  before running — e.g. "here's the error this throws".
 - **Scaffold** (`x-scaffold`, `/scaffold`) — two modes. "New File"
   generates one file's content via `scaffold()` and creates it at a given
   path. "New Project" generates a whole small multi-file project via the
   new `scaffoldProject()` (structured multi-file tool-use output, same
   mechanism `review()` uses) and replaces the project wholesale on an
   explicit "Replace project" confirm. Nothing is ever applied
-  automatically — creating/replacing is always an explicit tap.
+  automatically — creating/replacing is always an explicit tap. Both
+  description fields support voice dictation (no auto-Generate on
+  release, unlike Chat — Generate is a deliberate, sometimes-costly
+  action); only New Project also accepts a screenshot ("build this from
+  this mockup").
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -51,6 +59,61 @@ across every mutating action — `editor.ts`'s content-edit path dispatches
 on every keystroke, and `DefaultFeatureStore` has no batching, so an
 undebounced blanket subscribe would stringify the whole project on every
 character typed.
+
+## Voice input and real vision AI — reused, not reinvented, with two deliberate cuts
+
+Voice (`core/speech.ts`) and the image-attach mechanics (`core/images.ts`)
+are ported from `agentic-memory-demo`'s own `core/speech.ts`/
+`core/images.ts`, not written from scratch. Two scope cuts, stated
+plainly rather than silently omitted: this app only ported
+`isVoicePromptSupported()`/`startVoicePrompt()`/`describeVoiceError()` —
+not `agentic-memory-demo`'s paginated voice-language picker or its
+text-to-speech (read-aloud) support. Voice input here always falls
+through to `navigator.language`, with no in-app override.
+
+Screenshots are genuinely new territory for this ecosystem, not a port:
+`agentic-memory-demo`'s images are local-only (`FileReader` → data URL →
+`<img>` display, never sent anywhere). Here, an attached screenshot is
+real vision input — split into `{mediaType, base64Data}`
+(`core/images.ts`'s `parseDataUrl()`) and sent as an Anthropic image
+content block via a new `ImageAttachment` type and `toAnthropicContent()`
+helper in `@justjs/ai-assist`. Client-side validation (unsupported type,
+or over `core/images.ts`'s 4MB cap — comfortably under Anthropic's real
+~5MB-after-base64-encoding limit) rejects a bad file at the file-picker
+`change` event, before `FileReader` ever runs, with a real inline error
+instead of a confusing 400 from Anthropic seconds later.
+
+Screenshot attachment is one-shot everywhere: attach → run the action
+(send/review/generate) → cleared, regardless of success or failure —
+same as how the chat text input already cleared immediately on send
+before this feature existed. A real bug caught by `verify_web.mjs`
+during development: Review's and Scaffold's image-clearing calls were
+originally placed *after* the "no API key configured" early return, so a
+failed attempt silently left the attachment behind — fixed by clearing
+before that check, matching the ordering `chat.ts` already had right.
+
+## Android — voice/vision are web-verified only, not shipped as Android-ready
+
+`agentic-memory-demo/android.manifest.json` lists `"voice"`/`"image"` in
+its `capabilities` array, but neither string appears anywhere else in
+this checked-out repo — not in `docs/6-deployment/playbook.md`'s
+documented seven capabilities (`echo`, `notify`, `biometricAuth`,
+`contacts`, `camera`, `health`, `location`), not in
+`platform/mobile/scm/main/src/api/bridge.ts`'s independently-
+corroborated same seven. `js-runtime` itself isn't checked out here to
+confirm what (if anything) an unrecognized capability string grants, but
+two non-stale sources agreeing, against zero supporting plumbing for
+either string, means treating `agentic-memory-demo`'s manifest as proof
+this works on Android would be the wrong inference. This app's
+`android.manifest.json` deliberately keeps `"capabilities": []` — voice
+input and screenshot attachment are built and verified against the
+web/dev-server target only. `isVoicePromptSupported()` degrades
+gracefully on Android the same way it does anywhere without
+`SpeechRecognition` (the mic button just doesn't render); the file-input-
+based screenshot attach UI will render on Android regardless, but tapping
+it may not open a working native picker without the right capability
+wired. Real Android verification for either feature is unconfirmed and
+explicitly out of scope for this pass.
 
 ## Real security tradeoff, stated plainly
 
@@ -111,23 +174,31 @@ vs. the real singleton the app actually uses" pattern
 
 ## Verification status — honest, not inflated
 
-**Verified:** `@justjs/ai-assist`'s `bun test` passes 19/19 (includes
+**Verified:** `@justjs/ai-assist`'s `bun test` passes 22/22 (includes
 `scaffoldProject()`'s structured-output parsing, truncation handling via
-`stop_reason`, and duplicate/malformed-file rejection). `vite build`
-succeeds; `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 51 assertions — boot, DDAS mounting into all
-four routes, the starter tree rendering real nested folders with the
-active file's ancestors auto-expanded, the regex highlighter tokenizing
-keywords/numbers, file switching, create/rename/delete for both files and
-folders (including collision rejection and the folder-with-real-files
-cascade-delete confirmation copy), a cross-file jump-to-line dispatched
-through the real event bus `review.ts` would use, the settings sheet's
-API-key save/clear/status round-trip through `localStorage`, every AI
-action (Suggest, Review, both Scaffold modes, Chat) failing loudly with a
-real, actionable "add an API key" message when none is configured, and
-the whole project's real `localStorage` persistence round-trip. Full root
-`bun run build`/`typecheck`/`test` also passes clean across every sibling
-package — no regression introduced elsewhere.
+`stop_reason`, duplicate/malformed-file rejection, and the three new
+image-content-block tests for `chat()`/`review()`/`scaffoldProject()`).
+`vite build` succeeds; `node verify_web.mjs` (real DOM via happy-dom
+against the real built bundle) passes all 74 assertions — boot, DDAS
+mounting into all four routes, the starter tree rendering real nested
+folders with the active file's ancestors auto-expanded, the regex
+highlighter tokenizing keywords/numbers, file switching, create/rename/
+delete for both files and folders (including collision rejection and the
+folder-with-real-files cascade-delete confirmation copy), a cross-file
+jump-to-line dispatched through the real event bus `review.ts` would use,
+the settings sheet's API-key save/clear/status round-trip through
+`localStorage`, mic buttons correctly absent given happy-dom's genuine
+lack of `SpeechRecognition` (confirmed directly, not assumed), a real
+screenshot attach/preview/wrong-type-rejection/oversized-rejection/
+remove/clear-after-use flow on Chat/Review/Scaffold-New-Project via a
+real `File`+`DataTransfer`+`change` event (same technique
+`agentic-memory-demo/verify_web.mjs` already uses), every AI action
+(Suggest, Review, both Scaffold modes, Chat — with and without an
+attached screenshot) failing loudly with a real, actionable "add an API
+key" message when none is configured, and the whole project's real
+`localStorage` persistence round-trip. Full root `bun run build`/
+`typecheck`/`test` also passes clean across every sibling package — no
+regression introduced elsewhere.
 
 **Not verified by the fast default path:** an actual authenticated call
 to Anthropic. `verify_web.mjs` has an opt-in live-call section gated
@@ -150,7 +221,9 @@ js-runtime's manifest template (not capability-gated,
 `cross-target-demo/README.md`) — no js-runtime changes are needed to
 build the Android target, but building is not the same as verifying the
 real call works on-device. A dedicated real-hardware pass with a real API
-key is required before calling the Android target done.
+key is required before calling the Android target done. Voice input and
+screenshot attachment specifically are not even expected to work on
+Android yet — see "Android — voice/vision are web-verified only" above.
 
 ## Building
 
@@ -159,8 +232,10 @@ key is required before calling the Android target done.
 bun install
 bun run build      # -> dist/, or `bun run dev` for a live server
 node verify_web.mjs # real-DOM check via happy-dom - boot, DDAS mounting,
-                     # highlighting, tab switching, settings API-key
-                     # round-trip, every AI action's no-key error state
+                     # highlighting, tab switching, file explorer,
+                     # settings API-key round-trip, real screenshot
+                     # attach/reject/clear flows, every AI action's
+                     # no-key error state (with and without an image)
 AI_CODE_EDITOR_LIVE_TEST=1 ANTHROPIC_API_KEY=sk-ant-... node verify_web.mjs
                      # also exercises one real, billed Suggest call
                      # (skipped by default)

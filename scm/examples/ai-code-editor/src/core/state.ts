@@ -6,6 +6,10 @@ export interface ChatUiMessage {
   role: "user" | "assistant";
   text: string;
   ts: number;
+  // Local display only (a data URL for an <img> thumbnail) - separate
+  // from the base64 ImageAttachment actually sent to Anthropic, which
+  // isn't retained once the message is sent.
+  imageDataUrl?: string;
 }
 
 export interface AppState {
