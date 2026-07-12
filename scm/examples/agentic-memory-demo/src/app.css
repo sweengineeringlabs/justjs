@@ -468,6 +468,161 @@ select:focus {
 }
 
 /* Dashboard */
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  text-align: left;
+  min-height: 108px;
+}
+
+.widget-icon {
+  font-size: 22px;
+}
+
+.widget-value {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+
+.widget-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.widget-action {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.widget-bars {
+  grid-column: span 2;
+}
+
+.widget-bar-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.widget-bar-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 24px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.widget-bar-label {
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.widget-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.widget-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 3px;
+}
+
+.widget-bar-episodic {
+  background: #667eea;
+}
+
+.widget-bar-structured {
+  background: #5a4fcf;
+}
+
+.widget-bar-semantic {
+  background: #2f9e6f;
+}
+
+.widget-bar-source-user {
+  background: var(--accent);
+}
+
+.widget-bar-source-agent {
+  background: #e08a3c;
+}
+
+.widget-bar-count {
+  text-align: right;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.analytics-bars {
+  padding: 14px;
+}
+
+.dash-subnav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.dash-back-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 13px;
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.dash-subnav-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.dash-subnav-btn {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dash-subnav-btn.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.db-add-confirm {
+  margin: 10px 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
 .db-section {
   margin-bottom: 18px;
 }

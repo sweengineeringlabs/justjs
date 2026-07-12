@@ -6,6 +6,15 @@ import { memoryProvider } from "../core/memory.js";
 
 const KINDS: MemoryKind[] = ["episodic", "structured", "semantic"];
 
+type DashboardView = "overview" | "search" | "add" | "browse" | "analytics";
+
+const SUBNAV_ITEMS: ReadonlyArray<{ view: DashboardView; icon: string; label: string }> = [
+  { view: "search", icon: "🔍", label: "Search" },
+  { view: "add", icon: "➕", label: "Add" },
+  { view: "browse", icon: "📋", label: "Browse" },
+  { view: "analytics", icon: "📊", label: "Analytics" },
+];
+
 function parseTags(raw: string): string[] {
   return raw
     .split(",")
@@ -27,24 +36,154 @@ function escapeHtml(text: string): string {
 // demoable from a distinct, intentional action instead of colliding on
 // the same data.
 //
-// Same static-skeleton-plus-targeted-update pattern as chat.ts, for the
-// same reason: filter/add-form inputs must survive a re-render triggered
-// by an unrelated dispatch from another view sharing this store.
+// Restructured from one long scrollable screen (search form + add form
+// + results, all visible at once) into a widget-grid overview that
+// drills into a focused view per concern - the flat layout read as
+// cluttered with real data on it (many fields with no hierarchy, no
+// sense of "how much is here" at a glance). Each drill-down view keeps
+// the static-skeleton-plus-targeted-update pattern chat.ts also uses
+// for its own reason: an unrelated dispatch from another tab sharing
+// this store shouldn't wipe whatever the user is mid-typing here - but
+// switching views is itself a full, deliberate re-render (not an
+// incidental store update), so setView() rebuilding #dashboard-view's
+// innerHTML on every navigation is fine.
 export class DashboardElement extends HTMLElement {
   private unsubscribe?: () => void;
   private store?: FeatureStore<AppState, AppAction>;
   private editingIds = new Set<string>();
+  private view: DashboardView = "overview";
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.unsubscribe?.();
     this.store = ctx?.store;
-    const render = () => this.renderResults();
-    render();
-    this.unsubscribe = this.store?.subscribe(render);
+    // Only "search"/"browse" render anything derived from
+    // dashboardRecords - an unrelated dispatch (e.g. Chat writing a new
+    // memory) while on "overview"/"add"/"analytics" has nothing there
+    // to refresh, and re-rendering those views anyway would wipe
+    // mid-typed add-form input for no reason.
+    const onStoreChange = () => {
+      if (this.view === "search" || this.view === "browse") {
+        this.renderResultsList();
+      }
+    };
+    this.unsubscribe = this.store?.subscribe(onStoreChange);
+    this.renderView();
   }
 
   connectedCallback(): void {
-    this.innerHTML = `
+    this.innerHTML = `<div id="dashboard-view"></div>`;
+    this.renderView();
+  }
+
+  // Called by app.ts's showRoute() every time this tab becomes active
+  // (see its own comment for why) - re-renders whatever view is
+  // current, so overview/analytics counts and browse/search results
+  // can't go stale just because the user was on another tab for a
+  // while.
+  notifyActivated(): void {
+    this.renderView();
+  }
+
+  private setView(view: DashboardView): void {
+    this.view = view;
+    this.renderView();
+  }
+
+  private renderView(): void {
+    const container = this.querySelector("#dashboard-view");
+    if (!container || !this.store) {
+      return;
+    }
+    switch (this.view) {
+      case "overview":
+        void this.renderOverview(container);
+        return;
+      case "search":
+        this.renderSearchView(container);
+        return;
+      case "add":
+        this.renderAddView(container);
+        return;
+      case "browse":
+        void this.renderBrowseView(container);
+        return;
+      case "analytics":
+        void this.renderAnalyticsView(container);
+        return;
+    }
+  }
+
+  private subnavHtml(active: DashboardView): string {
+    return `
+      <div class="dash-subnav">
+        <button id="dashboard-back-btn" class="dash-back-btn" type="button">← Overview</button>
+        <div class="dash-subnav-tabs">
+          ${SUBNAV_ITEMS.map(
+            (i) =>
+              `<button class="dash-subnav-btn${i.view === active ? " active" : ""}" data-view="${i.view}" type="button">${i.icon} ${i.label}</button>`
+          ).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  private bindSubnav(): void {
+    this.querySelector("#dashboard-back-btn")?.addEventListener("click", () => this.setView("overview"));
+    this.querySelectorAll<HTMLButtonElement>(".dash-subnav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => this.setView(btn.dataset.view as DashboardView));
+    });
+  }
+
+  private async renderOverview(container: Element): Promise<void> {
+    const userId = this.store!.state.value.userId;
+    const all = await memoryProvider.list(userId);
+    const byKind: Record<MemoryKind, number> = { episodic: 0, structured: 0, semantic: 0 };
+    for (const r of all) {
+      byKind[r.kind] += 1;
+    }
+    const maxKind = Math.max(1, ...KINDS.map((k) => byKind[k]));
+
+    container.innerHTML = `
+      <div class="widget-grid">
+        <button class="widget widget-stat" id="widget-total" type="button">
+          <span class="widget-icon">🗂️</span>
+          <span class="widget-value" id="widget-total-value">${all.length}</span>
+          <span class="widget-label">Total memories</span>
+        </button>
+        <button class="widget widget-bars" id="widget-kind" type="button">
+          <span class="widget-icon">📊</span>
+          <div class="widget-bar-list">
+            ${KINDS.map(
+              (k) => `
+              <div class="widget-bar-row">
+                <span class="widget-bar-label">${k}</span>
+                <div class="widget-bar-track"><div class="widget-bar-fill widget-bar-${k}" style="width:${(byKind[k] / maxKind) * 100}%"></div></div>
+                <span class="widget-bar-count">${byKind[k]}</span>
+              </div>
+            `
+            ).join("")}
+          </div>
+          <span class="widget-label">By kind</span>
+        </button>
+        <button class="widget widget-action" id="widget-search" type="button">
+          <span class="widget-icon">🔍</span>
+          <span class="widget-label">Search &amp; filter</span>
+        </button>
+        <button class="widget widget-action" id="widget-add" type="button">
+          <span class="widget-icon">➕</span>
+          <span class="widget-label">Add a memory</span>
+        </button>
+      </div>
+    `;
+    this.querySelector("#widget-total")?.addEventListener("click", () => this.setView("browse"));
+    this.querySelector("#widget-kind")?.addEventListener("click", () => this.setView("analytics"));
+    this.querySelector("#widget-search")?.addEventListener("click", () => this.setView("search"));
+    this.querySelector("#widget-add")?.addEventListener("click", () => this.setView("add"));
+  }
+
+  private renderSearchView(container: Element): void {
+    container.innerHTML = `
+      ${this.subnavHtml("search")}
       <section class="db-section">
         <h2 class="db-section-title"><span class="db-section-icon">🔍</span>Search &amp; filter</h2>
         <form id="dashboard-search-form" class="db-card">
@@ -74,7 +213,22 @@ export class DashboardElement extends HTMLElement {
           </div>
         </form>
       </section>
+      <section class="db-section db-results-section">
+        <h2 class="db-section-title" id="dashboard-results-title">Results</h2>
+        <div id="dashboard-results"></div>
+      </section>
+    `;
+    this.bindSubnav();
+    this.querySelector("#dashboard-search-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      void this.runSearch();
+    });
+    void this.runSearch();
+  }
 
+  private renderAddView(container: Element): void {
+    container.innerHTML = `
+      ${this.subnavHtml("add")}
       <section class="db-section">
         <h2 class="db-section-title"><span class="db-section-icon">➕</span>Add a memory</h2>
         <form id="dashboard-add-form" class="db-card">
@@ -96,31 +250,96 @@ export class DashboardElement extends HTMLElement {
           </div>
           <button id="dashboard-add-submit" type="submit">Add memory</button>
         </form>
-      </section>
-
-      <section class="db-section db-results-section">
-        <h2 class="db-section-title" id="dashboard-results-title">Results</h2>
-        <div id="dashboard-results"></div>
+        <p id="dashboard-add-confirm" class="db-add-confirm" hidden>Added ✓</p>
       </section>
     `;
-
-    this.querySelector("#dashboard-search-form")?.addEventListener("submit", (e) => {
-      e.preventDefault();
-      void this.runSearch();
-    });
+    this.bindSubnav();
     this.querySelector("#dashboard-add-form")?.addEventListener("submit", (e) => {
       e.preventDefault();
       void this.addRecord();
     });
-
-    void this.runSearch();
   }
 
-  private async runSearch(): Promise<void> {
-    if (!this.store) {
-      return;
+  private async renderBrowseView(container: Element): Promise<void> {
+    container.innerHTML = `
+      ${this.subnavHtml("browse")}
+      <section class="db-section db-results-section">
+        <h2 class="db-section-title" id="dashboard-results-title">All memories</h2>
+        <div id="dashboard-results"></div>
+      </section>
+    `;
+    this.bindSubnav();
+    const userId = this.store!.state.value.userId;
+    const results = await memoryProvider.query({ userId });
+    this.store!.dispatch({ type: "DASHBOARD_SET_RESULTS", results });
+  }
+
+  private async renderAnalyticsView(container: Element): Promise<void> {
+    const userId = this.store!.state.value.userId;
+    const all = await memoryProvider.list(userId);
+
+    const byKind: Record<MemoryKind, number> = { episodic: 0, structured: 0, semantic: 0 };
+    const bySource: Record<"user" | "agent", number> = { user: 0, agent: 0 };
+    const tagCounts = new Map<string, number>();
+    for (const r of all) {
+      byKind[r.kind] += 1;
+      bySource[r.source] += 1;
+      for (const tag of r.tags ?? []) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
     }
-    const userId = this.store.state.value.userId;
+    const maxKind = Math.max(1, ...KINDS.map((k) => byKind[k]));
+    const maxSource = Math.max(1, bySource.user, bySource.agent);
+    const topTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    container.innerHTML = `
+      ${this.subnavHtml("analytics")}
+      <section class="db-section">
+        <h2 class="db-section-title"><span class="db-section-icon">📊</span>By kind</h2>
+        <div class="db-card analytics-bars" id="analytics-kind">
+          ${KINDS.map(
+            (k) => `
+            <div class="widget-bar-row">
+              <span class="widget-bar-label">${k}</span>
+              <div class="widget-bar-track"><div class="widget-bar-fill widget-bar-${k}" style="width:${(byKind[k] / maxKind) * 100}%"></div></div>
+              <span class="widget-bar-count">${byKind[k]}</span>
+            </div>
+          `
+          ).join("")}
+        </div>
+      </section>
+      <section class="db-section">
+        <h2 class="db-section-title"><span class="db-section-icon">🙋</span>By source</h2>
+        <div class="db-card analytics-bars" id="analytics-source">
+          ${(["user", "agent"] as const)
+            .map(
+              (s) => `
+            <div class="widget-bar-row">
+              <span class="widget-bar-label">${s === "user" ? "you" : "agent"}</span>
+              <div class="widget-bar-track"><div class="widget-bar-fill widget-bar-source-${s}" style="width:${(bySource[s] / maxSource) * 100}%"></div></div>
+              <span class="widget-bar-count">${bySource[s]}</span>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </section>
+      <section class="db-section">
+        <h2 class="db-section-title"><span class="db-section-icon">🏷️</span>Top tags</h2>
+        <div class="db-card" id="analytics-top-tags">
+          ${
+            topTags.length > 0
+              ? `<div class="memory-tags">${topTags.map(([tag, count]) => `<span class="tag-pill">${escapeHtml(tag)} · ${count}</span>`).join("")}</div>`
+              : `<p class="db-empty-hint">No tags yet - tags are added via the Add view.</p>`
+          }
+        </div>
+      </section>
+    `;
+    this.bindSubnav();
+  }
+
+  private currentFilterQuery(): MemoryQuery {
+    const userId = this.store!.state.value.userId;
     const kind = this.querySelector<HTMLSelectElement>("#dashboard-filter-kind")?.value ?? "any";
     const tags = parseTags(this.querySelector<HTMLInputElement>("#dashboard-filter-tags")?.value ?? "");
     const text = this.querySelector<HTMLInputElement>("#dashboard-filter-text")?.value.trim() ?? "";
@@ -141,9 +360,25 @@ export class DashboardElement extends HTMLElement {
         query.text = text;
       }
     }
+    return query;
+  }
 
-    const results = await memoryProvider.query(query);
+  private async runSearch(): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+    const results = await memoryProvider.query(this.currentFilterQuery());
     this.store.dispatch({ type: "DASHBOARD_SET_RESULTS", results });
+  }
+
+  private async refreshCurrentResults(): Promise<void> {
+    if (this.view === "search") {
+      await this.runSearch();
+    } else if (this.view === "browse") {
+      const userId = this.store!.state.value.userId;
+      const results = await memoryProvider.query({ userId });
+      this.store!.dispatch({ type: "DASHBOARD_SET_RESULTS", results });
+    }
   }
 
   private async addRecord(): Promise<void> {
@@ -169,10 +404,13 @@ export class DashboardElement extends HTMLElement {
 
     contentInput.value = "";
     this.querySelector<HTMLInputElement>("#dashboard-add-tags")!.value = "";
-    await this.runSearch();
+    const confirm = this.querySelector<HTMLElement>("#dashboard-add-confirm");
+    if (confirm) {
+      confirm.hidden = false;
+    }
   }
 
-  private renderResults(): void {
+  private renderResultsList(): void {
     const container = this.querySelector("#dashboard-results");
     const title = this.querySelector("#dashboard-results-title");
     if (!container || !this.store) {
@@ -180,7 +418,7 @@ export class DashboardElement extends HTMLElement {
     }
     const results = this.store.state.value.dashboardRecords;
     if (title) {
-      title.textContent = `Results (${results.length})`;
+      title.textContent = this.view === "browse" ? `All memories (${results.length})` : `Results (${results.length})`;
     }
 
     if (results.length === 0) {
@@ -188,7 +426,7 @@ export class DashboardElement extends HTMLElement {
         <div class="db-empty-state">
           <div class="db-empty-icon">🗂️</div>
           <p>No memories match yet.</p>
-          <p class="db-empty-hint">Try clearing filters, or add one below.</p>
+          <p class="db-empty-hint">Try clearing filters, or add one from the Add tab.</p>
         </div>
       `;
       return;
@@ -237,7 +475,7 @@ export class DashboardElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>(".memory-edit").forEach((btn) => {
       btn.addEventListener("click", () => {
         this.editingIds.add(btn.dataset.id!);
-        this.renderResults();
+        this.renderResultsList();
       });
     });
     container.querySelectorAll<HTMLButtonElement>(".memory-save").forEach((btn) => {
@@ -270,7 +508,7 @@ export class DashboardElement extends HTMLElement {
     });
 
     this.editingIds.delete(id);
-    await this.runSearch();
+    await this.refreshCurrentResults();
   }
 
   private async deleteRecord(id: string): Promise<void> {
@@ -278,7 +516,7 @@ export class DashboardElement extends HTMLElement {
       return;
     }
     await memoryProvider.delete(this.store.state.value.userId, id);
-    await this.runSearch();
+    await this.refreshCurrentResults();
   }
 }
 

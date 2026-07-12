@@ -76,24 +76,37 @@ chatMessages = [...document.querySelectorAll(".chat-message")];
 const secondReply = chatMessages.filter((m) => m.classList.contains("assistant")).at(-1);
 assert(secondReply.textContent.includes("hiking on weekends"), "second assistant reply recalls the FIRST message's real content, proving query() actually retrieved a prior record");
 
-// 3. Dashboard proof
+// 3. Dashboard proof - widget overview first (drill-down architecture:
+// the tab opens on a widget grid, not a form - each concern is a
+// separate view reached by tapping a widget or the sub-nav).
 document.querySelector('.nav-btn[data-route="/dashboard"]').click();
-document.querySelector("#dashboard-search-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
+await new Promise((r) => setTimeout(r, 50));
+assert(
+  document.querySelector("#widget-total-value").textContent === "2",
+  `overview widget shows total=2 for the two chat-authored records (found "${document.querySelector("#widget-total-value").textContent}")`
+);
+
+document.querySelector("#widget-search").click();
 await new Promise((r) => setTimeout(r, 50));
 let rows = document.querySelectorAll("#dashboard-results .memory-row");
-assert(rows.length === 2, `browse-all shows both chat-authored records (found ${rows.length})`);
+assert(rows.length === 2, `entering Search with no filters browses all - shows both chat-authored records (found ${rows.length})`);
 
 document.querySelector("#dashboard-filter-text").value = "hiking on weekends";
 document.querySelector("#dashboard-search-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
 await new Promise((r) => setTimeout(r, 50));
 rows = document.querySelectorAll("#dashboard-results .memory-row");
 assert(rows.length === 1, `text filter narrows to 1 result (found ${rows.length})`);
-document.querySelector("#dashboard-filter-text").value = "";
 
+document.querySelector('.dash-subnav-btn[data-view="add"]').click();
+await new Promise((r) => setTimeout(r, 20));
 document.querySelector("#dashboard-add-kind").value = "structured";
 document.querySelector("#dashboard-add-tags").value = "test-tag";
 document.querySelector("#dashboard-add-content").value = "a manually added structured memory";
 document.querySelector("#dashboard-add-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
+await new Promise((r) => setTimeout(r, 50));
+assert(!document.querySelector("#dashboard-add-confirm").hidden, "add view shows a confirmation after a successful add");
+
+document.querySelector('.dash-subnav-btn[data-view="search"]').click();
 await new Promise((r) => setTimeout(r, 50));
 document.querySelector("#dashboard-filter-kind").value = "structured";
 document.querySelector("#dashboard-search-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
@@ -114,16 +127,19 @@ document.querySelector(`.memory-delete[data-id="${addedId}"]`).click();
 await new Promise((r) => setTimeout(r, 50));
 rows = document.querySelectorAll("#dashboard-results .memory-row");
 assert(rows.length === 0, "delete removes the record from a subsequent search");
-document.querySelector("#dashboard-filter-kind").value = "any";
 
 // 4. Semantic search proof
+document.querySelector('.dash-subnav-btn[data-view="add"]').click();
+await new Promise((r) => setTimeout(r, 20));
 document.querySelector("#dashboard-add-kind").value = "structured";
-document.querySelector("#dashboard-add-tags").value = "";
 for (const content of ["I enjoy trail running", "long distance running on weekends", "trying to eat more vegetables"]) {
   document.querySelector("#dashboard-add-content").value = content;
   document.querySelector("#dashboard-add-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
   await new Promise((r) => setTimeout(r, 30));
 }
+
+document.querySelector('.dash-subnav-btn[data-view="search"]').click();
+await new Promise((r) => setTimeout(r, 50));
 document.querySelector("#dashboard-filter-semantic").checked = true;
 document.querySelector("#dashboard-filter-text").value = "jogging outdoors";
 document.querySelector("#dashboard-search-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
@@ -137,14 +153,29 @@ const runningScores = scored.filter((r) => r.content.includes("running")).map((r
 const dietScore = scored.find((r) => r.content.includes("vegetables"))?.score ?? 0;
 assert(runningScores.length === 2 && runningScores.every((s) => s > 0), "both running-related records score > 0 against a differently-worded related query");
 assert(runningScores.every((s) => s > dietScore), "running-related records score higher than the unrelated diet record - proves the fake-embedding+cosine math actually differentiates topics");
-document.querySelector("#dashboard-filter-semantic").checked = false;
-document.querySelector("#dashboard-filter-text").value = "";
+
+// Analytics proof - open the widget-kind drill-down and check the
+// breakdown reflects real current data: 2 untagged episodic (chat) +
+// 3 structured (the running/veggie records just added; the earlier
+// "test-tag" structured record was deleted above), 0 semantic.
+document.querySelector('.dash-subnav-btn[data-view="analytics"]').click();
+await new Promise((r) => setTimeout(r, 50));
+const kindBars = [...document.querySelectorAll("#analytics-kind .widget-bar-row")].map((row) => ({
+  label: row.querySelector(".widget-bar-label").textContent,
+  count: row.querySelector(".widget-bar-count").textContent,
+}));
+assert(
+  kindBars.find((b) => b.label === "episodic")?.count === "2" && kindBars.find((b) => b.label === "structured")?.count === "3",
+  `analytics kind breakdown reflects real current data (found ${JSON.stringify(kindBars)})`
+);
 
 // 5. Curation proof
 // dashboard.ts's addRecord() clears #dashboard-add-tags after every
 // successful submit (normal form-reset UX) - re-set it on every loop
 // iteration, not just once before the loop, or only the first record
 // actually ends up tagged.
+document.querySelector('.dash-subnav-btn[data-view="add"]').click();
+await new Promise((r) => setTimeout(r, 20));
 for (const content of ["ate a salad", "skipped dessert", "drank more water"]) {
   document.querySelector("#dashboard-add-kind").value = "episodic";
   document.querySelector("#dashboard-add-tags").value = "diet";
@@ -169,6 +200,19 @@ await new Promise((r) => setTimeout(r, 100));
 log = document.querySelector("#curation-log").textContent;
 assert(log.includes("No consolidation or forgetting candidates"), "second immediate run finds no candidates - the freshly-created summary is not re-swept");
 
+// Analytics reflects the consolidation, not stale pre-curation data:
+// the 3 diet-tagged notes were deleted and replaced by 1 structured
+// summary tagged ["diet", "consolidated"] - top tags should show both
+// at count 1, not the pre-curation "diet" x3.
+document.querySelector('.nav-btn[data-route="/dashboard"]').click();
+document.querySelector('.dash-subnav-btn[data-view="analytics"]').click();
+await new Promise((r) => setTimeout(r, 50));
+const topTagsText = document.querySelector("#analytics-top-tags").textContent;
+assert(
+  topTagsText.includes("consolidated") && topTagsText.includes("diet · 1"),
+  `top tags reflect the post-curation summary, not the 3 deleted diet notes (found "${topTagsText}")`
+);
+
 // 7. Forgetting proof - real-time costly (this app's provider uses a
 // 60s demo-tuned staleAfterMsForForgetting), gated behind an explicit
 // opt-in so the fast path above stays the default dev-loop check.
@@ -180,8 +224,14 @@ if (process.env.VERIFY_FORGETTING === "1") {
   log = document.querySelector("#curation-log").textContent;
   assert(log.includes("Forgot"), `curation log mentions forgetting stale untagged notes (log: "${log}")`);
 
+  // dashboard.ts's DashboardElement keeps its own internal view state
+  // across nav-tab switches (the .page div's active class toggles, but
+  // the component instance - and its `view` field - persists) - it was
+  // last left on "analytics" above, so a plain dashboard-tab click
+  // doesn't show the search form. The sub-nav is how a drill-down view
+  // reaches another one directly.
   document.querySelector('.nav-btn[data-route="/dashboard"]').click();
-  document.querySelector("#dashboard-search-form").dispatchEvent(new window.Event("submit", { cancelable: true }));
+  document.querySelector('.dash-subnav-btn[data-view="search"]').click();
   await new Promise((r) => setTimeout(r, 50));
   rows = [...document.querySelectorAll("#dashboard-results .memory-row")];
   assert(

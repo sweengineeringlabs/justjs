@@ -88,6 +88,17 @@ function showRoute(path: string): void {
   document.querySelectorAll<HTMLElement>(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.route === path);
   });
+  // Real bug, found via verify_web.mjs: since nothing here ever
+  // unmounts/remounts a route (see the comment above), x-dashboard's
+  // widget overview only ever rendered once, at boot - switching away
+  // to Chat, adding messages, then switching back showed stale counts
+  // from before those messages existed. notifyActivated() re-renders
+  // whatever view the dashboard is currently on every time its tab
+  // becomes active, not just at first mount.
+  if (path === "/dashboard") {
+    const dashboard = document.querySelector("x-dashboard") as (HTMLElement & { notifyActivated?: () => void }) | null;
+    dashboard?.notifyActivated?.();
+  }
 }
 
 // Shows the icon for the theme a tap would switch TO, not the current
