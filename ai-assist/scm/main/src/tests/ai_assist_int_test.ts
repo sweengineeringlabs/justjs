@@ -163,6 +163,22 @@ describe("AnthropicAiAssistProvider request shape", () => {
     expect(body.messages[0]!.content).toContain("```mermaid");
     expect(body.messages[0]!.content).toContain("a login sequence");
   });
+
+  it("test_generate_slides_returns_the_full_deck_and_asks_for_bare_triple_dash_slide_breaks", async () => {
+    const fake = new FakeApiAdapter();
+    const deck = "# Intro\n\n- point one\n\n---\n\n# Next\n\n- point two\n";
+    fake.queueResponse(async () => textResponse(deck));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const result = await provider.generateSlides({ description: "a product pitch" });
+
+    expect(result).toBe(deck);
+    const body = fake.calls[0]!.body as { model: string; max_tokens: number; messages: Array<{ content: string }> };
+    expect(body.model).toBe("claude-opus-4-8");
+    expect(body.max_tokens).toBe(4096);
+    expect(body.messages[0]!.content).toContain("exactly ---");
+    expect(body.messages[0]!.content).toContain("a product pitch");
+  });
 });
 
 describe("AnthropicAiAssistProvider.review()", () => {

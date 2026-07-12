@@ -30,8 +30,8 @@ type Block =
   | { readonly type: "code"; readonly content: string; readonly lang: string }
   | { readonly type: "text"; readonly content: string };
 
-const FENCE_PATTERN = /^```(\S*)\s*$/;
-const CLOSING_FENCE_PATTERN = /^```\s*$/;
+export const FENCE_PATTERN = /^```(\S*)\s*$/;
+export const CLOSING_FENCE_PATTERN = /^```\s*$/;
 
 function splitBlocks(source: string): Block[] {
   const lines = source.split("\n");
@@ -60,6 +60,51 @@ function splitBlocks(source: string): Block[] {
     blocks.push({ type: "text", content: textLines.join("\n") });
   }
   return blocks;
+}
+
+// Splits a slide-deck source (AiAssistProvider.generateSlides()) into
+// per-slide chunks at a bare `---` line, fence-aware so a `---` inside a
+// slide's own code sample is never mistaken for a slide break - the same
+// fence-tracking FENCE_PATTERN/CLOSING_FENCE_PATTERN above already need
+// for code/mermaid blocks, reused here rather than re-declared. Kept
+// separate from splitBlocks()/renderMarkdownToHtml() entirely - those
+// stay slide-agnostic, so a real Design doc's genuine <hr> (renderTextBlock's
+// own /^(-{3,}|\*{3,})$/ match, 4+ dashes or ***) is untouched; this only
+// owns the narrower, exact-3-dash case generateSlides()'s prompt reserves
+// for slide breaks.
+const SLIDE_BOUNDARY_PATTERN = /^---$/;
+
+export function splitMarkdownSlides(source: string): string[] {
+  const lines = source.split("\n");
+  const slides: string[] = [];
+  let current: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    if (!inFence && FENCE_PATTERN.test(line)) {
+      inFence = true;
+      current.push(line);
+      continue;
+    }
+    if (inFence && CLOSING_FENCE_PATTERN.test(line)) {
+      inFence = false;
+      current.push(line);
+      continue;
+    }
+    if (!inFence && SLIDE_BOUNDARY_PATTERN.test(line.trim())) {
+      slides.push(current.join("\n"));
+      current = [];
+      continue;
+    }
+    current.push(line);
+  }
+  slides.push(current.join("\n"));
+  // Drops empty slides (a leading/trailing/doubled `---`) rather than
+  // showing a blank "Slide N of M" - never intentional content. Falls
+  // back to the raw source as a single slide if every chunk was empty
+  // (e.g. a response that's only boundary lines), so the UI never ends
+  // up with a zero-slide deck to divide by.
+  const nonEmpty = slides.map((s) => s.trim()).filter((s) => s.length > 0);
+  return nonEmpty.length > 0 ? nonEmpty : [source];
 }
 
 // [label](url), `code`, **bold**/__bold__, *italic*/_italic_ - matched

@@ -51,10 +51,12 @@ stand-in.
   recognizable cloud providers (AWS, Google Cloud, Microsoft Azure,
   DigitalOcean, Cloudflare, Vercel, Netlify, Heroku) to toggle on/off, not
   a free-text "type any name" list — no real cloud API calls or
-  credentials either way. Development additionally shows CLI and
-  Repository, Presentation shows Slides, and Requirement/Operations show
-  their entries, all as honestly-labeled "Coming soon" stubs, not
-  fake-functional buttons.
+  credentials either way. **Presentation**'s Slides entry is also real
+  (not a stub) — an AI-generated slide deck (below), opened directly
+  since it's the stage's only function (unlike Design's two entries
+  sharing one generator). Development additionally shows CLI and
+  Repository, and Requirement/Operations show their entries, all as
+  honestly-labeled "Coming soon" stubs, not fake-functional buttons.
 
 ## Design — Markdown + Mermaid doc generator
 
@@ -138,6 +140,55 @@ API key; toggling a provider on just means "listed," not "connected."
 Git, previously listed here, moved to Development's "Repository" entry
 (also a stub — a repository is a development-stage concern, not a
 deployment one).
+
+## Presentation — AI-generated slide deck
+
+Presentation's Slides entry is real, not a stub: a new
+`generateSlides()` capability on `@justjs/ai-assist` (own dedicated
+prompt, not `generateDesignDoc()` reused — a deck needs terse per-slide
+bullets rather than document prose, and a diagram is optional per slide
+rather than mandatory once overall) producing a Markdown deck with
+slides separated by a bare `---` line — the real convention Marp/
+reveal-md use, so the generated `slides.md` is a genuinely useful file
+outside this app too, not an app-internal format. Unlike Design's
+Architecture/Wireframes (two entries sharing one generator), Slides is
+the stage's only function, so tapping it opens the generator directly.
+
+Preview shows **one slide at a time**, not a continuous scroll like
+Design's — `core/markdown.ts`'s new `splitMarkdownSlides()` splits the
+raw source into per-slide chunks at a bare `---` line before any
+rendering happens, fence-aware (a `---` inside a slide's own code sample
+is never mistaken for a slide break, reusing the same
+`FENCE_PATTERN`/`CLOSING_FENCE_PATTERN` `splitBlocks()` already tracks
+fence state with). The split pattern is deliberately narrower than
+`renderTextBlock()`'s own `<hr>` regex (exactly 3 dashes, not 3-or-more
+or `***`) — the prompt reserves bare `---` exclusively for slide breaks
+and tells the model to use `----` for an actual in-slide rule, so a real
+Design doc's genuine `<hr>` is untouched and `renderMarkdownToHtml()`
+itself stays completely slide-agnostic, called once per slide chunk
+rather than ever being taught about slides at all. Prev/Next buttons and
+a "Slide X of N" indicator drive `currentSlideIndex`; switching slides
+re-runs `renderMarkdownToHtml()` for just that slide, guarded by its own
+`slidesRenderToken` (independent from Design's `designRenderToken` —
+these are two parallel drill-downs, each with its own in-flight async
+Mermaid render to guard against a fast Next/Prev tap or a regenerate
+mid-render).
+
+A genuinely useful finding from testing this against real `mermaid.render()`
+calls in `happy-dom`, not just assumed: **not every Mermaid diagram type
+fails the same way in `happy-dom`.** Design's own test uses a
+`sequenceDiagram` (confirmed to reliably throw, due to `getBBox()`, and
+correctly hit the fallback path). A `flowchart` diagram, tried while
+building this feature's own test, does **not** throw — but also doesn't
+produce a well-formed `<svg>` wrapper (`mermaid.render()` resolves
+successfully with content that's missing its own root `<svg>` tag). That
+third outcome isn't something this app's `try`/`catch` fallback in
+`renderMermaidBlock()` is built to detect (it only catches thrown
+errors), and it isn't asserted on by any test — a real, honestly-stated
+gap, not silently papered over. `verify_web.mjs`'s Slides test
+deliberately reuses the same `sequenceDiagram` type Design's test already
+proved reliable, rather than relying on the newly-discovered, unproven
+`flowchart` behavior.
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -293,19 +344,20 @@ inactive routes at all.
 
 ## Verification status — honest, not inflated
 
-**Verified:** `@justjs/ai-assist`'s `bun test` passes 23/23 (includes
+**Verified:** `@justjs/ai-assist`'s `bun test` passes 24/24 (includes
 `scaffoldProject()`'s structured-output parsing, truncation handling via
 `stop_reason`, duplicate/malformed-file rejection, the three
 image-content-block tests for `chat()`/`review()`/`scaffoldProject()`,
-and `generateDesignDoc()`'s prompt/model/max_tokens shape). `vite build`
+`generateDesignDoc()`'s prompt/model/max_tokens shape, and
+`generateSlides()`'s prompt/model/max_tokens shape). `vite build`
 succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
-KB combined, only when Design's Preview is actually used); `node
-verify_web.mjs` (real DOM via happy-dom against the real built bundle)
-passes all 123 assertions — boot, DDAS mounting into all five routes,
-the Workspace hub's 9 widgets (the 8 SDLC stages in order, plus
-Presentation) drilling into real live links vs. honestly-labeled stubs
-correctly, Deployment's Cloud providers catalog (toggling real,
+KB combined, only when Design's or Presentation's Preview is actually
+used); `node verify_web.mjs` (real DOM via happy-dom against the real
+built bundle) passes all 149 assertions — boot, DDAS mounting into all
+five routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
+plus Presentation) drilling into real live links vs. honestly-labeled
+stubs correctly, Deployment's Cloud providers catalog (toggling real,
 recognizable providers on/off individually, no "Git" label anywhere
 anymore), Design's Architecture and Wireframes both opening the same
 real generator (with the same in-progress doc, not two separate copies)
@@ -313,7 +365,13 @@ and its
 generate→Edit/Preview→Mermaid-fallback→Create-file flow via a mocked-
 fetch/real-app-logic technique (no real network call, but the real
 dynamic `import("mermaid")`, the real attempted render, and the real,
-confirmed-necessary fallback all genuinely execute), the starter tree
+confirmed-necessary fallback all genuinely execute), Presentation's
+Slides opening its generator directly (a single real function, not two
+entries sharing one) with the same generate→Edit/Preview→Create-file
+flow proved slide-by-slide — real per-slide splitting (slide 2's content
+never appears while slide 1 is showing), the nav indicator and Prev/Next
+disabled-state tracking the real slide count and position, and the same
+real mermaid-fallback proof reused per-slide, the starter tree
 rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/

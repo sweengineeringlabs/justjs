@@ -147,8 +147,8 @@ assert(
   "Presentation drills into its own detail view like every other widget"
 );
 assert(
-  document.querySelector("#mount-workspace .workspace-function-stub .workspace-function-label")?.textContent === "Slides",
-  "Presentation shows an honestly-labeled 'Slides' stub, not a fake-functional button"
+  document.querySelector("#mount-workspace .workspace-function-live .workspace-function-label")?.textContent === "Slides",
+  "Presentation shows Slides as a real, live function, not a stub - full generator flow proved in section 1d below"
 );
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
@@ -325,6 +325,99 @@ await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "a successful Create file navigates to the Editor tab");
 assert(document.querySelector("#editor-textarea").value.includes("Auth Flow"), "the created file's real generated content is now open in the editor");
 assert(treeRow("design.md") !== null, "the new design.md file appears in the real file tree, not a dead end");
+
+// 1d. Presentation slide-deck generator proof - a single real function
+// (not two entries sharing one generator like Design), opened directly
+// from Presentation's own function list, rendering one slide at a time
+// rather than one continuous scroll. Continues reusing the mocked
+// globalThis.fetch/fake key from section 1c above (restored/cleared once
+// at the very end of both sections together, below).
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+// Workspace kept its own internal drill-down state from section 1c
+// (still mid-generator, showing Wireframes) - two levels back: generator
+// -> Design's Architecture/Wireframes list -> the Workspace overview.
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector('#mount-workspace [data-stage="presentation"]').click();
+await sleep(20);
+const presentationFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(
+  presentationFunctions.length === 1 && presentationFunctions[0].textContent.includes("Slides"),
+  `Presentation shows exactly one real function, Slides (found ${presentationFunctions.map((el) => el.textContent).join(" | ")})`
+);
+assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Slides is real, not a stub");
+
+presentationFunctions[0].click();
+await sleep(20);
+assert(document.querySelector("#slides-description") !== null, "tapping Slides opens the real generator directly - no intermediate list, unlike Design's two-entry shape");
+
+window.localStorage.removeItem("justjs:ai-editor:api-key");
+document.querySelector("#slides-description").value = "pitch this app to a new team";
+document.querySelector("#slides-generate-btn").click();
+await sleep(20);
+assert(document.querySelector("#slides-status").textContent.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
+assert(document.getElementById("slides-result").hidden, "no result panel is shown when generation never ran");
+
+window.localStorage.setItem("justjs:ai-editor:api-key", "sk-ant-test-fake-key-not-real");
+// sequenceDiagram, not flowchart - confirmed directly that a flowchart
+// diagram doesn't throw in happy-dom the way Design's sequenceDiagram
+// test does, but also doesn't produce a well-formed <svg> (mermaid.render()
+// resolves without an outer <svg> wrapper) - a genuinely different,
+// unproven third outcome neither this app's try/catch nor this test is
+// built to assert on. Reusing the exact diagram type already confirmed
+// (by Design's own test above) to reliably hit the real fallback path.
+const fakeSlidesDoc =
+  "# Welcome\n\n- point one\n- point two\n\n---\n\n# Architecture\n\n```mermaid\nsequenceDiagram\n  A->>B: ping\n```\n";
+globalThis.fetch = async () =>
+  new window.Response(JSON.stringify({ content: [{ type: "text", text: fakeSlidesDoc }] }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+
+document.querySelector("#slides-generate-btn").click();
+await sleep(50);
+assert(!document.getElementById("slides-result").hidden, "a successful generate shows the result panel");
+assert(document.querySelector("#slides-source").value === fakeSlidesDoc, "the raw Markdown deck source is shown in Edit mode by default");
+assert(document.querySelector("#slides-mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
+assert(document.getElementById("slides-preview-wrap").hidden, "the preview/nav area is hidden while in Edit mode");
+
+document.querySelector("#slides-mode-preview-btn").click();
+assert(document.querySelector("#slides-mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
+const finishedRenderingSlide1 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+assert(finishedRenderingSlide1, "the real per-slide render completes within a reasonable time for slide 1 (no mermaid fence on this one)");
+const slide1Html = document.querySelector("#slides-preview").innerHTML;
+assert(slide1Html.includes("<h1>Welcome</h1>"), "slide 1's own heading renders as real HTML");
+assert(!slide1Html.includes("Architecture"), "slide 2's content is NOT shown while on slide 1 - real slide-by-slide splitting, not one continuous scroll");
+assert(document.querySelector("#slides-indicator").textContent === "Slide 1 of 2", "the nav indicator reflects the real slide count and position");
+assert(document.querySelector("#slides-prev-btn").disabled, "Prev is disabled on the first slide");
+assert(!document.querySelector("#slides-next-btn").disabled, "Next is enabled - there's a second slide");
+
+document.querySelector("#slides-next-btn").click();
+const finishedRenderingSlide2 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+assert(finishedRenderingSlide2, "the real dynamic import(\"mermaid\") plus attempted render (falling back in this environment) completes within a reasonable time on slide 2, not hung");
+const slide2Html = document.querySelector("#slides-preview").innerHTML;
+assert(slide2Html.includes("<h1>Architecture</h1>"), "slide 2's own heading renders now that Next was tapped");
+assert(
+  slide2Html.includes("mermaid-fallback") && slide2Html.includes("couldn"),
+  "happy-dom genuinely cannot render Mermaid here either - the real per-slide fallback path renders, same reasoning as Design's"
+);
+assert(document.querySelector("#slides-indicator").textContent === "Slide 2 of 2", "the indicator advances with Next");
+assert(!document.querySelector("#slides-prev-btn").disabled, "Prev is enabled once past the first slide");
+assert(document.querySelector("#slides-next-btn").disabled, "Next is disabled on the last slide");
+
+document.querySelector("#slides-file-path").value = "src/main.js";
+document.querySelector("#slides-create-btn").click();
+await sleep(20);
+assert(document.querySelector("#slides-create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Design's");
+
+document.querySelector("#slides-file-path").value = "slides.md";
+document.querySelector("#slides-create-btn").click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "a successful Create file navigates to the Editor tab");
+assert(document.querySelector("#editor-textarea").value.includes("Welcome"), "the created file's real generated content is now open in the editor");
+assert(treeRow("slides.md") !== null, "the new slides.md file appears in the real file tree, not a dead end");
 
 globalThis.fetch = originalFetch;
 window.localStorage.removeItem("justjs:ai-editor:api-key");

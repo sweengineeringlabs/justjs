@@ -13,6 +13,7 @@ import type {
   ScaffoldedFile,
   ScaffoldProjectRequest,
   ScaffoldRequest,
+  SlidesRequest,
 } from "../api/provider.js";
 import { AiAssistProviderError } from "../api/provider.js";
 import { withSingleRetryOn429 } from "./retry.js";
@@ -43,6 +44,10 @@ const SCAFFOLD_PROJECT_MAX_TOKENS = 16000;
 // file's content than to SCAFFOLD_PROJECT_MAX_TOKENS's whole-project
 // generation.
 const DESIGN_DOC_MAX_TOKENS = 4096;
+// Same tier again - a slide deck is terse bullets per slide, not prose,
+// so it isn't larger in practice than one design doc despite covering
+// several slides.
+const SLIDES_MAX_TOKENS = 4096;
 
 const REVIEW_TOOL_NAME = "report_findings";
 const PROJECT_TOOL_NAME = "report_project_files";
@@ -344,6 +349,23 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
     const response = await this.send({
       model: this.capableModel,
       max_tokens: DESIGN_DOC_MAX_TOKENS,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return this.firstText(response);
+  }
+
+  async generateSlides(req: SlidesRequest): Promise<string> {
+    const prompt =
+      `Generate a Markdown slide deck for this description. Separate each slide with a line ` +
+      `containing exactly --- and nothing else - reserve bare --- exclusively for slide breaks; ` +
+      `use ---- (4 or more dashes) if you want an actual horizontal rule within a slide. Each ` +
+      `slide should start with a heading and use brief bullet points, not paragraphs of prose. ` +
+      `Include a Mermaid diagram (a fenced \`\`\`mermaid code block) only on a slide where a ` +
+      `diagram genuinely helps, not on every slide. Do not include YAML frontmatter. Return the ` +
+      `complete Markdown deck.\n\n${req.description}`;
+    const response = await this.send({
+      model: this.capableModel,
+      max_tokens: SLIDES_MAX_TOKENS,
       messages: [{ role: "user", content: prompt }],
     });
     return this.firstText(response);

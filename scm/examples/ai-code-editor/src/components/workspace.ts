@@ -3,7 +3,7 @@ import type { AppState, AppAction } from "../core/state.js";
 import { getAiAssistProvider } from "../core/ai_assist.js";
 import { navigateTo } from "../core/navigation.js";
 import { inferLanguage, normalizePath, pathExists } from "../core/fs.js";
-import { renderMarkdownToHtml } from "../core/markdown.js";
+import { renderMarkdownToHtml, splitMarkdownSlides } from "../core/markdown.js";
 
 interface SdlcFunction {
   readonly label: string;
@@ -24,7 +24,11 @@ interface SdlcFunction {
   // free-text "type any name" list - no real cloud API calls, this app
   // has never made one, and real provider credentials would need the
   // same security handling the Anthropic key already gets.
-  readonly action?: "design-generate" | "cloud-providers";
+  // "presentation-generate": a real generateSlides() capability, opened
+  // directly by Presentation's one function (same shape as
+  // "cloud-providers" - a single real function opening an inline view -
+  // not "design-generate"'s two-entries-share-one-generator shape).
+  readonly action?: "design-generate" | "cloud-providers" | "presentation-generate";
 }
 
 interface SdlcStage {
@@ -71,6 +75,8 @@ const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
 // real cloud API integration. Presentation is a 9th widget appended
 // after the 8 SDLC stages - it isn't itself an SDLC stage, but the user
 // asked for it alongside them, so it lives in the same overview grid.
+// Its one function, Slides, is real (not a stub) - a real generateSlides()
+// capability (renderPresentationGenerator() below).
 const SDLC_STAGES: readonly SdlcStage[] = [
   { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", route: "/chat" }] },
   { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs" }, { label: "User Stories" }] },
@@ -98,7 +104,12 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     functions: [{ label: "Cloud", action: "cloud-providers" }],
   },
   { key: "operations", label: "Operations", icon: "📈", functions: [{ label: "Monitoring" }, { label: "Logs" }] },
-  { key: "presentation", label: "Presentation", icon: "📽️", functions: [{ label: "Slides" }] },
+  {
+    key: "presentation",
+    label: "Presentation",
+    icon: "📽️",
+    functions: [{ label: "Slides", action: "presentation-generate" }],
+  },
 ];
 
 function escapeHtml(text: string): string {
@@ -110,10 +121,11 @@ function escapeHtml(text: string): string {
 // The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
 // drilling into each stage's function list on tap - same
 // widget-grid-then-drill-down architecture agentic-memory-demo's
-// dashboard.ts established. Design and Deployment's Cloud are the stages
-// with real, inline functionality (a Markdown+Mermaid design-doc
-// generator; a real cloud-provider catalog to toggle on/off) rather than
-// a link elsewhere or a stub.
+// dashboard.ts established. Design, Deployment's Cloud, and
+// Presentation's Slides are the stages with real, inline functionality
+// (a Markdown+Mermaid design-doc generator; a real cloud-provider
+// catalog to toggle on/off; an AI-generated slide deck) rather than a
+// link elsewhere or a stub.
 export class WorkspaceElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
@@ -139,6 +151,20 @@ export class WorkspaceElement extends HTMLElement {
   // auto-persisting.
   private cloudProviders: string[] = [];
   private showCloudProviders = false;
+
+  // Presentation-stage local state - same component-local pattern as
+  // Design's above. slideChunks is computed by splitMarkdownSlides()
+  // once per generate/edit, not re-derived on every Prev/Next tap.
+  // slidesRenderToken is a separate counter from designRenderToken -
+  // Design and Slides are independent drill-downs, each with their own
+  // in-flight async Mermaid render to guard.
+  private presentationDescription = "";
+  private slidesDoc: string | null = null;
+  private slideChunks: string[] = [];
+  private currentSlideIndex = 0;
+  private slidesViewMode: "edit" | "preview" = "edit";
+  private slidesRenderToken = 0;
+  private showPresentationGenerator = false;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.store = ctx?.store;
@@ -182,6 +208,7 @@ export class WorkspaceElement extends HTMLElement {
         // mid-generator/mid-provider-list from a previous visit.
         this.showDesignGenerator = false;
         this.showCloudProviders = false;
+        this.showPresentationGenerator = false;
         this.renderView();
       });
     });
@@ -194,6 +221,10 @@ export class WorkspaceElement extends HTMLElement {
     }
     if (stage.key === "deployment" && this.showCloudProviders) {
       this.renderCloudProviders(container);
+      return;
+    }
+    if (stage.key === "presentation" && this.showPresentationGenerator) {
+      this.renderPresentationGenerator(container);
       return;
     }
     container.innerHTML = `
@@ -250,6 +281,12 @@ export class WorkspaceElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cloud-providers"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showCloudProviders = true;
+        this.renderView();
+      });
+    });
+    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="presentation-generate"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.showPresentationGenerator = true;
         this.renderView();
       });
     });
@@ -484,6 +521,240 @@ export class WorkspaceElement extends HTMLElement {
         this.renderView();
       });
     });
+  }
+
+  // ---- Presentation: AI-generated slide deck (opened from Slides above) ----
+
+  private renderPresentationGenerator(container: Element): void {
+    container.innerHTML = `
+      <div class="dash-subnav">
+        <button id="presentation-back-btn" class="dash-back-btn" type="button">← Presentation</button>
+        <h2 class="workspace-stage-title">📽️ Generate</h2>
+      </div>
+      <div class="design-form">
+        <label class="field">
+          <span class="field-label">Describe the presentation</span>
+          <textarea id="slides-description" rows="4" placeholder="e.g. pitch this app to a new team"></textarea>
+        </label>
+        <button id="slides-generate-btn" type="button">Generate</button>
+      </div>
+      <p id="slides-status" class="editor-status" hidden></p>
+      <div id="slides-result" class="design-result" ${this.slidesDoc ? "" : "hidden"}>
+        <div class="design-mode-toggle">
+          <button id="slides-mode-edit-btn" type="button" class="design-mode-btn active">Edit</button>
+          <button id="slides-mode-preview-btn" type="button" class="design-mode-btn">Preview</button>
+        </div>
+        <textarea id="slides-source" class="design-source" rows="10">${this.slidesDoc ? escapeHtml(this.slidesDoc) : ""}</textarea>
+        <div id="slides-preview-wrap" class="slides-preview-wrap" hidden>
+          <div class="slides-nav">
+            <button id="slides-prev-btn" type="button" class="slides-nav-btn">◀ Prev</button>
+            <span id="slides-indicator" class="slides-indicator"></span>
+            <button id="slides-next-btn" type="button" class="slides-nav-btn">Next ▶</button>
+          </div>
+          <div id="slides-preview" class="design-preview slides-preview"></div>
+        </div>
+        <div class="design-create-row">
+          <input id="slides-file-path" type="text" value="slides.md" autocomplete="off" spellcheck="false" />
+          <button id="slides-create-btn" type="button">Create file</button>
+        </div>
+        <p id="slides-create-error" class="attach-image-error" hidden></p>
+      </div>
+    `;
+
+    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#slides-description")!;
+    descriptionInput.value = this.presentationDescription;
+    descriptionInput.addEventListener("input", () => {
+      this.presentationDescription = descriptionInput.value;
+    });
+
+    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
+    sourceEl?.addEventListener("input", () => {
+      this.slidesDoc = sourceEl.value;
+    });
+
+    this.querySelector("#presentation-back-btn")?.addEventListener("click", () => {
+      // One level back - to Presentation's own function list, not all
+      // the way out to the Workspace overview.
+      this.showPresentationGenerator = false;
+      this.renderView();
+    });
+    this.querySelector("#slides-generate-btn")?.addEventListener("click", () => void this.handleGenerateSlides());
+    this.querySelector("#slides-mode-edit-btn")?.addEventListener("click", () => void this.setPresentationViewMode("edit"));
+    this.querySelector("#slides-mode-preview-btn")?.addEventListener("click", () => void this.setPresentationViewMode("preview"));
+    this.querySelector("#slides-prev-btn")?.addEventListener("click", () => this.goToSlide(-1));
+    this.querySelector("#slides-next-btn")?.addEventListener("click", () => this.goToSlide(1));
+    this.querySelector("#slides-create-btn")?.addEventListener("click", () => this.handleCreateSlidesFile());
+
+    this.applyPresentationViewMode();
+    this.updateSlidesNavUI();
+  }
+
+  private async handleGenerateSlides(): Promise<void> {
+    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#slides-description");
+    const generateBtn = this.querySelector<HTMLButtonElement>("#slides-generate-btn");
+    const resultBox = this.querySelector<HTMLElement>("#slides-result");
+    if (!descriptionInput || !generateBtn || !resultBox) {
+      return;
+    }
+    const description = descriptionInput.value.trim();
+    if (!description) {
+      return;
+    }
+    const provider = getAiAssistProvider();
+    if (!provider) {
+      this.showPresentationStatus("⚠️ Add an Anthropic API key in Settings to generate a presentation.");
+      return;
+    }
+    generateBtn.disabled = true;
+    resultBox.hidden = true;
+    this.showPresentationStatus("Generating…");
+    try {
+      const doc = await provider.generateSlides({ description });
+      this.slidesDoc = doc;
+      this.slideChunks = splitMarkdownSlides(doc);
+      this.currentSlideIndex = 0;
+      this.slidesViewMode = "edit";
+      const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
+      if (sourceEl) {
+        sourceEl.value = doc;
+      }
+      resultBox.hidden = false;
+      this.applyPresentationViewMode();
+      this.updateSlidesNavUI();
+      this.hidePresentationStatus();
+    } catch (e) {
+      this.showPresentationStatus(`⚠️ ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      generateBtn.disabled = false;
+    }
+  }
+
+  private applyPresentationViewMode(): void {
+    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
+    const previewWrapEl = this.querySelector<HTMLElement>("#slides-preview-wrap");
+    const editBtn = this.querySelector<HTMLButtonElement>("#slides-mode-edit-btn");
+    const previewBtn = this.querySelector<HTMLButtonElement>("#slides-mode-preview-btn");
+    if (!sourceEl || !previewWrapEl || !editBtn || !previewBtn) {
+      return;
+    }
+    const isPreview = this.slidesViewMode === "preview";
+    sourceEl.hidden = isPreview;
+    previewWrapEl.hidden = !isPreview;
+    editBtn.classList.toggle("active", !isPreview);
+    previewBtn.classList.toggle("active", isPreview);
+  }
+
+  private async setPresentationViewMode(mode: "edit" | "preview"): Promise<void> {
+    if (mode === "edit") {
+      this.slidesViewMode = "edit";
+      this.applyPresentationViewMode();
+      return;
+    }
+    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
+    if (!sourceEl) {
+      return;
+    }
+    // Re-sync from the textarea and recompute slides first - an edit may
+    // have changed the slide count entirely, so the previous
+    // currentSlideIndex can't be trusted to still point at the same
+    // logical slide.
+    this.slidesDoc = sourceEl.value;
+    this.slideChunks = splitMarkdownSlides(this.slidesDoc);
+    this.currentSlideIndex = 0;
+    this.slidesViewMode = "preview";
+    this.applyPresentationViewMode();
+    this.updateSlidesNavUI();
+    await this.renderCurrentSlide();
+  }
+
+  private goToSlide(delta: number): void {
+    const nextIndex = this.currentSlideIndex + delta;
+    if (nextIndex < 0 || nextIndex >= this.slideChunks.length) {
+      return;
+    }
+    this.currentSlideIndex = nextIndex;
+    this.updateSlidesNavUI();
+    void this.renderCurrentSlide();
+  }
+
+  private updateSlidesNavUI(): void {
+    const indicator = this.querySelector<HTMLElement>("#slides-indicator");
+    const prevBtn = this.querySelector<HTMLButtonElement>("#slides-prev-btn");
+    const nextBtn = this.querySelector<HTMLButtonElement>("#slides-next-btn");
+    const total = this.slideChunks.length;
+    if (indicator) {
+      indicator.textContent = total > 0 ? `Slide ${this.currentSlideIndex + 1} of ${total}` : "";
+    }
+    if (prevBtn) {
+      prevBtn.disabled = this.currentSlideIndex <= 0;
+    }
+    if (nextBtn) {
+      nextBtn.disabled = this.currentSlideIndex >= total - 1;
+    }
+  }
+
+  private async renderCurrentSlide(): Promise<void> {
+    const previewEl = this.querySelector<HTMLElement>("#slides-preview");
+    if (previewEl) {
+      previewEl.innerHTML = `<p class="editor-status">Rendering…</p>`;
+    }
+    // Same token-guard reasoning as Design's setDesignViewMode() - the
+    // user can tap Next/Prev again, or even regenerate an entirely new
+    // deck, while a real Mermaid render for the PREVIOUS slide is still
+    // in flight.
+    const token = ++this.slidesRenderToken;
+    const slide = this.slideChunks[this.currentSlideIndex] ?? "";
+    const html = await renderMarkdownToHtml(slide);
+    if (token !== this.slidesRenderToken) {
+      return;
+    }
+    const currentPreviewEl = this.querySelector<HTMLElement>("#slides-preview");
+    if (this.slidesViewMode === "preview" && currentPreviewEl) {
+      currentPreviewEl.innerHTML = html;
+    }
+  }
+
+  private handleCreateSlidesFile(): void {
+    if (!this.store) {
+      return;
+    }
+    const pathInput = this.querySelector<HTMLInputElement>("#slides-file-path");
+    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
+    const errorEl = this.querySelector<HTMLElement>("#slides-create-error");
+    if (!pathInput || !sourceEl || !errorEl) {
+      return;
+    }
+    const path = normalizePath(pathInput.value);
+    if (!path) {
+      errorEl.hidden = false;
+      errorEl.textContent = "Enter a path before creating the file.";
+      return;
+    }
+    const state = this.store.state.value;
+    if (pathExists(state.files, state.emptyFolders, path)) {
+      errorEl.hidden = false;
+      errorEl.textContent = `"${path}" already exists - choose a different path.`;
+      return;
+    }
+    errorEl.hidden = true;
+    this.store.dispatch({ type: "CREATE_FILE", path, content: sourceEl.value, language: inferLanguage(path) });
+    navigateTo("/editor");
+  }
+
+  private showPresentationStatus(text: string): void {
+    const el = this.querySelector<HTMLElement>("#slides-status");
+    if (!el) {
+      return;
+    }
+    el.hidden = false;
+    el.textContent = text;
+  }
+
+  private hidePresentationStatus(): void {
+    const el = this.querySelector<HTMLElement>("#slides-status");
+    if (el) {
+      el.hidden = true;
+    }
   }
 }
 

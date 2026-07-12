@@ -1471,3 +1471,32 @@ button.workspace-function-live {
 .cloud-provider-card.selected .cloud-provider-check {
   display: inline-block;
 }
+
+.slides-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.slides-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.slides-nav-btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.slides-indicator {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.slides-preview {
+  min-height: 180px;
+}

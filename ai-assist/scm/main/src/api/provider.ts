@@ -74,6 +74,10 @@ export interface DesignDocRequest {
   readonly description: string;
 }
 
+export interface SlidesRequest {
+  readonly description: string;
+}
+
 export interface AiAssistProvider {
   readonly concern: "aiAssist";
   readonly strategy: string;
@@ -93,6 +97,11 @@ export interface AiAssistProvider {
   // wrapping code responses in backticks), which fights intentionally
   // emitting a real ```mermaid fence.
   generateDesignDoc(req: DesignDocRequest): Promise<string>;
+  // A Markdown slide deck, slides separated by a bare `---` line - its
+  // own dedicated prompt, not generateDesignDoc() reused, because a deck
+  // needs terse per-slide bullets rather than document prose, and a
+  // diagram is optional per slide rather than mandatory once overall.
+  generateSlides(req: SlidesRequest): Promise<string>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)` call
   // for every concern actually listed in the `aspects` config it's given
   // (application/scm/main/src/core/boot.ts) - aiAssist isn't a

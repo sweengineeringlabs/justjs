@@ -12,6 +12,7 @@ export type {
   ScaffoldedFile,
   ScaffoldProjectRequest,
   ScaffoldRequest,
+  SlidesRequest,
 } from "../api/provider.js";
 export { AiAssistProviderError } from "../api/provider.js";
 
