@@ -15,6 +15,7 @@
     "aop/analytics/scm/main",
     "aop/theming/scm/main",
     "memory/scm/main",
+    "ai-assist/scm/main",
     "platform/native/scm/main",
     "platform/mobile/scm/main",
     "platform/desktop/scm/main",
@@ -26,12 +27,13 @@
     "osi-layers-integration",
     "scm/examples/hello-justjs",
     "scm/examples/cross-target-demo",
-    "scm/examples/agentic-memory-demo"
+    "scm/examples/agentic-memory-demo",
+    "scm/examples/ai-code-editor"
   ],
   "scripts": {
-    "build": "bun run --filter '@justjs/network' --filter '@justjs/data' --filter '@justscript/core' build && bun run --filter '@justjs/transport' build && bun run --filter '@justjs/application' build && bun run --filter '@justscript/measurement' --filter '@justjs/aop-security' --filter '@justjs/aop-observability' --filter '@justjs/aop-i18n' --filter '@justjs/aop-flags' --filter '@justjs/aop-analytics' --filter '@justjs/aop-theming' --filter '@justjs/memory' --filter '@justjs/platform-mobile' --filter '@justjs/platform-desktop' --filter '@justjs/platform-native' --filter '@justjs/vite' --filter '@justjs/ssr' --filter '@justjs/build' build && bun run --filter 'hello-justjs' build",
+    "build": "bun run --filter '@justjs/network' --filter '@justjs/data' --filter '@justscript/core' build && bun run --filter '@justjs/transport' build && bun run --filter '@justjs/application' build && bun run --filter '@justscript/measurement' --filter '@justjs/aop-security' --filter '@justjs/aop-observability' --filter '@justjs/aop-i18n' --filter '@justjs/aop-flags' --filter '@justjs/aop-analytics' --filter '@justjs/aop-theming' --filter '@justjs/memory' --filter '@justjs/ai-assist' --filter '@justjs/platform-mobile' --filter '@justjs/platform-desktop' --filter '@justjs/platform-native' --filter '@justjs/vite' --filter '@justjs/ssr' --filter '@justjs/build' build && bun run --filter 'hello-justjs' build",
     "test": "bun run --filter '*' test",
-    "typecheck": "bun run --filter '@justjs/network' --filter '@justjs/data' --filter '@justscript/core' typecheck && bun run --filter '@justjs/transport' typecheck && bun run --filter '@justjs/application' typecheck && bun run --filter '@justscript/measurement' --filter '@justjs/aop-security' --filter '@justjs/aop-observability' --filter '@justjs/aop-i18n' --filter '@justjs/aop-flags' --filter '@justjs/aop-analytics' --filter '@justjs/aop-theming' --filter '@justjs/memory' --filter '@justjs/platform-mobile' --filter '@justjs/platform-desktop' --filter '@justjs/platform-native' --filter '@justjs/vite' --filter '@justjs/ssr' --filter '@justjs/build' --filter '@justjs/osi-layers-integration' typecheck",
+    "typecheck": "bun run --filter '@justjs/network' --filter '@justjs/data' --filter '@justscript/core' typecheck && bun run --filter '@justjs/transport' typecheck && bun run --filter '@justjs/application' typecheck && bun run --filter '@justscript/measurement' --filter '@justjs/aop-security' --filter '@justjs/aop-observability' --filter '@justjs/aop-i18n' --filter '@justjs/aop-flags' --filter '@justjs/aop-analytics' --filter '@justjs/aop-theming' --filter '@justjs/memory' --filter '@justjs/ai-assist' --filter '@justjs/platform-mobile' --filter '@justjs/platform-desktop' --filter '@justjs/platform-native' --filter '@justjs/vite' --filter '@justjs/ssr' --filter '@justjs/build' --filter '@justjs/osi-layers-integration' typecheck",
     "test:vendor-external": "bun test scm/tests/vendor_external_int_test.ts"
   },
   "_comment_build_order": "bun's --filter runs matched packages concurrently with no dependency-graph awareness, so build/typecheck are split into explicit sequential phases matching the real @justjs/* dependency graph (network/data/@justscript-core -> transport -> application -> everything else -> hello-justjs) - confirmed necessary by reproducing a real failure from a genuinely clean checkout (no stale dist/ or .tsbuildinfo), not assumed.",

@@ -1,0 +1,29 @@
+{
+  "name": "@justjs/ai-assist",
+  "version": "0.1.0",
+  "description": "Pluggable LLM-assisted coding SPI - real Anthropic Messages API integration for inline completion, chat, structured code review, and scaffolding.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    },
+    "./spi": {
+      "import": "./dist/spi/index.js",
+      "types": "./dist/spi/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "^0.1.0",
+    "@justjs/network": "^0.1.0",
+    "@justjs/transport": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

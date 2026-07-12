@@ -11,6 +11,18 @@
         "@changesets/cli": "^2.31.0",
       },
     },
+    "ai-assist/scm/main": {
+      "name": "@justjs/ai-assist",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
     "aop/analytics/scm/main": {
       "name": "@justjs/aop-analytics",
       "version": "0.1.0",
@@ -202,6 +214,27 @@
         "vite": "^5.0.0",
       },
     },
+    "scm/examples/ai-code-editor": {
+      "name": "ai-code-editor",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/ai-assist": "^0.1.0",
+        "@justjs/aop-analytics": "^0.1.0",
+        "@justjs/aop-flags": "^0.1.0",
+        "@justjs/aop-i18n": "^0.1.0",
+        "@justjs/aop-observability": "^0.1.0",
+        "@justjs/aop-security": "^0.1.0",
+        "@justjs/aop-theming": "^0.1.0",
+        "@justjs/application": "^0.1.0",
+        "@justjs/data": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "happy-dom": "^15.0.0",
+        "vite": "^5.0.0",
+      },
+    },
     "scm/examples/cross-target-demo": {
       "name": "cross-target-demo",
       "version": "0.1.0",
@@ -372,6 +405,8 @@
 
     "@inquirer/external-editor": ["@inquirer/external-editor@1.0.3", "", { "dependencies": { "chardet": "^2.1.1", "iconv-lite": "^0.7.0" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA=="],
 
+    "@justjs/ai-assist": ["@justjs/ai-assist@workspace:ai-assist/scm/main"],
+
     "@justjs/aop-analytics": ["@justjs/aop-analytics@workspace:aop/analytics/scm/main"],
 
     "@justjs/aop-flags": ["@justjs/aop-flags@workspace:aop/flags/scm/main"],
@@ -481,6 +516,8 @@
     "@types/node": ["@types/node@26.0.1", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw=="],
 
     "agentic-memory-demo": ["agentic-memory-demo@workspace:scm/examples/agentic-memory-demo"],
+
+    "ai-code-editor": ["ai-code-editor@workspace:scm/examples/ai-code-editor"],
 
     "ansi-colors": ["ansi-colors@4.1.3", "", {}, "sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw=="],
 

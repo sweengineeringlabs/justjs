@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ai-code-editor</title>
+  <link rel="stylesheet" href="/src/app.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">🤖</div>
+        <div class="brand-text">
+          <h1>AI Code Editor</h1>
+          <p class="brand-subtitle">Assisted by Claude</p>
+        </div>
+        <button id="settings-btn" type="button" aria-label="Settings">⚙️</button>
+        <button id="theme-toggle-btn" type="button" aria-label="Toggle light/dark theme"></button>
+      </div>
+    </header>
+    <main class="page-container">
+      <div id="mount-editor" class="page active" data-ddas-id="ai-code-editor:home:x-editor:root"></div>
+      <div id="mount-chat" class="page" data-ddas-id="ai-code-editor:home:x-chat:root"></div>
+      <div id="mount-review" class="page" data-ddas-id="ai-code-editor:home:x-review:root"></div>
+      <div id="mount-scaffold" class="page" data-ddas-id="ai-code-editor:home:x-scaffold:root"></div>
+    </main>
+    <nav class="nav">
+      <button class="nav-btn active" data-route="/editor"><span class="nav-icon">📝</span><span class="nav-label">Editor</span></button>
+      <button class="nav-btn" data-route="/chat"><span class="nav-icon">💬</span><span class="nav-label">Chat</span></button>
+      <button class="nav-btn" data-route="/review"><span class="nav-icon">🔍</span><span class="nav-label">Review</span></button>
+      <button class="nav-btn" data-route="/scaffold"><span class="nav-icon">✨</span><span class="nav-label">Scaffold</span></button>
+    </nav>
+    <div id="settings-panel" class="settings-panel" hidden>
+      <div id="settings-backdrop" class="settings-backdrop"></div>
+      <div class="settings-sheet">
+        <div class="settings-sheet-header">
+          <h2>Anthropic API key</h2>
+          <button id="settings-close-btn" type="button" aria-label="Close settings">✕</button>
+        </div>
+        <p class="settings-disclosure">Stored only on this device. Sent directly to Anthropic when you use AI features.</p>
+        <input id="settings-api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+        <div class="settings-api-key-actions">
+          <button id="settings-api-key-save" type="button">Save</button>
+          <button id="settings-api-key-clear" type="button" class="btn-secondary">Clear</button>
+        </div>
+        <p id="settings-api-key-status" class="settings-api-key-status"></p>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/app.ts"></script>
+</body>
+</html>
