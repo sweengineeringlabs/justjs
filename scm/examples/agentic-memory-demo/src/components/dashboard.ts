@@ -45,27 +45,63 @@ export class DashboardElement extends HTMLElement {
 
   connectedCallback(): void {
     this.innerHTML = `
-      <form id="dashboard-search-form">
-        <select id="dashboard-filter-kind">
-          <option value="any">any kind</option>
-          ${KINDS.map((k) => `<option value="${k}">${k}</option>`).join("")}
-        </select>
-        <input id="dashboard-filter-tags" type="text" placeholder="tags (comma-separated)" autocomplete="off" />
-        <input id="dashboard-filter-text" type="text" placeholder="search text" autocomplete="off" />
-        <label><input id="dashboard-filter-semantic" type="checkbox" /> semantic</label>
-        <button id="dashboard-search-btn" type="submit">search</button>
-      </form>
+      <section class="db-section">
+        <h2 class="db-section-title"><span class="db-section-icon">🔍</span>Search &amp; filter</h2>
+        <form id="dashboard-search-form" class="db-card">
+          <div class="db-field-row">
+            <div class="field">
+              <label class="field-label" for="dashboard-filter-kind">Kind</label>
+              <select id="dashboard-filter-kind">
+                <option value="any">Any kind</option>
+                ${KINDS.map((k) => `<option value="${k}">${k}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="dashboard-filter-tags">Tags</label>
+              <input id="dashboard-filter-tags" type="text" placeholder="e.g. diet, work" autocomplete="off" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="dashboard-filter-text">Search text</label>
+            <input id="dashboard-filter-text" type="text" placeholder="What are you looking for?" autocomplete="off" />
+          </div>
+          <div class="db-field-row db-field-row-end">
+            <label class="semantic-toggle">
+              <input id="dashboard-filter-semantic" type="checkbox" />
+              <span>Semantic match</span>
+            </label>
+            <button id="dashboard-search-btn" type="submit">Search</button>
+          </div>
+        </form>
+      </section>
 
-      <form id="dashboard-add-form">
-        <select id="dashboard-add-kind">
-          ${KINDS.map((k) => `<option value="${k}">${k}</option>`).join("")}
-        </select>
-        <input id="dashboard-add-tags" type="text" placeholder="tags (comma-separated)" autocomplete="off" />
-        <input id="dashboard-add-content" type="text" placeholder="memory content" autocomplete="off" />
-        <button id="dashboard-add-submit" type="submit">add</button>
-      </form>
+      <section class="db-section">
+        <h2 class="db-section-title"><span class="db-section-icon">➕</span>Add a memory</h2>
+        <form id="dashboard-add-form" class="db-card">
+          <div class="db-field-row">
+            <div class="field">
+              <label class="field-label" for="dashboard-add-kind">Kind</label>
+              <select id="dashboard-add-kind">
+                ${KINDS.map((k) => `<option value="${k}">${k}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="dashboard-add-tags">Tags</label>
+              <input id="dashboard-add-tags" type="text" placeholder="e.g. diet, work" autocomplete="off" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="dashboard-add-content">Content</label>
+            <input id="dashboard-add-content" type="text" placeholder="What do you want to remember?" autocomplete="off" />
+          </div>
+          <button id="dashboard-add-submit" type="submit">Add memory</button>
+        </form>
+      </section>
 
-      <div id="dashboard-results"></div>
+      <section class="db-section db-results-section">
+        <h2 class="db-section-title" id="dashboard-results-title">Results</h2>
+        <div id="dashboard-results"></div>
+      </section>
     `;
 
     this.querySelector("#dashboard-search-form")?.addEventListener("submit", (e) => {
@@ -138,32 +174,61 @@ export class DashboardElement extends HTMLElement {
 
   private renderResults(): void {
     const container = this.querySelector("#dashboard-results");
+    const title = this.querySelector("#dashboard-results-title");
     if (!container || !this.store) {
       return;
     }
     const results = this.store.state.value.dashboardRecords;
+    if (title) {
+      title.textContent = `Results (${results.length})`;
+    }
+
+    if (results.length === 0) {
+      container.innerHTML = `
+        <div class="db-empty-state">
+          <div class="db-empty-icon">🗂️</div>
+          <p>No memories match yet.</p>
+          <p class="db-empty-hint">Try clearing filters, or add one below.</p>
+        </div>
+      `;
+      return;
+    }
+
     container.innerHTML = results
       .map((r) => {
         const record = r.record;
         if (this.editingIds.has(record.id)) {
           return `
-            <div class="memory-row" data-id="${record.id}">
-              <input id="edit-content-${record.id}" type="text" value="${escapeHtml(record.content)}" />
-              <input id="edit-tags-${record.id}" type="text" value="${(record.tags ?? []).join(", ")}" />
-              <button class="memory-save" data-id="${record.id}" id="edit-save-${record.id}">save</button>
+            <div class="memory-row memory-row-editing" data-id="${record.id}">
+              <div class="field">
+                <label class="field-label" for="edit-content-${record.id}">Content</label>
+                <input id="edit-content-${record.id}" type="text" value="${escapeHtml(record.content)}" />
+              </div>
+              <div class="field">
+                <label class="field-label" for="edit-tags-${record.id}">Tags</label>
+                <input id="edit-tags-${record.id}" type="text" value="${(record.tags ?? []).join(", ")}" />
+              </div>
+              <button class="memory-save" data-id="${record.id}" id="edit-save-${record.id}">Save</button>
             </div>
           `;
         }
+        const tags = record.tags ?? [];
         return `
           <div class="memory-row" data-id="${record.id}">
-            <span class="memory-kind">${record.kind}</span>
-            <span class="memory-content">${escapeHtml(record.content)}</span>
-            <span class="memory-tags">${(record.tags ?? []).join(", ")}</span>
-            <span class="memory-source">${record.source}</span>
-            <span class="memory-updated">${new Date(record.updatedAt).toISOString()}</span>
-            ${r.score !== undefined ? `<span class="memory-score">${r.score.toFixed(3)}</span>` : ""}
-            <button class="memory-edit" data-id="${record.id}">edit</button>
-            <button class="memory-delete" data-id="${record.id}">delete</button>
+            <div class="memory-row-top">
+              <span class="memory-kind memory-kind-${record.kind}">${record.kind}</span>
+              ${r.score !== undefined ? `<span class="memory-score-wrap"><span class="memory-score-label">match</span><span class="memory-score">${r.score.toFixed(2)}</span></span>` : ""}
+            </div>
+            <p class="memory-content">${escapeHtml(record.content)}</p>
+            ${tags.length > 0 ? `<div class="memory-tags">${tags.map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+            <div class="memory-row-bottom">
+              <span class="memory-source">${record.source === "agent" ? "🤖 agent" : "🙋 you"}</span>
+              <span class="memory-updated">${new Date(record.updatedAt).toLocaleString()}</span>
+              <div class="memory-actions">
+                <button class="memory-edit" data-id="${record.id}">Edit</button>
+                <button class="memory-delete" data-id="${record.id}">Delete</button>
+              </div>
+            </div>
           </div>
         `;
       })

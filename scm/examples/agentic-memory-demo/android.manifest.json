@@ -4,6 +4,7 @@
   "versionCode": 1,
   "versionName": "0.1.0",
   "debuggable": true,
+  "icon": "icon.png",
   "capabilities": [],
   "webApp": {
     "entry": "src/app.ts",

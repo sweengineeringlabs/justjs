@@ -25,6 +25,12 @@ import "./components/chat.js";
 import "./components/dashboard.js";
 import "./components/curation.js";
 import { initialState, reducer, getOrCreateDeviceUserId } from "./core/state.js";
+import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
+
+// Applied before boot (not inside main()'s try block) so a stored
+// override takes effect on the very first paint - no flash of the
+// system-default theme while boot() runs.
+applyStoredTheme();
 
 // justjs#91: a bare side-effect import of @justjs/aop-* does NOT actually
 // register the strategy - the SPI module that does isn't reachable
@@ -76,6 +82,26 @@ function showRoute(path: string): void {
   });
 }
 
+// Shows the icon for the theme a tap would switch TO, not the current
+// one - a moon in light mode ("go dark"), a sun in dark mode ("go
+// light") - the same convention most theme-toggle buttons use.
+function updateThemeToggleIcon(): void {
+  const btn = document.getElementById("theme-toggle-btn");
+  if (!btn) {
+    return;
+  }
+  btn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+}
+
+function setupThemeToggle(): void {
+  const btn = document.getElementById("theme-toggle-btn");
+  updateThemeToggleIcon();
+  btn?.addEventListener("click", () => {
+    toggleTheme();
+    updateThemeToggleIcon();
+  });
+}
+
 async function main(): Promise<void> {
   try {
     await justjs.boot({
@@ -119,6 +145,8 @@ async function main(): Promise<void> {
         showRoute(btn.dataset.route!);
       });
     });
+
+    setupThemeToggle();
 
     document.title = "agentic-memory-demo: mounted";
   } catch (e) {
