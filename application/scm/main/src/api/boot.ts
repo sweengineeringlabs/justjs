@@ -20,6 +20,14 @@ export interface AspectConfig {
   readonly strategy: string
   readonly routes?: RouteConfig
   readonly components?: ComponentConfig
+  // Forwarded verbatim to the resolved strategy's AspectProviderSpec.factory()
+  // as its sole argument - e.g. an API key, a default theme, or any other
+  // per-strategy setup a provider's factory(config?) signature already
+  // accepted but boot() never actually passed through. Untyped here
+  // (BootConfig itself is untyped per-concern) since each concern's real
+  // config shape (SecurityProviderConfig, ThemingProviderConfig,
+  // AiAssistProviderConfig, ...) lives in that package's own api/, not here.
+  readonly config?: unknown
 }
 
 export interface DdasEnforcement {

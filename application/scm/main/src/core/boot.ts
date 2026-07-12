@@ -424,7 +424,7 @@ export class JustJS implements JustJSInstance {
       for (const [concern, aspectConfig] of Object.entries(aspects)) {
         const spec = this.providers.resolve(concern, aspectConfig.strategy)
         if (!spec) continue // unreachable — validate() already rejected any unregistered strategy
-        const aspect = spec.factory() as JustJSAspect
+        const aspect = spec.factory(aspectConfig.config) as JustJSAspect
         aspect.weave({
           concern,
           routes: [...(aspectConfig.routes?.on ?? []), ...(aspectConfig.routes?.except ?? [])],

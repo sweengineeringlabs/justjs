@@ -508,6 +508,74 @@ describe("Boot-time Validation — 4 ACs", () => {
       })
     })
 
+    it("test_boot_passes_declared_aspect_config_to_the_strategy_factory", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const receivedConfigs: unknown[] = []
+      justjs.providers.register({
+        concern: "aiAssist",
+        strategy: "anthropic",
+        factory: (config?: unknown) => {
+          receivedConfigs.push(config)
+          return {
+            concern: "aiAssist",
+            strategy: "anthropic",
+            weave: () => {},
+            context: () => undefined,
+          }
+        },
+      })
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        aspects: {
+          aiAssist: { strategy: "anthropic", config: { apiKey: "sk-ant-test" } },
+        },
+      }
+
+      await justjs.boot(config)
+
+      expect(receivedConfigs).toHaveLength(1)
+      expect(receivedConfigs[0]).toEqual({ apiKey: "sk-ant-test" })
+    })
+
+    it("test_boot_calls_strategy_factory_with_undefined_when_no_config_declared", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+
+      const receivedConfigs: unknown[] = []
+      justjs.providers.register({
+        concern: "security",
+        strategy: "recording",
+        factory: (config?: unknown) => {
+          receivedConfigs.push(config)
+          return {
+            concern: "security",
+            strategy: "recording",
+            weave: () => {},
+            context: () => undefined,
+          }
+        },
+      })
+
+      const config: BootConfig = {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        aspects: {
+          security: { strategy: "recording" },
+        },
+      }
+
+      await justjs.boot(config)
+
+      expect(receivedConfigs).toHaveLength(1)
+      expect(receivedConfigs[0]).toBeUndefined()
+    })
+
     it("test_boot_never_calls_weave_when_no_aspects_declared", async () => {
       const justjs = JustJS.getInstance()
       justjs.clearProviders()
