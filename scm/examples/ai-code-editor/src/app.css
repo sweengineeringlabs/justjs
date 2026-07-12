@@ -1139,3 +1139,112 @@ textarea:focus {
 #scaffold-replace-cancel-btn {
   flex: 1;
 }
+
+/* Workspace (SDLC hub) - widget-grid-then-drill-down, same architecture
+   agentic-memory-demo's dashboard.ts established for its own Memories
+   tab, reused here rather than inventing a new pattern. */
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  text-align: left;
+  min-height: 92px;
+}
+
+.widget-action {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.widget-icon {
+  font-size: 24px;
+}
+
+.widget-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dash-subnav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.dash-back-btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  font-size: 13px;
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.workspace-stage-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.workspace-function-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workspace-function {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+button.workspace-function-live {
+  width: 100%;
+  color: var(--text);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.workspace-function-arrow {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.workspace-function-stub {
+  opacity: 0.7;
+}
+
+.workspace-function-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.workspace-function-badge {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}

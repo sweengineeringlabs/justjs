@@ -2,11 +2,12 @@
 // (a real browser) and `justc build --bundle --format iife` (js-runtime's
 // Android generator) - same pattern scm/examples/agentic-memory-demo and
 // cross-target-demo already proved. Demonstrates @justjs/ai-assist's real
-// Anthropic-backed provider across four views sharing one FeatureStore: a
+// Anthropic-backed provider across five views sharing one FeatureStore: a
 // code editor (with a nested-folder file explorer sidebar, button-
 // triggered completion, and structured review), an AI chat surface, a
-// review-findings list, and a from-scratch single-file/multi-file-project
-// scaffolder.
+// review-findings list, a from-scratch single-file/multi-file-project
+// scaffolder, and an SDLC workspace hub linking each stage to whichever
+// of those tabs actually serves it.
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
@@ -20,6 +21,7 @@ import "./components/editor.js";
 import "./components/chat.js";
 import "./components/review.js";
 import "./components/scaffold.js";
+import "./components/workspace.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
 import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";
@@ -71,12 +73,13 @@ store.subscribe(() => {
   persistTimer = setTimeout(() => persistProject(store.state.value), PERSIST_DEBOUNCE_MS);
 });
 
-const ROUTES = ["/editor", "/chat", "/review", "/scaffold"] as const;
+const ROUTES = ["/editor", "/chat", "/review", "/scaffold", "/workspace"] as const;
 const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
   "/editor": "mount-editor",
   "/chat": "mount-chat",
   "/review": "mount-review",
   "/scaffold": "mount-scaffold",
+  "/workspace": "mount-workspace",
 };
 
 // RuntimeAdapter.mount() is a no-op on both targets (same finding as
@@ -176,12 +179,14 @@ async function main(): Promise<void> {
         "x-chat": { path: "/chat", component: "x-chat" },
         "x-review": { path: "/review", component: "x-review" },
         "x-scaffold": { path: "/scaffold", component: "x-scaffold" },
+        "x-workspace": { path: "/workspace", component: "x-workspace" },
       },
       componentRegistry: {
         "x-editor": () => Promise.resolve(customElements.get("x-editor") as CustomElementConstructor),
         "x-chat": () => Promise.resolve(customElements.get("x-chat") as CustomElementConstructor),
         "x-review": () => Promise.resolve(customElements.get("x-review") as CustomElementConstructor),
         "x-scaffold": () => Promise.resolve(customElements.get("x-scaffold") as CustomElementConstructor),
+        "x-workspace": () => Promise.resolve(customElements.get("x-workspace") as CustomElementConstructor),
       },
       domAddressMap: {
         elements: {
@@ -189,6 +194,7 @@ async function main(): Promise<void> {
           "ai-code-editor:home:x-chat:root": { component: "chat", tag: "x-chat" },
           "ai-code-editor:home:x-review:root": { component: "review", tag: "x-review" },
           "ai-code-editor:home:x-scaffold:root": { component: "scaffold", tag: "x-scaffold" },
+          "ai-code-editor:home:x-workspace:root": { component: "workspace", tag: "x-workspace" },
         },
       },
       featureStore: store,

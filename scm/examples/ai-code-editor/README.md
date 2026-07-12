@@ -38,6 +38,16 @@ stand-in.
   release, unlike Chat — Generate is a deliberate, sometimes-costly
   action); only New Project also accepts a screenshot ("build this from
   this mockup").
+- **Workspace** (`x-workspace`, `/workspace`) — an SDLC hub: 8 widgets
+  (Ideation, Requirement, Planning, Design, Development, Testing,
+  Deployment, Operations), same widget-grid-then-drill-down architecture
+  `agentic-memory-demo`'s Memories tab established. Four stages link to
+  real, working tabs this app already has — Ideation→Chat,
+  Planning→Scaffold, Development→Editor, Testing→Review. The other four
+  (Requirement, Design, Deployment, Operations) show honestly-labeled
+  "Coming soon" entries, not fake-functional buttons — this hub currently
+  ships the widget shell only, not new tooling (e.g. Deployment's "Git"/
+  "Cloud" entries don't run git commands or talk to any cloud provider).
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -179,8 +189,10 @@ vs. the real singleton the app actually uses" pattern
 `stop_reason`, duplicate/malformed-file rejection, and the three new
 image-content-block tests for `chat()`/`review()`/`scaffoldProject()`).
 `vite build` succeeds; `node verify_web.mjs` (real DOM via happy-dom
-against the real built bundle) passes all 74 assertions — boot, DDAS
-mounting into all four routes, the starter tree rendering real nested
+against the real built bundle) passes all 85 assertions — boot, DDAS
+mounting into all five routes, the Workspace hub's 8 widgets (in the
+right SDLC order) drilling into real live links vs. honestly-labeled
+stubs correctly, the starter tree rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/
 delete for both files and folders (including collision rejection and the

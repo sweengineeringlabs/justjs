@@ -53,11 +53,13 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/chat">Chat</button>
       <button class="nav-btn" data-route="/review">Review</button>
       <button class="nav-btn" data-route="/scaffold">Scaffold</button>
+      <button class="nav-btn" data-route="/workspace">Workspace</button>
     </nav>
     <div id="mount-editor" class="page active" data-ddas-id="ai-code-editor:home:x-editor:root"></div>
     <div id="mount-chat" class="page" data-ddas-id="ai-code-editor:home:x-chat:root"></div>
     <div id="mount-review" class="page" data-ddas-id="ai-code-editor:home:x-review:root"></div>
     <div id="mount-scaffold" class="page" data-ddas-id="ai-code-editor:home:x-scaffold:root"></div>
+    <div id="mount-workspace" class="page" data-ddas-id="ai-code-editor:home:x-workspace:root"></div>
     <div id="settings-panel" hidden>
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
@@ -101,6 +103,53 @@ assert(document.getElementById("mount-editor").innerHTML.length > 0, "editor mou
 assert(document.getElementById("mount-chat").innerHTML.length > 0, "chat mount has content");
 assert(document.getElementById("mount-review").innerHTML.length > 0, "review mount has content");
 assert(document.getElementById("mount-scaffold").innerHTML.length > 0, "scaffold mount has content");
+assert(document.getElementById("mount-workspace").innerHTML.length > 0, "workspace mount has content");
+
+// 1b. Workspace hub proof - the widget-grid-then-drill-down SDLC hub.
+// Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
+// Development->Editor, Testing->Review) are live links; the rest are
+// honestly-labeled stubs, not fake-functional buttons.
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+const workspaceWidgets = [...document.querySelectorAll('#mount-workspace [data-stage]')];
+assert(workspaceWidgets.length === 8, `the workspace overview shows exactly 8 SDLC-stage widgets (found ${workspaceWidgets.length})`);
+assert(
+  workspaceWidgets.map((w) => w.dataset.stage).join(",") ===
+    "ideation,requirement,planning,design,development,testing,deployment,operations",
+  "the 8 widgets are the real SDLC stages in order"
+);
+
+document.querySelector('#mount-workspace [data-stage="deployment"]').click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Deployment"),
+  "drilling into a widget shows that stage's detail view"
+);
+const deploymentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
+assert(
+  deploymentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Git,Cloud",
+  "Deployment's functions (Git, Cloud) render as honestly-labeled stubs, not fake-functional buttons - no real Git/Cloud integration exists yet"
+);
+assert(
+  deploymentStubs.every((el) => el.querySelector(".workspace-function-badge").textContent === "Coming soon"),
+  "each stub is explicitly labeled, not just visually muted"
+);
+assert(document.querySelector("#mount-workspace .workspace-function-live") === null, "Deployment has no real, clickable function yet");
+
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelectorAll('#mount-workspace [data-stage]').length === 8,
+  "the back button returns to the 8-widget overview"
+);
+
+document.querySelector('#mount-workspace [data-stage="development"]').click();
+await sleep(20);
+const developmentLink = document.querySelector("#mount-workspace .workspace-function-live");
+assert(developmentLink !== null && developmentLink.textContent.includes("Editor"), "Development's Editor function is a real, live link");
+developmentLink.click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "tapping a live function navigates to the real tab it points at");
+assert(document.getElementById("mount-editor").classList.contains("active"), "the Editor tab is now the active page");
 
 // 2. Starter tree proof - real nested folders, not a flat list, and the
 // active file's ancestor chain is auto-expanded so it's visible without
@@ -321,7 +370,13 @@ function attachFakeImage(inputSelector, bytes, filename, mediaType) {
   dataTransfer.items.add(file);
   input.files = dataTransfer.files;
   input.dispatchEvent(new window.Event("change", { bubbles: true }));
-  return sleep(30);
+  // 50ms, not this file's usual 20-30ms - matches
+  // agentic-memory-demo/verify_web.mjs's own image-attach wait exactly,
+  // for the same reason: FileReader.readAsDataURL() completion isn't
+  // instant, and a shorter margin here was observed to flake on a real
+  // run (not hypothetical - reproduced directly), unlike every other
+  // synchronous DOM-update wait in this file.
+  return sleep(50);
 }
 
 document.querySelector('.nav-btn[data-route="/chat"]').click();
