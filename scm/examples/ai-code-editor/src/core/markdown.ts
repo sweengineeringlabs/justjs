@@ -220,6 +220,23 @@ function renderTextBlock(text: string): string {
 let mermaidInitialized = false;
 let mermaidIdCounter = 0;
 
+// mermaid.render() resolving isn't proof of a usable result on its own -
+// confirmed directly against a real flowchart diagram in happy-dom: it
+// resolves without throwing, but the returned string is missing its own
+// root <svg> element entirely (some other happy-dom gap short of the
+// sequenceDiagram/getBBox() one below, that a resolved Promise can't
+// surface as a catchable error). Injecting that into the DOM as-is would
+// show broken/incomplete markup instead of either a real diagram or the
+// honest fallback note - so the resolved value is validated structurally
+// before being trusted, not just assumed valid because render() didn't
+// throw.
+const SVG_ROOT_PATTERN = /^<svg[\s>]/i;
+
+function isWellFormedSvg(svg: string): boolean {
+  const trimmed = svg.trim();
+  return SVG_ROOT_PATTERN.test(trimmed) && trimmed.endsWith("</svg>");
+}
+
 // The dynamic import here is deliberate, not a style choice - it must
 // NEVER become a static top-level `import mermaid from "mermaid"`
 // anywhere reachable from app.ts. This app is one composition root
@@ -248,6 +265,9 @@ async function renderMermaidBlock(source: string): Promise<string> {
     mermaidIdCounter += 1;
     const id = `mermaid-diagram-${mermaidIdCounter}`;
     const { svg } = await mermaid.render(id, source);
+    if (!isWellFormedSvg(svg)) {
+      throw new Error("mermaid.render() resolved without a well-formed <svg> root element");
+    }
     return `<div class="mermaid-diagram">${svg}</div>`;
   } catch {
     // A real, expected outcome, not just defensive hedging: happy-dom
@@ -255,7 +275,9 @@ async function renderMermaidBlock(source: string): Promise<string> {
     // render Mermaid - it depends on SVGTextElement.getBBox() for text
     // measurement, which DOM-emulation libraries don't implement
     // meaningfully. The same fallback also covers any real WebView
-    // that turns out not to support what Mermaid needs.
+    // that turns out not to support what Mermaid needs, and (via the
+    // isWellFormedSvg() check above) a render that resolves but with
+    // malformed output instead of throwing.
     return [
       '<div class="mermaid-fallback">',
       '<p class="mermaid-fallback-note">⚠️ Diagram couldn\'t be rendered in this environment.</p>',

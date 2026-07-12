@@ -182,13 +182,16 @@ correctly hit the fallback path). A `flowchart` diagram, tried while
 building this feature's own test, does **not** throw — but also doesn't
 produce a well-formed `<svg>` wrapper (`mermaid.render()` resolves
 successfully with content that's missing its own root `<svg>` tag). That
-third outcome isn't something this app's `try`/`catch` fallback in
-`renderMermaidBlock()` is built to detect (it only catches thrown
-errors), and it isn't asserted on by any test — a real, honestly-stated
-gap, not silently papered over. `verify_web.mjs`'s Slides test
-deliberately reuses the same `sequenceDiagram` type Design's test already
-proved reliable, rather than relying on the newly-discovered, unproven
-`flowchart` behavior.
+third outcome wasn't something `renderMermaidBlock()`'s `try`/`catch`
+could detect on its own (it only catches thrown errors) - fixed by
+validating the resolved `svg` string structurally (`isWellFormedSvg()`,
+`core/markdown.ts`: trimmed content must start with `<svg` and end with
+`</svg>`) and throwing when it isn't, routing malformed-but-resolved
+output into the exact same fallback a thrown error hits. `verify_web.mjs`'s
+Slides test proves both paths now - slide 2 (`sequenceDiagram`, throws
+directly) and slide 3 (`flowchart`, resolves but gets rejected by
+`isWellFormedSvg()`) both correctly show the fallback note, not broken or
+partial markup.
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -354,7 +357,7 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 149 assertions — boot, DDAS mounting into all
+built bundle) passes all 155 assertions — boot, DDAS mounting into all
 five routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
 stubs correctly, Deployment's Cloud providers catalog (toggling real,
@@ -370,8 +373,11 @@ Slides opening its generator directly (a single real function, not two
 entries sharing one) with the same generate→Edit/Preview→Create-file
 flow proved slide-by-slide — real per-slide splitting (slide 2's content
 never appears while slide 1 is showing), the nav indicator and Prev/Next
-disabled-state tracking the real slide count and position, and the same
-real mermaid-fallback proof reused per-slide, the starter tree
+disabled-state tracking the real slide count and position, and both real
+mermaid-fallback paths proved per-slide (a `sequenceDiagram` that throws
+directly, and a `flowchart` that resolves but gets rejected by
+`isWellFormedSvg()`'s structural check, both landing on the same honest
+fallback note rather than broken markup), the starter tree
 rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/

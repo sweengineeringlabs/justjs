@@ -361,15 +361,16 @@ assert(document.querySelector("#slides-status").textContent.includes("Add an Ant
 assert(document.getElementById("slides-result").hidden, "no result panel is shown when generation never ran");
 
 window.localStorage.setItem("justjs:ai-editor:api-key", "sk-ant-test-fake-key-not-real");
-// sequenceDiagram, not flowchart - confirmed directly that a flowchart
-// diagram doesn't throw in happy-dom the way Design's sequenceDiagram
-// test does, but also doesn't produce a well-formed <svg> (mermaid.render()
-// resolves without an outer <svg> wrapper) - a genuinely different,
-// unproven third outcome neither this app's try/catch nor this test is
-// built to assert on. Reusing the exact diagram type already confirmed
-// (by Design's own test above) to reliably hit the real fallback path.
+// Three slides, two different mermaid diagram types, deliberately:
+// sequenceDiagram genuinely throws in happy-dom (getBBox() unsupported)
+// and hits the catch block directly; flowchart previously resolved
+// WITHOUT throwing but also without a well-formed <svg> root - a gap
+// isWellFormedSvg() (core/markdown.ts) now closes by validating the
+// resolved value and throwing itself when it's malformed, routing into
+// the exact same fallback. Slide 3 proves that fix specifically, not
+// just the already-proven sequenceDiagram path slide 2 covers.
 const fakeSlidesDoc =
-  "# Welcome\n\n- point one\n- point two\n\n---\n\n# Architecture\n\n```mermaid\nsequenceDiagram\n  A->>B: ping\n```\n";
+  "# Welcome\n\n- point one\n- point two\n\n---\n\n# Architecture\n\n```mermaid\nsequenceDiagram\n  A->>B: ping\n```\n\n---\n\n# Flowchart\n\n```mermaid\nflowchart TD\n  A --> B\n```\n";
 globalThis.fetch = async () =>
   new window.Response(JSON.stringify({ content: [{ type: "text", text: fakeSlidesDoc }] }), {
     status: 200,
@@ -390,9 +391,9 @@ assert(finishedRenderingSlide1, "the real per-slide render completes within a re
 const slide1Html = document.querySelector("#slides-preview").innerHTML;
 assert(slide1Html.includes("<h1>Welcome</h1>"), "slide 1's own heading renders as real HTML");
 assert(!slide1Html.includes("Architecture"), "slide 2's content is NOT shown while on slide 1 - real slide-by-slide splitting, not one continuous scroll");
-assert(document.querySelector("#slides-indicator").textContent === "Slide 1 of 2", "the nav indicator reflects the real slide count and position");
+assert(document.querySelector("#slides-indicator").textContent === "Slide 1 of 3", "the nav indicator reflects the real slide count and position");
 assert(document.querySelector("#slides-prev-btn").disabled, "Prev is disabled on the first slide");
-assert(!document.querySelector("#slides-next-btn").disabled, "Next is enabled - there's a second slide");
+assert(!document.querySelector("#slides-next-btn").disabled, "Next is enabled - there are more slides");
 
 document.querySelector("#slides-next-btn").click();
 const finishedRenderingSlide2 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
@@ -401,11 +402,24 @@ const slide2Html = document.querySelector("#slides-preview").innerHTML;
 assert(slide2Html.includes("<h1>Architecture</h1>"), "slide 2's own heading renders now that Next was tapped");
 assert(
   slide2Html.includes("mermaid-fallback") && slide2Html.includes("couldn"),
-  "happy-dom genuinely cannot render Mermaid here either - the real per-slide fallback path renders, same reasoning as Design's"
+  "happy-dom genuinely cannot render a sequenceDiagram here either (getBBox() unsupported, throws directly) - the real per-slide fallback path renders, same reasoning as Design's"
 );
-assert(document.querySelector("#slides-indicator").textContent === "Slide 2 of 2", "the indicator advances with Next");
+assert(document.querySelector("#slides-indicator").textContent === "Slide 2 of 3", "the indicator advances with Next");
 assert(!document.querySelector("#slides-prev-btn").disabled, "Prev is enabled once past the first slide");
-assert(document.querySelector("#slides-next-btn").disabled, "Next is disabled on the last slide");
+assert(!document.querySelector("#slides-next-btn").disabled, "Next is still enabled - there's a third slide");
+
+document.querySelector("#slides-next-btn").click();
+const finishedRenderingSlide3 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+assert(finishedRenderingSlide3, "the real attempted render for slide 3's flowchart completes within a reasonable time, not hung");
+const slide3Html = document.querySelector("#slides-preview").innerHTML;
+assert(slide3Html.includes("<h1>Flowchart</h1>"), "slide 3's own heading renders now that Next was tapped again");
+assert(
+  slide3Html.includes("mermaid-fallback") && slide3Html.includes("couldn"),
+  "the flowchart case is now caught too - mermaid.render() resolves here instead of throwing, but isWellFormedSvg() (core/markdown.ts) rejects the malformed result and routes into the same real fallback, not broken/partial markup"
+);
+assert(document.querySelector("#slides-indicator").textContent === "Slide 3 of 3", "the indicator advances again");
+assert(!document.querySelector("#slides-prev-btn").disabled, "Prev is enabled on the last slide");
+assert(document.querySelector("#slides-next-btn").disabled, "Next is disabled on the true last slide");
 
 document.querySelector("#slides-file-path").value = "src/main.js";
 document.querySelector("#slides-create-btn").click();
