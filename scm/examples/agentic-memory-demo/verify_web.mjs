@@ -31,6 +31,7 @@ globalThis.fetch = nodeFetch;
 document.body.innerHTML = `
   <div id="app">
     <h1>agentic-memory-demo</h1>
+    <button id="settings-btn" type="button">Settings</button>
     <nav class="nav">
       <button class="nav-btn active" data-route="/chat">Chat</button>
       <button class="nav-btn" data-route="/dashboard">Dashboard</button>
@@ -39,6 +40,29 @@ document.body.innerHTML = `
     <div id="mount-chat" class="page active" data-ddas-id="agentic-memory-demo:home:x-chat:root"></div>
     <div id="mount-dashboard" class="page" data-ddas-id="agentic-memory-demo:home:x-dashboard:root"></div>
     <div id="mount-curation" class="page" data-ddas-id="agentic-memory-demo:home:x-curation:root"></div>
+    <div id="settings-panel" hidden>
+      <div id="settings-backdrop"></div>
+      <div class="settings-sheet">
+        <div class="settings-sheet-header">
+          <h2 id="settings-sheet-title">Settings</h2>
+          <button id="settings-close-btn" type="button">close</button>
+        </div>
+        <div id="settings-main">
+          <div class="field">
+            <button id="settings-lang-field" type="button">
+              <span id="settings-lang-value">Auto</span>
+            </button>
+          </div>
+          <label id="settings-tts-row" hidden>
+            <input id="settings-tts-toggle" type="checkbox" />
+          </label>
+        </div>
+        <div id="settings-lang-picker" hidden>
+          <button id="lang-picker-back-btn" type="button">back</button>
+          <div id="lang-picker-list"></div>
+        </div>
+      </div>
+    </div>
   </div>
 `;
 
@@ -60,6 +84,34 @@ assert(document.title === "agentic-memory-demo: mounted", `document.title is "${
 assert(document.getElementById("mount-chat").innerHTML.length > 0, "chat mount has content");
 assert(document.getElementById("mount-dashboard").innerHTML.length > 0, "dashboard mount has content");
 assert(document.getElementById("mount-curation").innerHTML.length > 0, "curation mount has content");
+
+// 1b. Settings / voice-language picker proof - the settings panel and
+// its custom language picker aren't tied to the router (no data-ddas-id
+// mount), so they're just plain DOM elements set up once at boot by
+// app.ts's setupSettingsPanel(), tested directly rather than through a
+// route.
+document.querySelector("#settings-btn").click();
+assert(!document.getElementById("settings-panel").hidden, "settings panel opens on gear click");
+assert(document.getElementById("settings-lang-value").textContent === "Auto", "language field defaults to Auto with no stored preference");
+
+document.querySelector("#settings-lang-field").click();
+assert(document.getElementById("settings-main").hidden, "opening the language picker hides the main settings content");
+let langRows = [...document.querySelectorAll("#lang-picker-list .lang-picker-row")];
+assert(langRows.length === 21, `language picker lists all curated languages (found ${langRows.length})`);
+assert(langRows.some((r) => r.classList.contains("active") && r.textContent.includes("Auto")), "Auto is marked active with no stored preference");
+
+const spanishRow = langRows.find((r) => r.dataset.code === "es-ES");
+spanishRow.click();
+assert(document.getElementById("settings-lang-value").textContent === "Spanish (Spain)", "picking a language updates the field's displayed value");
+assert(!document.getElementById("settings-main").hidden, "picking a language returns to the main settings view");
+assert(window.localStorage.getItem("justjs:memory-demo:voice-lang") === "es-ES", "the picked language is persisted to localStorage");
+
+document.querySelector("#settings-lang-field").click();
+langRows = [...document.querySelectorAll("#lang-picker-list .lang-picker-row")];
+assert(langRows.find((r) => r.dataset.code === "es-ES").classList.contains("active"), "re-opening the picker shows the persisted language as active");
+document.querySelector("#lang-picker-back-btn").click();
+document.querySelector("#settings-close-btn").click();
+assert(document.getElementById("settings-panel").hidden, "close button hides the settings panel");
 
 // 2. Chat / recall proof
 document.querySelector("#chat-input").value = "I love hiking on weekends";

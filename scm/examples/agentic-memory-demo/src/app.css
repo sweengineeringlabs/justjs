@@ -235,6 +235,72 @@ body {
   accent-color: var(--accent);
 }
 
+.picker-field {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.picker-chevron {
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.lang-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+}
+
+.lang-picker .dash-back-btn {
+  align-self: flex-start;
+}
+
+.lang-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: var(--surface-alt);
+  padding: 4px;
+}
+
+.lang-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  box-shadow: none;
+}
+
+.lang-picker-row.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.lang-picker-check {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
 .page-container {
   flex: 1 1 auto;
   min-height: 0;

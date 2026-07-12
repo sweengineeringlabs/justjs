@@ -131,17 +131,67 @@ function setupSettingsPanel(): void {
   const openBtn = document.getElementById("settings-btn");
   const closeBtn = document.getElementById("settings-close-btn");
   const backdrop = document.getElementById("settings-backdrop");
-  const langSelect = document.getElementById("settings-lang-select") as HTMLSelectElement | null;
+  const mainView = document.getElementById("settings-main");
+  const langField = document.getElementById("settings-lang-field");
+  const langValue = document.getElementById("settings-lang-value");
+  const langPicker = document.getElementById("settings-lang-picker");
+  const langPickerList = document.getElementById("lang-picker-list");
+  const langPickerBackBtn = document.getElementById("lang-picker-back-btn");
   const ttsRow = document.getElementById("settings-tts-row");
   const ttsToggle = document.getElementById("settings-tts-toggle") as HTMLInputElement | null;
 
-  if (langSelect) {
-    langSelect.innerHTML = VOICE_LANGUAGES.map(
-      (l) => `<option value="${l.code}">${l.label}</option>`
-    ).join("");
-    langSelect.value = getStoredVoiceLanguage();
-    langSelect.addEventListener("change", () => setStoredVoiceLanguage(langSelect.value));
+  function labelFor(code: string): string {
+    return VOICE_LANGUAGES.find((l) => l.code === code)?.label ?? "Auto";
   }
+
+  function renderLangValue(): void {
+    if (langValue) {
+      langValue.textContent = labelFor(getStoredVoiceLanguage());
+    }
+  }
+
+  // A real, custom-styled picker instead of the platform <select> - the
+  // native dropdown's popup styling (colors, spacing, font) can't be
+  // meaningfully themed via CSS on either target, which is what made it
+  // look out of place against the rest of this app's own design.
+  function renderLangPickerList(): void {
+    if (!langPickerList) {
+      return;
+    }
+    const current = getStoredVoiceLanguage();
+    langPickerList.innerHTML = VOICE_LANGUAGES.map(
+      (l) => `
+        <button class="lang-picker-row${l.code === current ? " active" : ""}" type="button" data-code="${l.code}">
+          <span>${l.label}</span>
+          ${l.code === current ? `<span class="lang-picker-check">✓</span>` : ""}
+        </button>
+      `
+    ).join("");
+    langPickerList.querySelectorAll<HTMLButtonElement>(".lang-picker-row").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setStoredVoiceLanguage(btn.dataset.code ?? "");
+        renderLangValue();
+        closeLangPicker();
+      });
+    });
+  }
+
+  function openLangPicker(): void {
+    renderLangPickerList();
+    mainView?.setAttribute("hidden", "");
+    langPicker?.removeAttribute("hidden");
+  }
+
+  function closeLangPicker(): void {
+    langPicker?.setAttribute("hidden", "");
+    mainView?.removeAttribute("hidden");
+  }
+
+  if (langField) {
+    renderLangValue();
+    langField.addEventListener("click", openLangPicker);
+  }
+  langPickerBackBtn?.addEventListener("click", closeLangPicker);
 
   // Genuinely absent on this app's Android WebView target (window.
   // speechSynthesis is undefined there, confirmed on real hardware, not
@@ -155,7 +205,10 @@ function setupSettingsPanel(): void {
     ttsToggle.addEventListener("change", () => setTtsEnabled(ttsToggle.checked));
   }
 
-  const open = () => panel?.removeAttribute("hidden");
+  const open = () => {
+    closeLangPicker();
+    panel?.removeAttribute("hidden");
+  };
   const close = () => panel?.setAttribute("hidden", "");
   openBtn?.addEventListener("click", open);
   closeBtn?.addEventListener("click", close);
