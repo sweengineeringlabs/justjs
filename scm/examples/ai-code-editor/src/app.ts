@@ -82,10 +82,10 @@ const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
   "/workspace": "mount-workspace",
 };
 
-// RuntimeAdapter.mount() is a no-op on both targets (same finding as
-// cross-target-demo/agentic-memory-demo) - all four routes are mounted
-// once at boot, and navigating between them is purely a CSS `.active`
-// toggle on the already-mounted containers.
+// Pure visual concern - which mount container is displayed. Router has no
+// notion of this at all (DefaultRouter.navigate() only ever touches the
+// container of the route being navigated *to*, never hides any other), so
+// this stays separate from goToRoute() below rather than folded into it.
 function showRoute(path: string): void {
   for (const [route, mountId] of Object.entries(MOUNT_ID_FOR_ROUTE)) {
     document.getElementById(mountId)?.classList.toggle("active", route === path);
@@ -95,11 +95,31 @@ function showRoute(path: string): void {
   });
 }
 
+// Every real navigation (nav-bar tap, or a component's own navigateTo()
+// call) goes through the real justjs.router.navigate() - not just the one
+// boot-time pass over ROUTES. Previously this app called navigate() once
+// per route at boot only, then relied purely on showRoute()'s CSS toggle
+// for every navigation after that - leaving Router.currentPath() stuck on
+// whichever route was last in that boot loop, and ADR-0004's reactive
+// re-render subscription wired to that same stale route instead of
+// whichever tab the user actually has open. Calling navigate() for real
+// here does not lose any component state: each route resolves to its own
+// distinct DDAS container, and adaptCustomElementRegistry()'s render()
+// reuses the existing custom-element instance (container.firstElementChild
+// instanceof ElementCtor) rather than recreating it - RuntimeAdapter.mount()
+// being a no-op on both targets (same finding as cross-target-demo/
+// agentic-memory-demo) means nothing here is destructive.
+function goToRoute(path: string): void {
+  justjs.router!.navigate(path)
+    .then(() => showRoute(path))
+    .catch((error: unknown) => console.error(`Error navigating to "${path}":`, error));
+}
+
 // Lets editor.ts/review.ts/scaffold.ts trigger a tab switch (e.g. Review
 // jumping back to Editor on a finding click, Scaffold's "Insert into
 // editor") without importing this module back - see core/navigation.ts.
 document.addEventListener(NAVIGATE_EVENT, (e) => {
-  showRoute((e as CustomEvent<NavigateEventDetail>).detail.route);
+  goToRoute((e as CustomEvent<NavigateEventDetail>).detail.route);
 });
 
 function updateThemeToggleIcon(): void {
@@ -205,24 +225,25 @@ async function main(): Promise<void> {
         analytics: { strategy: "noop" },
         theming: { strategy: "noop" },
         i18n: { strategy: "noop" },
-        // "aiAssist" deliberately NOT listed here - see
-        // @justjs/ai-assist's spi/index.ts. boot()'s weave loop calls
-        // spec.factory() with ZERO arguments, and
-        // AiAssistProviderConfig.apiKey is required, so that path can
-        // never produce a working provider. This app's real singleton
-        // (core/ai_assist.ts's getAiAssistProvider()) is built directly
-        // via createAiAssistProvider(config), with a real config.
+        // "aiAssist" deliberately NOT listed here - boot() can now forward
+        // aspects[concern].config to the strategy's factory() for real
+        // (application/scm/main/src/core/boot.ts), so this isn't a hard
+        // blocker anymore. It's still built directly via
+        // createAiAssistProvider(config) in core/ai_assist.ts because the
+        // key is loaded from localStorage after boot, not known at boot
+        // time - boot()'s aspects config has no path for a value that
+        // only exists once the app is already running.
       },
     });
 
     for (const route of ROUTES) {
       await justjs.router!.navigate(route);
     }
-    showRoute("/editor");
+    goToRoute("/editor");
 
     document.querySelectorAll<HTMLElement>(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        showRoute(btn.dataset.route!);
+        goToRoute(btn.dataset.route!);
       });
     });
 

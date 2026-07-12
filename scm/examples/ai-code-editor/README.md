@@ -256,21 +256,40 @@ carries none of that risk.
 
 ## Why `aiAssist` is never listed in `boot()`'s `aspects` config
 
-`boot()`'s weave loop only calls `spec.factory()` for concerns actually
-present in the `aspects` object passed to `boot()`
-(`application/scm/main/src/core/boot.ts`) — and it always calls that
-factory with **zero arguments**, regardless of what config the app
-supplied elsewhere. `@justjs/memory`'s `MemoryProviderConfig` is fully
-optional, so that's harmless for it. `AiAssistProviderConfig.apiKey` is
-required — listing `aiAssist` in `aspects` would call
-`@justjs/ai-assist`'s SPI factory with no key and throw synchronously
-inside `boot()`, crashing the app. This app's real singleton
-(`core/ai_assist.ts`'s `getAiAssistProvider()`) is built directly via
-`createAiAssistProvider(config)` with a real config instead, imported
-directly by every component — the same "throwaway weave-only instance
-vs. the real singleton the app actually uses" pattern
-`agentic-memory-demo/src/core/memory.ts` already established for
-`@justjs/memory`.
+`boot()`'s weave loop now forwards `aspects[concern].config` to the
+resolved strategy's `spec.factory()` (`AspectConfig.config`,
+`application/scm/main/src/core/boot.ts`) — so this is no longer a hard
+blocker the way it originally was. This app still builds its real
+singleton (`core/ai_assist.ts`'s `getAiAssistProvider()`) directly via
+`createAiAssistProvider(config)` instead of through `boot()`'s `aspects`,
+because the API key is loaded from `localStorage` *after* boot, not known
+at boot time — `boot()`'s `aspects` config has no path for a value that
+only exists once the app is already running. Same "throwaway weave-only
+instance vs. the real singleton the app actually uses" pattern
+`agentic-memory-demo/src/core/memory.ts` established for `@justjs/memory`,
+just for a different reason now.
+
+## Real navigation, not just a boot-time proof
+
+Every route in `ROUTES` gets a real `justjs.router.navigate()` call once
+at boot (proving the real Mount/Render/Update pipeline runs against every
+route, not a narrated stand-in — the same pattern
+`agentic-memory-demo`/`cross-target-demo` established). Every navigation
+*after* boot — a nav-bar tap, or a component's own `navigateTo()` call —
+also goes through a real `justjs.router.navigate()` call now (`app.ts`'s
+`goToRoute()`), not just the boot-time loop. This used to rely purely on
+a hand-rolled CSS `.active` toggle for every post-boot navigation, which
+left `Router.currentPath()` permanently stuck on whichever route was last
+in the boot loop, and ADR-0004's reactive re-render subscription wired to
+that same stale route instead of whichever tab the user actually had
+open. Calling `navigate()` for real on every navigation doesn't lose any
+component state: each route resolves to its own distinct DDAS container,
+and `adaptCustomElementRegistry()`'s `render()` reuses the existing
+custom-element instance rather than recreating it, so nothing here is
+destructive. `showRoute()`'s CSS toggle still exists alongside
+`goToRoute()` for a separate, genuinely different concern — which
+container is visually shown — since `Router` has no notion of hiding
+inactive routes at all.
 
 ## Verification status — honest, not inflated
 
