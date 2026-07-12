@@ -133,12 +133,25 @@ assert(document.getElementById("mount-workspace").innerHTML.length > 0, "workspa
 // honestly-labeled stubs, not fake-functional buttons.
 document.querySelector('.nav-btn[data-route="/workspace"]').click();
 const workspaceWidgets = [...document.querySelectorAll('#mount-workspace [data-stage]')];
-assert(workspaceWidgets.length === 8, `the workspace overview shows exactly 8 SDLC-stage widgets (found ${workspaceWidgets.length})`);
+assert(workspaceWidgets.length === 9, `the workspace overview shows exactly 9 widgets - the 8 SDLC stages plus Presentation (found ${workspaceWidgets.length})`);
 assert(
   workspaceWidgets.map((w) => w.dataset.stage).join(",") ===
-    "ideation,requirement,planning,design,development,testing,deployment,operations",
-  "the 8 widgets are the real SDLC stages in order"
+    "ideation,requirement,planning,design,development,testing,deployment,operations,presentation",
+  "the 8 SDLC-stage widgets are in order, with Presentation appended after them"
 );
+
+document.querySelector('#mount-workspace [data-stage="presentation"]').click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Presentation"),
+  "Presentation drills into its own detail view like every other widget"
+);
+assert(
+  document.querySelector("#mount-workspace .workspace-function-stub .workspace-function-label")?.textContent === "Slides",
+  "Presentation shows an honestly-labeled 'Slides' stub, not a fake-functional button"
+);
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
 
 document.querySelector('#mount-workspace [data-stage="deployment"]').click();
 await sleep(20);
@@ -146,29 +159,77 @@ assert(
   document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Deployment"),
   "drilling into a widget shows that stage's detail view"
 );
-const deploymentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
+assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Deployment has no stubs left - Git moved to Development's Repository, and Cloud is now real");
+const deploymentFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
-  deploymentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Git,Cloud",
-  "Deployment's functions (Git, Cloud) render as honestly-labeled stubs, not fake-functional buttons - no real Git/Cloud integration exists yet"
+  deploymentFunctions.length === 1 && deploymentFunctions[0].textContent.includes("Cloud"),
+  `Deployment shows exactly one real function, Cloud (found ${deploymentFunctions.map((el) => el.textContent).join(" | ")})`
 );
+
+// Cloud providers: a real, recognizable catalog of actual cloud
+// providers (not a free-text "type any name" list) - tapping a card
+// toggles it on/off, no real cloud API calls or credentials.
+deploymentFunctions[0].click();
+await sleep(20);
+const providerCards = [...document.querySelectorAll("#mount-workspace .cloud-provider-card")];
+const providerNames = providerCards.map((el) => el.querySelector(".cloud-provider-name").textContent);
 assert(
-  deploymentStubs.every((el) => el.querySelector(".workspace-function-badge").textContent === "Coming soon"),
-  "each stub is explicitly labeled, not just visually muted"
+  providerNames.includes("AWS") && providerNames.includes("Microsoft Azure") && providerNames.includes("Google Cloud"),
+  `Cloud opens a real catalog of actual, recognizable providers (found ${providerNames.join(", ")})`
 );
-assert(document.querySelector("#mount-workspace .workspace-function-live") === null, "Deployment has no real, clickable function yet");
+assert(providerCards.every((el) => !el.classList.contains("selected")), "no provider is selected by default");
+
+const awsCard = providerCards.find((el) => el.querySelector(".cloud-provider-name").textContent === "AWS");
+awsCard.click();
+await sleep(20);
+assert(document.querySelector('[data-provider-id="aws"]').classList.contains("selected"), "tapping a provider card selects it");
+assert(document.querySelector('[data-provider-id="aws"] .cloud-provider-check').textContent.includes("Added"), "a selected card shows an 'Added' badge");
+
+const gcpCard = document.querySelector('[data-provider-id="gcp"]');
+gcpCard.click();
+await sleep(20);
+assert(
+  document.querySelector('[data-provider-id="aws"]').classList.contains("selected") &&
+    document.querySelector('[data-provider-id="gcp"]').classList.contains("selected"),
+  "selecting a second provider doesn't deselect the first"
+);
+
+document.querySelector('[data-provider-id="aws"]').click();
+await sleep(20);
+assert(
+  !document.querySelector('[data-provider-id="aws"]').classList.contains("selected") &&
+    document.querySelector('[data-provider-id="gcp"]').classList.contains("selected"),
+  "tapping a selected card again deselects just that one"
+);
+
+document.getElementById("cloud-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Cloud"),
+  "Cloud's own back button returns to Deployment's function list, not the Workspace overview"
+);
 
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 assert(
-  document.querySelectorAll('#mount-workspace [data-stage]').length === 8,
-  "the back button returns to the 8-widget overview"
+  document.querySelectorAll('#mount-workspace [data-stage]').length === 9,
+  "the back button returns to the 9-widget overview"
 );
 
 document.querySelector('#mount-workspace [data-stage="development"]').click();
 await sleep(20);
-const developmentLink = document.querySelector("#mount-workspace .workspace-function-live");
-assert(developmentLink !== null && developmentLink.textContent.includes("Editor"), "Development's Editor function is a real, live link");
-developmentLink.click();
+const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
+assert(developmentLive.length === 1 && developmentLive[0].textContent.includes("Editor"), "Development's Editor function is still the one real, live link");
+assert(
+  developmentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "CLI,Repository",
+  `Development also shows CLI and Repository as honestly-labeled stubs (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
+);
+assert(
+  [...document.querySelectorAll("#mount-workspace .workspace-function-label")].every((el) => el.textContent !== "Git"),
+  "Git no longer appears anywhere in the Workspace hub - it moved into Development's Repository stub"
+);
+developmentLive[0].click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "tapping a live function navigates to the real tab it points at");
 assert(document.getElementById("mount-editor").classList.contains("active"), "the Editor tab is now the active page");

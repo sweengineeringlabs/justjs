@@ -38,18 +38,23 @@ stand-in.
   release, unlike Chat — Generate is a deliberate, sometimes-costly
   action); only New Project also accepts a screenshot ("build this from
   this mockup").
-- **Workspace** (`x-workspace`, `/workspace`) — an SDLC hub: 8 widgets
-  (Ideation, Requirement, Planning, Design, Development, Testing,
-  Deployment, Operations), same widget-grid-then-drill-down architecture
-  `agentic-memory-demo`'s Memories tab established. Four stages link to
-  real, working tabs this app already has — Ideation→Chat,
-  Planning→Scaffold, Development→Editor, Testing→Review. **Design**'s two
-  entries, Architecture and Wireframes, are both real (not stubs) — both
-  open the same inline capability (below), since one generated doc
-  genuinely covers both. The remaining three (Requirement, Deployment,
-  Operations) show honestly-labeled "Coming soon" entries, not
-  fake-functional buttons — e.g. Deployment's "Git"/"Cloud" entries don't
-  run git commands or talk to any cloud provider.
+- **Workspace** (`x-workspace`, `/workspace`) — an SDLC hub: 9 widgets
+  (the 8 SDLC stages — Ideation, Requirement, Planning, Design,
+  Development, Testing, Deployment, Operations — plus Presentation),
+  same widget-grid-then-drill-down architecture `agentic-memory-demo`'s
+  Memories tab established. Four stages link to real, working tabs this
+  app already has — Ideation→Chat, Planning→Scaffold, Development→Editor,
+  Testing→Review. **Design**'s two entries, Architecture and Wireframes,
+  are both real (not stubs) — both open the same inline capability
+  (below), since one generated doc genuinely covers both. **Deployment**'s
+  Cloud entry is also real (not a stub) — a fixed catalog of actual,
+  recognizable cloud providers (AWS, Google Cloud, Microsoft Azure,
+  DigitalOcean, Cloudflare, Vercel, Netlify, Heroku) to toggle on/off, not
+  a free-text "type any name" list — no real cloud API calls or
+  credentials either way. Development additionally shows CLI and
+  Repository, Presentation shows Slides, and Requirement/Operations show
+  their entries, all as honestly-labeled "Coming soon" stubs, not
+  fake-functional buttons.
 
 ## Design — Markdown + Mermaid doc generator
 
@@ -117,6 +122,22 @@ silent assumption: before calling this feature fully done, open
 `bun run dev`, add a real Anthropic API key in Settings, generate a
 design doc, and confirm Preview shows a real rendered diagram (not just
 that the fallback note correctly *doesn't* appear).
+
+## Deployment — Cloud providers catalog
+
+Deployment's Cloud entry is real, not a stub: a fixed catalog of actual,
+recognizable cloud providers (AWS, Google Cloud, Microsoft Azure,
+DigitalOcean, Cloudflare, Vercel, Netlify, Heroku — `workspace.ts`'s
+`CLOUD_PROVIDER_CATALOG`), each rendered as a card with its own icon and
+name. Tapping a card toggles it on/off (an "Added" badge and an
+accent-colored border mark a selected card) — a real multi-select, not a
+free-text "type any name" list that could hold anything. There is still
+no real cloud API integration — no credentials are collected or stored,
+matching this app's established security posture around the Anthropic
+API key; toggling a provider on just means "listed," not "connected."
+Git, previously listed here, moved to Development's "Repository" entry
+(also a stub — a repository is a development-stage concern, not a
+deployment one).
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -262,11 +283,14 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's Preview is actually used); `node
 verify_web.mjs` (real DOM via happy-dom against the real built bundle)
-passes all 105 assertions — boot, DDAS mounting into all five routes,
-the Workspace hub's 8 widgets (in the right SDLC order) drilling into
-real live links vs. honestly-labeled stubs correctly, Design's
-Architecture and Wireframes both opening the same real generator (with
-the same in-progress doc, not two separate copies) and its
+passes all 123 assertions — boot, DDAS mounting into all five routes,
+the Workspace hub's 9 widgets (the 8 SDLC stages in order, plus
+Presentation) drilling into real live links vs. honestly-labeled stubs
+correctly, Deployment's Cloud providers catalog (toggling real,
+recognizable providers on/off individually, no "Git" label anywhere
+anymore), Design's Architecture and Wireframes both opening the same
+real generator (with the same in-progress doc, not two separate copies)
+and its
 generate→Edit/Preview→Mermaid-fallback→Create-file flow via a mocked-
 fetch/real-app-logic technique (no real network call, but the real
 dynamic `import("mermaid")`, the real attempted render, and the real,

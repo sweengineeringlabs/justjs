@@ -14,12 +14,17 @@ interface SdlcFunction {
   readonly route?: string;
   // Present => clicking opens an inline view within this stage's own
   // detail screen (WorkspaceElement's own drill-down), rather than
-  // navigating to another tab or showing a stub. Only Design uses this
-  // today - Architecture and Wireframes are two distinct entries that
-  // both open the same real generateDesignDoc() capability, since one
-  // generated Markdown+Mermaid doc genuinely covers what both labels
-  // represent (the write-up and the diagram).
-  readonly action?: "design-generate";
+  // navigating to another tab or showing a stub. "design-generate":
+  // Architecture and Wireframes are two distinct entries that both open
+  // the same real generateDesignDoc() capability, since one generated
+  // Markdown+Mermaid doc genuinely covers what both labels represent
+  // (the write-up and the diagram). "cloud-providers": a real,
+  // recognizable catalog of actual cloud providers (AWS, Azure, Google
+  // Cloud, etc. - see CLOUD_PROVIDER_CATALOG) to toggle on/off, not a
+  // free-text "type any name" list - no real cloud API calls, this app
+  // has never made one, and real provider credentials would need the
+  // same security handling the Anthropic key already gets.
+  readonly action?: "design-generate" | "cloud-providers";
 }
 
 interface SdlcStage {
@@ -29,6 +34,27 @@ interface SdlcStage {
   readonly functions: readonly SdlcFunction[];
 }
 
+interface CloudProvider {
+  readonly id: string;
+  readonly name: string;
+  readonly icon: string;
+}
+
+// A real, recognizable set of actual cloud providers - not arbitrary
+// user-typed strings. Selecting one just toggles it on/off in this local
+// list; there is no real API call to any of these, no credentials
+// collected.
+const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
+  { id: "aws", name: "AWS", icon: "🟧" },
+  { id: "gcp", name: "Google Cloud", icon: "🔴" },
+  { id: "azure", name: "Microsoft Azure", icon: "🔷" },
+  { id: "digitalocean", name: "DigitalOcean", icon: "💧" },
+  { id: "cloudflare", name: "Cloudflare", icon: "🟠" },
+  { id: "vercel", name: "Vercel", icon: "▲" },
+  { id: "netlify", name: "Netlify", icon: "🟢" },
+  { id: "heroku", name: "Heroku", icon: "🟣" },
+];
+
 // Development -> Editor, Testing -> Review, Ideation -> Chat, and
 // Planning -> Scaffold are real links into this app's existing tabs -
 // each the natural fit for that stage (scaffolding a new file/project
@@ -36,8 +62,15 @@ interface SdlcStage {
 // brainstorming with Chat IS ideation). Design's Architecture and
 // Wireframes are both real (not stubs) - both open the same inline
 // Markdown+Mermaid generator (renderDesignGenerator() below), since one
-// generated doc covers both. Requirement/Deployment/Operations have no
-// corresponding feature in this app yet.
+// generated doc covers both. Development's CLI and Repository are
+// honestly-labeled stubs like Requirement/Operations - Repository is
+// where "Git" used to live under Deployment (moved here, since a
+// repository is a development-stage concern, not a deployment one).
+// Deployment's Cloud is real (not a stub) - a real catalog of actual
+// cloud providers to toggle on/off (renderCloudProviders() below), not
+// real cloud API integration. Presentation is a 9th widget appended
+// after the 8 SDLC stages - it isn't itself an SDLC stage, but the user
+// asked for it alongside them, so it lives in the same overview grid.
 const SDLC_STAGES: readonly SdlcStage[] = [
   { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", route: "/chat" }] },
   { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs" }, { label: "User Stories" }] },
@@ -51,10 +84,21 @@ const SDLC_STAGES: readonly SdlcStage[] = [
       { label: "Wireframes", action: "design-generate" },
     ],
   },
-  { key: "development", label: "Development", icon: "💻", functions: [{ label: "Editor", route: "/editor" }] },
+  {
+    key: "development",
+    label: "Development",
+    icon: "💻",
+    functions: [{ label: "Editor", route: "/editor" }, { label: "CLI" }, { label: "Repository" }],
+  },
   { key: "testing", label: "Testing", icon: "🧪", functions: [{ label: "Review", route: "/review" }] },
-  { key: "deployment", label: "Deployment", icon: "🚀", functions: [{ label: "Git" }, { label: "Cloud" }] },
+  {
+    key: "deployment",
+    label: "Deployment",
+    icon: "🚀",
+    functions: [{ label: "Cloud", action: "cloud-providers" }],
+  },
   { key: "operations", label: "Operations", icon: "📈", functions: [{ label: "Monitoring" }, { label: "Logs" }] },
+  { key: "presentation", label: "Presentation", icon: "📽️", functions: [{ label: "Slides" }] },
 ];
 
 function escapeHtml(text: string): string {
@@ -63,11 +107,13 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
-// The SDLC hub: an 8-widget overview (one per stage), drilling into each
-// stage's function list on tap - same widget-grid-then-drill-down
-// architecture agentic-memory-demo's dashboard.ts established. Design is
-// the one stage with real, inline functionality (a Markdown+Mermaid
-// design-doc generator) rather than a link elsewhere or a stub.
+// The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
+// drilling into each stage's function list on tap - same
+// widget-grid-then-drill-down architecture agentic-memory-demo's
+// dashboard.ts established. Design and Deployment's Cloud are the stages
+// with real, inline functionality (a Markdown+Mermaid design-doc
+// generator; a real cloud-provider catalog to toggle on/off) rather than
+// a link elsewhere or a stub.
 export class WorkspaceElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
@@ -85,6 +131,14 @@ export class WorkspaceElement extends HTMLElement {
   // every other stage's two (Workspace -> function list). This flag is
   // the third level's on/off switch.
   private showDesignGenerator = false;
+
+  // Deployment's Cloud providers - a real, recognizable catalog (see
+  // CLOUD_PROVIDER_CATALOG), not a stub and not free-text: this stores
+  // the ids of providers the user has toggled on. No real cloud API
+  // integration - just a local selection, same as Design's doc never
+  // auto-persisting.
+  private cloudProviders: string[] = [];
+  private showCloudProviders = false;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.store = ctx?.store;
@@ -125,8 +179,9 @@ export class WorkspaceElement extends HTMLElement {
       btn.addEventListener("click", () => {
         this.currentStageKey = btn.dataset.stage ?? null;
         // Always start a freshly-entered stage at its function list, not
-        // mid-generator from a previous visit.
+        // mid-generator/mid-provider-list from a previous visit.
         this.showDesignGenerator = false;
+        this.showCloudProviders = false;
         this.renderView();
       });
     });
@@ -135,6 +190,10 @@ export class WorkspaceElement extends HTMLElement {
   private renderStage(container: Element, stage: SdlcStage): void {
     if (stage.key === "design" && this.showDesignGenerator) {
       this.renderDesignGenerator(container);
+      return;
+    }
+    if (stage.key === "deployment" && this.showCloudProviders) {
+      this.renderCloudProviders(container);
       return;
     }
     container.innerHTML = `
@@ -185,6 +244,12 @@ export class WorkspaceElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="design-generate"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showDesignGenerator = true;
+        this.renderView();
+      });
+    });
+    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cloud-providers"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.showCloudProviders = true;
         this.renderView();
       });
     });
@@ -375,6 +440,50 @@ export class WorkspaceElement extends HTMLElement {
     if (el) {
       el.hidden = true;
     }
+  }
+
+  // ---- Deployment: Cloud providers (opened from Cloud above) ----
+
+  private renderCloudProviders(container: Element): void {
+    container.innerHTML = `
+      <div class="dash-subnav">
+        <button id="cloud-back-btn" class="dash-back-btn" type="button">← Deployment</button>
+        <h2 class="workspace-stage-title">🚀 Cloud Providers</h2>
+      </div>
+      <p class="cloud-providers-hint">Tap a provider to add or remove it. No credentials are collected — this is a local list only, not a real connection.</p>
+      <div class="cloud-provider-grid">
+        ${CLOUD_PROVIDER_CATALOG.map((p) => {
+          const selected = this.cloudProviders.includes(p.id);
+          return `
+            <button type="button" class="cloud-provider-card${selected ? " selected" : ""}" data-provider-id="${p.id}">
+              <span class="cloud-provider-icon">${p.icon}</span>
+              <span class="cloud-provider-name">${escapeHtml(p.name)}</span>
+              <span class="cloud-provider-check">✓ Added</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    this.querySelector("#cloud-back-btn")?.addEventListener("click", () => {
+      // One level back - to Deployment's own function list, not all the
+      // way out to the Workspace overview.
+      this.showCloudProviders = false;
+      this.renderView();
+    });
+
+    container.querySelectorAll<HTMLButtonElement>("[data-provider-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.providerId;
+        if (!id) {
+          return;
+        }
+        this.cloudProviders = this.cloudProviders.includes(id)
+          ? this.cloudProviders.filter((p) => p !== id)
+          : [...this.cloudProviders, id];
+        this.renderView();
+      });
+    });
   }
 }
 
