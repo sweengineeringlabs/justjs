@@ -507,4 +507,236 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
     // treated as a tear-down-and-remount.
     expect(unmounts).toHaveLength(0)
   })
+
+  it("test_a_keep_alive_route_is_never_unmounted_navigating_away_while_a_regular_route_still_is (justjs#94)", async () => {
+    const mounted: string[] = []
+    const unmounted: string[] = []
+    const runtimeAdapter = {
+      mount(ddasId: string) {
+        mounted.push(ddasId)
+        return {
+          unmount() {
+            unmounted.push(ddasId)
+          },
+        }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => ({ name: "dashboard", render() {} }))
+    registry.register("x-settings", () => ({ name: "settings", render() {} }))
+    const domAddressMap: DomAddressMap = {
+      elements: {
+        "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" },
+        "app:home:settings:root": { component: "settings", tag: "x-settings" },
+      },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const dashboardTarget = document.createElement("x-dashboard")
+    dashboardTarget.setAttribute("data-ddas-id", "app:home:dashboard:root")
+    document.body.appendChild(dashboardTarget)
+    const settingsTarget = document.createElement("x-settings")
+    settingsTarget.setAttribute("data-ddas-id", "app:home:settings:root")
+    document.body.appendChild(settingsTarget)
+
+    const router = new DefaultRouter(
+      ["/dashboard", "/settings"],
+      {
+        "x-dashboard": { path: "/dashboard", component: "dashboard", keepAlive: true },
+        "x-settings": { path: "/settings", component: "settings" },
+      },
+      lifecycle,
+      domAddressMap
+    )
+
+    await router.navigate("/dashboard")
+    await router.navigate("/settings")
+    await router.navigate("/dashboard")
+    await router.navigate("/settings")
+
+    // dashboard (keepAlive) mounts exactly once across two visits; settings
+    // (not keepAlive) mounts fresh every time, matching today's unchanged
+    // behavior.
+    expect(mounted).toEqual([
+      "app:home:dashboard:root",
+      "app:home:settings:root",
+      "app:home:settings:root",
+    ])
+    // settings gets torn down every time it's left; dashboard never does.
+    expect(unmounted).toEqual(["app:home:settings:root"])
+  })
+
+  it("test_returning_to_a_kept_alive_route_rerenders_it_without_remounting (justjs#94)", async () => {
+    const mounted: string[] = []
+    let dashboardRenderCount = 0
+    const runtimeAdapter = {
+      mount(ddasId: string) {
+        mounted.push(ddasId)
+        return { unmount() {} }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-dashboard", () => ({
+      name: "dashboard",
+      render() {
+        dashboardRenderCount++
+      },
+    }))
+    registry.register("x-settings", () => ({ name: "settings", render() {} }))
+    const domAddressMap: DomAddressMap = {
+      elements: {
+        "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" },
+        "app:home:settings:root": { component: "settings", tag: "x-settings" },
+      },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const dashboardTarget = document.createElement("x-dashboard")
+    dashboardTarget.setAttribute("data-ddas-id", "app:home:dashboard:root")
+    document.body.appendChild(dashboardTarget)
+    const settingsTarget = document.createElement("x-settings")
+    settingsTarget.setAttribute("data-ddas-id", "app:home:settings:root")
+    document.body.appendChild(settingsTarget)
+
+    const router = new DefaultRouter(
+      ["/dashboard", "/settings"],
+      {
+        "x-dashboard": { path: "/dashboard", component: "dashboard", keepAlive: true },
+        "x-settings": { path: "/settings", component: "settings" },
+      },
+      lifecycle,
+      domAddressMap
+    )
+
+    await router.navigate("/dashboard")
+    expect(dashboardRenderCount).toBe(1)
+    expect(mounted).toEqual(["app:home:dashboard:root"])
+
+    await router.navigate("/settings")
+    await router.navigate("/dashboard")
+
+    // A real rerender happened on return...
+    expect(dashboardRenderCount).toBe(2)
+    // ...but RuntimeAdapter.mount() was never called a second time for it.
+    expect(mounted).toEqual(["app:home:dashboard:root", "app:home:settings:root"])
+  })
+
+  it("test_two_simultaneously_kept_alive_routes_both_stay_mounted_navigating_to_a_third (justjs#94)", async () => {
+    const unmounted: string[] = []
+    const runtimeAdapter = {
+      mount(ddasId: string) {
+        return {
+          unmount() {
+            unmounted.push(ddasId)
+          },
+        }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-a", () => ({ name: "a", render() {} }))
+    registry.register("x-b", () => ({ name: "b", render() {} }))
+    registry.register("x-c", () => ({ name: "c", render() {} }))
+    const domAddressMap: DomAddressMap = {
+      elements: {
+        "app:home:a:root": { component: "a", tag: "x-a" },
+        "app:home:b:root": { component: "b", tag: "x-b" },
+        "app:home:c:root": { component: "c", tag: "x-c" },
+      },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    for (const tag of ["x-a", "x-b", "x-c"]) {
+      const el = document.createElement(tag)
+      el.setAttribute("data-ddas-id", `app:home:${tag.slice(2)}:root`)
+      document.body.appendChild(el)
+    }
+
+    const router = new DefaultRouter(
+      ["/a", "/b", "/c"],
+      {
+        "x-a": { path: "/a", component: "a", keepAlive: true },
+        "x-b": { path: "/b", component: "b", keepAlive: true },
+        "x-c": { path: "/c", component: "c" },
+      },
+      lifecycle,
+      domAddressMap
+    )
+
+    await router.navigate("/a")
+    await router.navigate("/b")
+    await router.navigate("/c")
+
+    // Neither keep-alive route was unmounted navigating through them, nor
+    // when finally leaving for the non-keep-alive third route.
+    expect(unmounted).toHaveLength(0)
+  })
+
+  it("test_store_dispatch_while_on_a_kept_alive_route_rerenders_the_current_one_not_a_backgrounded_one (justjs#94)", async () => {
+    const store = createFeatureStore<{ count: number }, { type: "INCREMENT" }>(
+      { count: 0 },
+      (state, action) => (action.type === "INCREMENT" ? { count: state.count + 1 } : state)
+    )
+
+    let aRenderCount = 0
+    let bRenderCount = 0
+    const runtimeAdapter = {
+      mount() {
+        return { unmount() {} }
+      },
+    }
+    const registry = new DefaultComponentRegistry()
+    registry.register("x-a", () => ({
+      name: "a",
+      render() {
+        aRenderCount++
+      },
+    }))
+    registry.register("x-b", () => ({
+      name: "b",
+      render() {
+        bRenderCount++
+      },
+    }))
+    const domAddressMap: DomAddressMap = {
+      elements: {
+        "app:home:a:root": { component: "a", tag: "x-a" },
+        "app:home:b:root": { component: "b", tag: "x-b" },
+      },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, runtimeAdapter, registry)
+
+    const aTarget = document.createElement("x-a")
+    aTarget.setAttribute("data-ddas-id", "app:home:a:root")
+    document.body.appendChild(aTarget)
+    const bTarget = document.createElement("x-b")
+    bTarget.setAttribute("data-ddas-id", "app:home:b:root")
+    document.body.appendChild(bTarget)
+
+    const router = new DefaultRouter(
+      ["/a", "/b"],
+      {
+        "x-a": { path: "/a", component: "a", keepAlive: true },
+        "x-b": { path: "/b", component: "b", keepAlive: true },
+      },
+      lifecycle,
+      domAddressMap,
+      store
+    )
+
+    await router.navigate("/a")
+    expect(aRenderCount).toBe(1)
+
+    await router.navigate("/b")
+    expect(bRenderCount).toBe(1)
+
+    // A store dispatch while /b is current must reach only /b - the
+    // still-alive-but-backgrounded /a must not react, since its
+    // subscription was torn down when we left it (same ADR-0004 contract
+    // non-keep-alive routes already have).
+    store.dispatch({ type: "INCREMENT" })
+    await flush()
+
+    expect(bRenderCount).toBe(2)
+    expect(aRenderCount).toBe(1)
+  })
 })

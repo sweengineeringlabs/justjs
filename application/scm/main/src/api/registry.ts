@@ -38,6 +38,12 @@ export interface RouteRegistryEntry {
   readonly path: string
   readonly component: string
   readonly params?: Record<string, string>
+  // justjs#94: opt-in only, default false/absent - a keep-alive route's
+  // mounted component is never unmounted when navigating away, and never
+  // remounted (MountStep/RuntimeAdapter.mount() never re-fires) when
+  // navigating back to it, only rerender()'d. Every other route keeps
+  // today's exact unmount-on-navigate-away behavior unchanged.
+  readonly keepAlive?: boolean
 }
 
 // justweb's `component-registry.gen.ts` (ADR-0008) exports this exact shape —
