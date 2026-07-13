@@ -527,6 +527,47 @@ assert(lastCliOutput().includes("renamed.txt"), "mv into an existing directory m
 runCliLine("mv cli-test cli-test/sub");
 assert(lastCliIsError() && lastCliOutput().includes("into itself"), "mv refuses to move a folder into its own descendant");
 
+runCliLine("cp cli-test/sub/renamed.txt cli-test/copy.txt");
+runCliLine("cat cli-test/copy.txt");
+assert(lastCliOutput() === "", "cp creates a real copy of the file");
+assert(treeRow("cli-test/sub/renamed.txt") !== null, "cp leaves the original file in place, unlike mv");
+assert(treeRow("cli-test/copy.txt") !== null, "cp's effect is real - the copy appears in the real file tree");
+
+runCliLine("cp cli-test/sub cli-test/sub");
+assert(lastCliIsError() && lastCliOutput().includes("into itself"), "cp refuses to copy a folder into itself, the same guard mv has");
+
+runCliLine("mkdir cli-test/sub2");
+runCliLine("cp cli-test/sub cli-test/sub2");
+runCliLine("ls cli-test/sub2/sub");
+assert(lastCliOutput().includes("renamed.txt"), "cp can copy a whole real folder recursively, not just single files");
+
+runCliLine("grep greet src/utils/greet.js");
+assert(
+  lastCliOutput().includes("/src/utils/greet.js:1:") && lastCliOutput().includes("greet"),
+  `grep finds a real match with real file:line:content formatting (found "${lastCliOutput()}")`
+);
+
+runCliLine("grep nonexistent-pattern-xyz src");
+assert(lastCliOutput() === "", "grep with no matches is a real, honest empty result, not an error - matches real grep's own convention");
+
+runCliLine("grep greet src");
+assert(lastCliOutput().includes("greet.js"), "grep searches recursively through a real directory, not just one file");
+
+runCliLine("find src -name greet.js");
+assert(lastCliOutput() === "/src/utils/greet.js", `find -name locates a real file by basename anywhere under the real tree (found "${lastCliOutput()}")`);
+
+runCliLine("find src");
+assert(
+  lastCliOutput().includes("/src/main.js") && lastCliOutput().includes("/src/utils") && lastCliOutput().includes("/src/utils/greet.js"),
+  "find with no filter lists every real path recursively, files and folders alike"
+);
+
+runCliLine("ssh example.com");
+assert(
+  lastCliIsError() && lastCliOutput().includes("browser sandbox"),
+  "ssh is an honest error, not a fake connection - a browser genuinely cannot open a real TCP socket"
+);
+
 runCliLine("rm cli-test");
 assert(lastCliIsError() && lastCliOutput().toLowerCase().includes("directory"), "rm without -r refuses to delete a real, non-empty directory");
 

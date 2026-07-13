@@ -32,6 +32,7 @@ export type AppAction =
   | { type: "CREATE_FILE"; path: string; content: string; language: string }
   | { type: "CREATE_FOLDER"; path: string }
   | { type: "RENAME_PATH"; oldPath: string; newPath: string; isFolder: boolean }
+  | { type: "COPY_PATH"; oldPath: string; newPath: string; isFolder: boolean }
   | { type: "DELETE_PATH"; path: string; isFolder: boolean }
   | { type: "REPLACE_PROJECT"; files: FileMap; emptyFolders: string[]; activeFilePath: string | null }
   | { type: "SET_REVIEW_FINDINGS"; findings: ReviewFinding[]; reviewedFilePath: string }
@@ -192,6 +193,31 @@ export function reducer(state: AppState, action: AppAction): AppState {
           ? renamedPath(state.activeFilePath, action.oldPath, action.newPath)
           : state.activeFilePath;
       return { ...state, files: nextFiles, emptyFolders: nextEmptyFolders, activeFilePath: nextActive };
+    }
+
+    // Same shape as RENAME_PATH's collision-checked-by-the-caller
+    // contract, but additive rather than replacing - the source entries
+    // stay exactly where they are, copies are added alongside them.
+    // activeFilePath is deliberately left untouched (a copy of the
+    // active file isn't itself "opened").
+    case "COPY_PATH": {
+      if (!action.isFolder) {
+        const source = state.files[action.oldPath];
+        if (!source) {
+          return state;
+        }
+        return { ...state, files: { ...state.files, [action.newPath]: { ...source } } };
+      }
+      const nextFiles: FileMap = { ...state.files };
+      for (const [path, node] of Object.entries(state.files)) {
+        if (isDescendantOrSelf(path, action.oldPath)) {
+          nextFiles[renamedPath(path, action.oldPath, action.newPath)] = { ...node };
+        }
+      }
+      const copiedEmptyFolders = state.emptyFolders
+        .filter((path) => isDescendantOrSelf(path, action.oldPath))
+        .map((path) => renamedPath(path, action.oldPath, action.newPath));
+      return { ...state, files: nextFiles, emptyFolders: [...state.emptyFolders, ...copiedEmptyFolders] };
     }
 
     // Deleting a folder always deletes everything inside it (like

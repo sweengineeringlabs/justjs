@@ -207,27 +207,47 @@ and not a real OS shell — this app is browser-only with no backend to
 shell out to.
 
 Commands: `pwd`, `ls [path]`, `cd [path]`, `cat <path>`, `mkdir <path>`,
-`touch <path>`, `rm [-r] <path>`, `mv <src> <dest>`, `echo <text>`,
-`help`, `clear`. Each mutating command returns a real `AppAction`
-(`CREATE_FILE`/`CREATE_FOLDER`/`RENAME_PATH`/`DELETE_PATH`) that
-`workspace.ts` dispatches into the real store — running `mkdir` in the
-terminal makes the same folder show up in the Editor's real file tree,
-not a terminal-only illusion. A few deliberate, real-shell-faithful
-behaviors rather than shortcuts: `touch` on an already-existing file is
-a silent no-op (this virtual filesystem has no mtime field for `touch`
-to legitimately bump, and re-creating the file would clobber real
-content with an empty string); `mv file existing-dir/` moves the file
-into that directory under its own basename, the single most-reached-for
-real `mv` invocation; `mv` refuses to move a folder into itself or its
-own descendant (`cannot move into itself`) — the underlying
-`RENAME_PATH` reducer would otherwise silently produce a corrupted,
-double-nested duplicate, since the file explorer's own rename UI can
-never trigger this case (it only ever renames within the same parent,
-never to an arbitrary destination elsewhere in the tree the way `mv`
-can). `echo` has no `>` redirection — a deliberate scope cut, not an
+`touch <path>`, `rm [-r] <path>`, `mv <src> <dest>`, `cp <src> <dest>`,
+`grep <pattern> [path]`, `find [path] [-name pattern]`, `echo <text>`,
+`ssh <host>`, `help`, `clear`. Each mutating command returns a real
+`AppAction` (`CREATE_FILE`/`CREATE_FOLDER`/`RENAME_PATH`/`COPY_PATH`/
+`DELETE_PATH`) that `workspace.ts` dispatches into the real store —
+running `mkdir` in the terminal makes the same folder show up in the
+Editor's real file tree, not a terminal-only illusion. A few deliberate,
+real-shell-faithful behaviors rather than shortcuts: `touch` on an
+already-existing file is a silent no-op (this virtual filesystem has no
+mtime field for `touch` to legitimately bump, and re-creating the file
+would clobber real content with an empty string); `mv`/`cp file
+existing-dir/` moves/copies into that directory under its own basename,
+the single most-reached-for real invocation of either; `mv`/`cp` both
+refuse to move/copy a folder into itself or its own descendant (`cannot
+move/copy into itself`) — the underlying `RENAME_PATH`/`COPY_PATH`
+reducers would otherwise silently produce a corrupted, double-nested
+duplicate, since the file explorer's own rename UI can never trigger
+this case (it only ever renames within the same parent, never to an
+arbitrary destination elsewhere in the tree the way `mv`/`cp` can).
+`COPY_PATH` (`core/state.ts`) is a new reducer action mirroring
+`RENAME_PATH`'s exact structure but additive rather than replacing — the
+source entries stay exactly where they are, copies are added alongside
+them. `grep`/`find` returning zero matches is a real, honest empty
+result, not an error — the same convention real `grep`/`find` use.
+`echo` has no `>` redirection — a deliberate scope cut, not an
 oversight. `clear` is a client-side terminal built-in (wipes the local
 transcript) rather than a real filesystem command, matching how real
 terminal emulators handle it — it never reaches `core/cli.ts` at all.
+
+**`ssh` is a deliberately honest error, not a fake connection.** A
+browser page cannot open a raw TCP socket at all — the only network
+primitives the web platform exposes are `fetch`/`XHR` (HTTP(S) only) and
+`WebSocket` (needs a WebSocket server on the other end, not an arbitrary
+TCP service). Even real "web SSH" terminals (the kind cloud consoles
+ship) don't run SSH in the browser either — they relay bytes over a
+WebSocket to a real backend that opens the actual SSH connection
+server-side. This app has no backend at all (same reason the Anthropic
+API key is called directly from the browser instead of through a proxy
+— see below), so even that relay pattern has nothing to connect to
+here. `ssh` prints an honest "not available" error explaining exactly
+why, rather than a pretend connection.
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -393,7 +413,7 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 179 assertions — boot, DDAS mounting into all
+built bundle) passes all 190 assertions — boot, DDAS mounting into all
 five routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
 stubs correctly, Deployment's Cloud providers catalog (toggling real,
@@ -416,11 +436,14 @@ directly, and a `flowchart` that resolves but gets rejected by
 fallback note rather than broken markup), Development's CLI running a
 real command sequence against the real virtual filesystem (`pwd`/`ls`/
 `cd`/`cat`/`mkdir`/`touch`, including the no-clobber-on-an-existing-file
-proof/`rm`(`-r`)/`mv` including the move-into-directory expansion and
-the move-into-itself guard/an unknown-command error/`clear`), each
-mutating command's effect confirmed in the real file tree, not just the
-terminal's own transcript, the starter tree
-rendering real nested
+proof/`rm`(`-r`)/`mv`/`cp` including the move-and-copy-into-directory
+expansion and the move/copy-into-itself guards/`grep` finding a real
+match with real `file:line:content` output and a real, honest empty
+result on no match/`find` locating a real path by `-name` and listing a
+real subtree with no filter/`ssh`'s honest "not available" error/an
+unknown-command error/`clear`), each mutating command's effect confirmed
+in the real file tree, not just the terminal's own transcript, the
+starter tree rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/
 delete for both files and folders (including collision rejection and the

@@ -189,9 +189,121 @@ function runMv(args: string[], cwd: string, files: FileMap, emptyFolders: string
   return ok("", cwd, { type: "RENAME_PATH", oldPath: src, newPath: finalDest, isFolder });
 }
 
+function runCp(args: string[], cwd: string, files: FileMap, emptyFolders: string[]): CliCommandResult {
+  if (!args[0] || !args[1]) {
+    return err("cp: missing operand", cwd);
+  }
+  const src = resolvePath(cwd, args[0]);
+  if (!pathExists(files, emptyFolders, src)) {
+    return err(`cp: ${args[0]}: No such file or directory`, cwd);
+  }
+  const destArg = resolvePath(cwd, args[1]);
+  const isFolder = !files[src];
+  // Same "into an existing directory" expansion as mv.
+  const finalDest = isRealFolder(files, emptyFolders, destArg) ? `${destArg ? `${destArg}/` : ""}${baseName(src)}` : destArg;
+  if (finalDest === src) {
+    return err(`cp: '${args[0]}' and '${args[1]}' are identical`, cwd);
+  }
+  if (isFolder && isDescendantOrSelf(finalDest, src)) {
+    return err(`cp: cannot copy '${args[0]}' into itself`, cwd);
+  }
+  if (pathExists(files, emptyFolders, finalDest)) {
+    return err(`cp: ${args[1]}: File exists`, cwd);
+  }
+  return ok("", cwd, { type: "COPY_PATH", oldPath: src, newPath: finalDest, isFolder });
+}
+
+// Every real file path that's target itself (a file) or a descendant of
+// it (a real folder) - "" (root) searches everything, since
+// isDescendantOrSelf(path, "") can never match (no real path starts
+// with the "/" its prefix check would require).
+function collectSearchPaths(files: FileMap, target: string): string[] {
+  if (files[target]) {
+    return [target];
+  }
+  if (target === "") {
+    return Object.keys(files);
+  }
+  return Object.keys(files).filter((path) => isDescendantOrSelf(path, target));
+}
+
+function runGrep(args: string[], cwd: string, files: FileMap, emptyFolders: string[]): CliCommandResult {
+  const pattern = args[0];
+  if (!pattern) {
+    return err("grep: missing pattern", cwd);
+  }
+  const targetArg = args[1];
+  const target = targetArg ? resolvePath(cwd, targetArg) : cwd;
+  if (!files[target] && !isRealFolder(files, emptyFolders, target)) {
+    return err(`grep: ${targetArg ?? promptPath(cwd)}: No such file or directory`, cwd);
+  }
+  const matches: string[] = [];
+  for (const path of collectSearchPaths(files, target).sort()) {
+    files[path]!.content.split("\n").forEach((line, i) => {
+      if (line.includes(pattern)) {
+        matches.push(`/${path}:${i + 1}:${line}`);
+      }
+    });
+  }
+  // Real grep convention: zero matches is a normal, non-error empty
+  // result, not a failure.
+  return ok(matches.join("\n"), cwd);
+}
+
+function collectAllPaths(files: FileMap, emptyFolders: string[], target: string): string[] {
+  const filePaths =
+    target === "" ? Object.keys(files) : Object.keys(files).filter((p) => isDescendantOrSelf(p, target));
+  const folderPaths = [...collectFolderPaths(files, emptyFolders)].filter(
+    (p) => p !== target && (target === "" || isDescendantOrSelf(p, target))
+  );
+  return [...filePaths, ...folderPaths];
+}
+
+function runFind(args: string[], cwd: string, files: FileMap, emptyFolders: string[]): CliCommandResult {
+  const flagIndex = args.indexOf("-name");
+  const namePattern = flagIndex !== -1 ? args[flagIndex + 1] : undefined;
+  const pathArgs = args.filter((_, i) => i !== flagIndex && i !== flagIndex + 1);
+  const targetArg = pathArgs[0];
+  const target = targetArg ? resolvePath(cwd, targetArg) : cwd;
+  if (!isRealFolder(files, emptyFolders, target)) {
+    return err(`find: ${targetArg ?? promptPath(cwd)}: No such directory`, cwd);
+  }
+  let results = collectAllPaths(files, emptyFolders, target);
+  if (namePattern) {
+    results = results.filter((p) => baseName(p).includes(namePattern));
+  }
+  return ok(
+    results
+      .sort()
+      .map((p) => `/${p}`)
+      .join("\n"),
+    cwd
+  );
+}
+
+// A browser page cannot open a raw TCP socket at all - not a missing
+// feature this module could add, a hard platform boundary (the only
+// network primitives the web platform exposes are fetch/XHR (HTTP(S)
+// only) and WebSocket (needs a WebSocket server on the other end, not
+// an arbitrary TCP service) - and even real "web SSH" terminals don't
+// run SSH in the browser either, they relay bytes over a WebSocket to a
+// real backend that opens the actual SSH connection server-side. This
+// app has no backend at all (same reason the Anthropic API key is
+// called directly from the browser instead of through a proxy), so even
+// that relay pattern has nothing to connect to here. An honest error,
+// not a pretend connection.
+function runSsh(cwd: string): CliCommandResult {
+  return err(
+    "ssh: not available - this is a browser sandbox with no raw TCP socket access, and this app has no backend to proxy a connection through",
+    cwd
+  );
+}
+
 const HELP_TEXT = [
   "Commands: pwd, ls [path], cd [path], cat <path>, mkdir <path>,",
-  "touch <path>, rm [-r] <path>, mv <src> <dest>, echo <text>, clear, help",
+  "touch <path>, rm [-r] <path>, mv <src> <dest>, cp <src> <dest>,",
+  "grep <pattern> [path], find [path] [-name pattern], echo <text>,",
+  "clear, help",
 ].join("\n");
 
 export function runCliCommand(rawLine: string, cwd: string, files: FileMap, emptyFolders: string[]): CliCommandResult {
@@ -216,6 +328,14 @@ export function runCliCommand(rawLine: string, cwd: string, files: FileMap, empt
       return runRm(args, cwd, files, emptyFolders);
     case "mv":
       return runMv(args, cwd, files, emptyFolders);
+    case "cp":
+      return runCp(args, cwd, files, emptyFolders);
+    case "grep":
+      return runGrep(args, cwd, files, emptyFolders);
+    case "find":
+      return runFind(args, cwd, files, emptyFolders);
+    case "ssh":
+      return runSsh(cwd);
     case "echo":
       return ok(args.join(" "), cwd);
     case "help":
