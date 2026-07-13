@@ -14,6 +14,13 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Not theme-dependent - lives here once, not repeated in the
+     dark/light override blocks below. */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -122,7 +129,7 @@ body {
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -154,7 +161,7 @@ body {
   width: 36px;
   height: 36px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--surface-alt);
   color: var(--text);
   font-size: 16px;
@@ -188,7 +195,7 @@ body {
   max-width: 480px;
   margin: 0 auto;
   background: var(--surface);
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 16px 16px calc(20px + var(--safe-bottom));
   display: flex;
   flex-direction: column;
@@ -211,7 +218,7 @@ body {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--surface-alt);
   color: var(--text);
   box-shadow: none;
@@ -289,7 +296,7 @@ body {
   gap: 2px;
   padding: 6px 4px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -317,7 +324,7 @@ button {
 button {
   padding: 10px 18px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--accent-text);
   cursor: pointer;
@@ -341,6 +348,51 @@ button.btn-secondary {
   color: var(--text);
 }
 
+/* Pointer-only hover feedback - gated on (hover: hover) so a touch tap
+   doesn't leave a button/row visually "stuck" hovered until the next
+   tap elsewhere (a real issue on touch devices, since touch has no
+   hover-out event). Desktop's :active tap-scale above already covers
+   touch/click feedback; this is purely the "about to click" pointer
+   cue that was previously missing everywhere except .tree-row's own
+   action-icon reveal. */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled),
+  button:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .nav-btn:hover:not(.active) {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--text);
+  }
+
+  .tree-row-label:hover {
+    background: var(--surface-alt);
+  }
+
+  #settings-btn:hover,
+  #theme-toggle-btn:hover,
+  #settings-close-btn:hover,
+  .tree-icon-btn:hover,
+  #chat-image-btn:hover,
+  #chat-mic-btn:hover,
+  .field-mic-btn:hover {
+    background: color-mix(in srgb, var(--surface-alt) 85%, var(--accent) 15%);
+  }
+}
+
+/* Keyboard-focus rings only (:focus-visible, not :focus) - a mouse
+   click on a pill/circle button previously fell through to each
+   browser's own default outline, which visibly clips against
+   border-radius: var(--radius-pill)/var(--radius-circle) shapes.
+   Mirrors the ring input:focus/select:focus/textarea:focus already use
+   below, for one consistent focus language across the whole app. */
+.btn:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 /* Inputs */
 input,
 select,
@@ -348,7 +400,7 @@ textarea {
   padding: 10px 12px;
   margin: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text);
   font-size: 14px;
@@ -430,7 +482,7 @@ textarea:focus {
   min-height: 0;
   display: flex;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   overflow: hidden;
   --editor-line-height: 20px;
@@ -516,7 +568,7 @@ textarea:focus {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent-strong);
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .tree-row-actions {
@@ -539,7 +591,7 @@ textarea:focus {
   background: transparent;
   color: var(--text-muted);
   box-shadow: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .tree-create-row,
@@ -554,7 +606,7 @@ textarea:focus {
   min-width: 0;
   padding: 4px 6px;
   font-size: 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .tree-create-row .tree-icon-btn,
@@ -581,7 +633,7 @@ textarea:focus {
   padding: 5px 0;
   font-size: 11px;
   background: var(--surface);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .sidebar-error {
@@ -702,7 +754,7 @@ textarea:focus {
 
 .chat-message {
   padding: 10px 14px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   max-width: 82%;
   font-size: 14px;
   line-height: 1.4;
@@ -746,7 +798,7 @@ textarea:focus {
 #chat-input {
   flex: 1;
   min-width: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 12px 16px;
 }
 
@@ -760,7 +812,7 @@ textarea:focus {
   max-width: 100%;
   max-height: 160px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin-bottom: 6px;
 }
 
@@ -772,7 +824,7 @@ textarea:focus {
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--surface-alt);
   color: var(--text);
   font-size: 16px;
@@ -811,7 +863,7 @@ textarea:focus {
   padding: 8px 10px;
   margin-bottom: 8px;
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
 
@@ -819,7 +871,7 @@ textarea:focus {
   width: 44px;
   height: 44px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 
@@ -862,7 +914,7 @@ textarea:focus {
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--surface-alt);
   color: var(--text);
   font-size: 14px;
@@ -936,7 +988,7 @@ textarea:focus {
   gap: 10px;
   padding: 12px 14px;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   border-left: 3px solid var(--text-muted);
   text-align: left;
@@ -969,7 +1021,7 @@ textarea:focus {
   font-weight: 700;
   letter-spacing: 0.03em;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-alt);
   color: var(--text-muted);
 }
@@ -1044,7 +1096,7 @@ textarea:focus {
   margin: 0;
   padding: 12px;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.5;
@@ -1076,7 +1128,7 @@ textarea:focus {
 
 .scaffold-project-file {
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
@@ -1121,7 +1173,7 @@ textarea:focus {
   gap: 8px;
   padding: 12px;
   background: color-mix(in srgb, var(--danger) 10%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 .scaffold-replace-confirm p {
@@ -1156,7 +1208,7 @@ textarea:focus {
   gap: 6px;
   padding: 16px;
   background: var(--surface);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   text-align: left;
   min-height: 92px;
@@ -1212,7 +1264,7 @@ textarea:focus {
   gap: 10px;
   padding: 14px;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
 
@@ -1244,7 +1296,7 @@ button.workspace-function-live {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-alt);
   color: var(--text-muted);
 }
@@ -1304,7 +1356,7 @@ button.workspace-function-live {
   overflow-y: auto;
   padding: 14px 16px;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   font-size: 14px;
   line-height: 1.5;
@@ -1347,14 +1399,14 @@ button.workspace-function-live {
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: var(--surface-alt);
   padding: 2px 5px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
 }
 
 .design-preview pre {
   margin: 0 0 10px;
   padding: 10px 12px;
   background: var(--surface-alt);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow-x: auto;
 }
 
@@ -1389,7 +1441,7 @@ button.workspace-function-live {
   margin: 10px 0;
   padding: 10px 12px;
   background: color-mix(in srgb, var(--warning) 12%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .mermaid-fallback-note {
@@ -1435,7 +1487,7 @@ button.workspace-function-live {
   padding: 16px 10px;
   background: var(--surface);
   border: 2px solid transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   text-align: center;
   min-height: 92px;
@@ -1463,7 +1515,7 @@ button.workspace-function-live {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-strong);
   color: var(--accent-text);
 }
@@ -1508,7 +1560,7 @@ button.workspace-function-live {
   padding: 12px 14px;
   margin-bottom: 10px;
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
