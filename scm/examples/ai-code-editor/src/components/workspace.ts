@@ -4,6 +4,7 @@ import { getAiAssistProvider } from "../core/ai_assist.js";
 import { navigateTo } from "../core/navigation.js";
 import { inferLanguage, normalizePath, pathExists } from "../core/fs.js";
 import { renderMarkdownToHtml, splitMarkdownSlides } from "../core/markdown.js";
+import { runCliCommand } from "../core/cli.js";
 
 interface SdlcFunction {
   readonly label: string;
@@ -28,7 +29,11 @@ interface SdlcFunction {
   // directly by Presentation's one function (same shape as
   // "cloud-providers" - a single real function opening an inline view -
   // not "design-generate"'s two-entries-share-one-generator shape).
-  readonly action?: "design-generate" | "cloud-providers" | "presentation-generate";
+  // "cli": a real terminal running commands against this app's own
+  // virtual filesystem (core/cli.ts) - not an AI-backed interpreter, and
+  // not a real OS shell (this app is browser-only, no backend to shell
+  // out to). Same single-real-function shape as "cloud-providers".
+  readonly action?: "design-generate" | "cloud-providers" | "presentation-generate" | "cli";
 }
 
 interface SdlcStage {
@@ -66,10 +71,12 @@ const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
 // brainstorming with Chat IS ideation). Design's Architecture and
 // Wireframes are both real (not stubs) - both open the same inline
 // Markdown+Mermaid generator (renderDesignGenerator() below), since one
-// generated doc covers both. Development's CLI and Repository are
-// honestly-labeled stubs like Requirement/Operations - Repository is
-// where "Git" used to live under Deployment (moved here, since a
-// repository is a development-stage concern, not a deployment one).
+// generated doc covers both. Development's CLI is also real (not a
+// stub) - a real terminal against this app's own virtual filesystem
+// (renderCliTerminal() below); Repository stays an honestly-labeled
+// stub like Requirement/Operations - it's where "Git" used to live
+// under Deployment (moved here, since a repository is a
+// development-stage concern, not a deployment one).
 // Deployment's Cloud is real (not a stub) - a real catalog of actual
 // cloud providers to toggle on/off (renderCloudProviders() below), not
 // real cloud API integration. Presentation is a 9th widget appended
@@ -94,7 +101,7 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "development",
     label: "Development",
     icon: "💻",
-    functions: [{ label: "Editor", route: "/editor" }, { label: "CLI" }, { label: "Repository" }],
+    functions: [{ label: "Editor", route: "/editor" }, { label: "CLI", action: "cli" }, { label: "Repository" }],
   },
   { key: "testing", label: "Testing", icon: "🧪", functions: [{ label: "Review", route: "/review" }] },
   {
@@ -121,11 +128,12 @@ function escapeHtml(text: string): string {
 // The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
 // drilling into each stage's function list on tap - same
 // widget-grid-then-drill-down architecture agentic-memory-demo's
-// dashboard.ts established. Design, Deployment's Cloud, and
-// Presentation's Slides are the stages with real, inline functionality
-// (a Markdown+Mermaid design-doc generator; a real cloud-provider
-// catalog to toggle on/off; an AI-generated slide deck) rather than a
-// link elsewhere or a stub.
+// dashboard.ts established. Design, Development's CLI, Deployment's
+// Cloud, and Presentation's Slides are the stages with real, inline
+// functionality (a Markdown+Mermaid design-doc generator; a real
+// virtual-filesystem terminal; a real cloud-provider catalog to toggle
+// on/off; an AI-generated slide deck) rather than a link elsewhere or a
+// stub.
 export class WorkspaceElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
@@ -165,6 +173,17 @@ export class WorkspaceElement extends HTMLElement {
   private slidesViewMode: "edit" | "preview" = "edit";
   private slidesRenderToken = 0;
   private showPresentationGenerator = false;
+
+  // Development's CLI - a real terminal against this app's own virtual
+  // filesystem (core/cli.ts), component-local like every other
+  // drill-down above. cliCwd is entirely separate from
+  // AppState.activeFilePath (which tab the Editor has open) -
+  // deliberately no coupling between the two. Each history entry keeps
+  // the cwd it ran under, so historical prompt lines stay correct even
+  // after cliCwd has since changed.
+  private cliCwd = "";
+  private cliHistory: { input: string; cwd: string; output: string; isError?: boolean }[] = [];
+  private showCliTerminal = false;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.store = ctx?.store;
@@ -209,6 +228,7 @@ export class WorkspaceElement extends HTMLElement {
         this.showDesignGenerator = false;
         this.showCloudProviders = false;
         this.showPresentationGenerator = false;
+        this.showCliTerminal = false;
         this.renderView();
       });
     });
@@ -225,6 +245,10 @@ export class WorkspaceElement extends HTMLElement {
     }
     if (stage.key === "presentation" && this.showPresentationGenerator) {
       this.renderPresentationGenerator(container);
+      return;
+    }
+    if (stage.key === "development" && this.showCliTerminal) {
+      this.renderCliTerminal(container);
       return;
     }
     container.innerHTML = `
@@ -287,6 +311,12 @@ export class WorkspaceElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="presentation-generate"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showPresentationGenerator = true;
+        this.renderView();
+      });
+    });
+    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cli"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.showCliTerminal = true;
         this.renderView();
       });
     });
@@ -528,7 +558,7 @@ export class WorkspaceElement extends HTMLElement {
   private renderPresentationGenerator(container: Element): void {
     container.innerHTML = `
       <div class="dash-subnav">
-        <button id="presentation-back-btn" class="dash-back-btn" type="button">← Presentation</button>
+        <button id="workspace-back-btn" class="dash-back-btn" type="button">← Presentation</button>
         <h2 class="workspace-stage-title">📽️ Generate</h2>
       </div>
       <div class="design-form">
@@ -572,7 +602,7 @@ export class WorkspaceElement extends HTMLElement {
       this.slidesDoc = sourceEl.value;
     });
 
-    this.querySelector("#presentation-back-btn")?.addEventListener("click", () => {
+    this.querySelector("#workspace-back-btn")?.addEventListener("click", () => {
       // One level back - to Presentation's own function list, not all
       // the way out to the Workspace overview.
       this.showPresentationGenerator = false;
@@ -755,6 +785,95 @@ export class WorkspaceElement extends HTMLElement {
     if (el) {
       el.hidden = true;
     }
+  }
+
+  // ---- Development: virtual-filesystem CLI (opened from CLI above) ----
+
+  private cliPrompt(cwd: string): string {
+    return `${cwd ? `/${cwd}` : "/"}$`;
+  }
+
+  private renderCliTerminal(container: Element): void {
+    container.innerHTML = `
+      <div class="dash-subnav">
+        <button id="cli-back-btn" class="dash-back-btn" type="button">← Development</button>
+        <h2 class="workspace-stage-title">💻 CLI</h2>
+      </div>
+      <div id="cli-transcript" class="cli-transcript">
+        ${this.cliHistory
+          .map(
+            (entry) => `
+          <div class="cli-entry">
+            <div class="cli-entry-prompt">${escapeHtml(this.cliPrompt(entry.cwd))} ${escapeHtml(entry.input)}</div>
+            ${entry.output ? `<pre class="cli-entry-output${entry.isError ? " cli-entry-error" : ""}">${escapeHtml(entry.output)}</pre>` : ""}
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+      <div class="cli-input-row">
+        <span class="cli-prompt">${escapeHtml(this.cliPrompt(this.cliCwd))}</span>
+        <input id="cli-input" type="text" autocomplete="off" spellcheck="false" placeholder="help" />
+        <button id="cli-run-btn" type="button">Run</button>
+      </div>
+    `;
+
+    this.querySelector("#cli-back-btn")?.addEventListener("click", () => {
+      // One level back - to Development's own function list, not all
+      // the way out to the Workspace overview.
+      this.showCliTerminal = false;
+      this.renderView();
+    });
+
+    const input = this.querySelector<HTMLInputElement>("#cli-input");
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        this.handleRunCliCommand();
+      }
+    });
+    this.querySelector("#cli-run-btn")?.addEventListener("click", () => this.handleRunCliCommand());
+    input?.focus();
+
+    const transcript = this.querySelector<HTMLElement>("#cli-transcript");
+    if (transcript) {
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+  }
+
+  private handleRunCliCommand(): void {
+    const input = this.querySelector<HTMLInputElement>("#cli-input");
+    if (!input || !this.store) {
+      return;
+    }
+    const trimmed = input.value.trim();
+    if (!trimmed) {
+      return;
+    }
+    // A client-side terminal built-in, not a real filesystem command -
+    // matches how real terminal emulators handle `clear` (wipes the
+    // screen, leaves no trace in the transcript), same reasoning
+    // core/cli.ts itself is never consulted for it.
+    if (trimmed === "clear") {
+      this.cliHistory = [];
+      this.renderView();
+      return;
+    }
+    const state = this.store.state.value;
+    const result = runCliCommand(trimmed, this.cliCwd, state.files, state.emptyFolders);
+    this.cliHistory = [
+      ...this.cliHistory,
+      {
+        input: trimmed,
+        cwd: this.cliCwd,
+        output: result.output,
+        ...(result.isError !== undefined ? { isError: result.isError } : {}),
+      },
+    ];
+    this.cliCwd = result.cwd;
+    if (result.action) {
+      this.store.dispatch(result.action);
+    }
+    this.renderView();
   }
 }
 

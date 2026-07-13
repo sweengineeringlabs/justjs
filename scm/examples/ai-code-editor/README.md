@@ -54,9 +54,12 @@ stand-in.
   credentials either way. **Presentation**'s Slides entry is also real
   (not a stub) — an AI-generated slide deck (below), opened directly
   since it's the stage's only function (unlike Design's two entries
-  sharing one generator). Development additionally shows CLI and
-  Repository, and Requirement/Operations show their entries, all as
-  honestly-labeled "Coming soon" stubs, not fake-functional buttons.
+  sharing one generator). **Development**'s CLI entry is also real (not
+  a stub) — a real terminal against this app's own virtual filesystem
+  (below), not an AI-backed interpreter and not a real OS shell.
+  Development's Repository, and Requirement/Operations, show their
+  entries as honestly-labeled "Coming soon" stubs, not fake-functional
+  buttons.
 
 ## Design — Markdown + Mermaid doc generator
 
@@ -192,6 +195,39 @@ Slides test proves both paths now - slide 2 (`sequenceDiagram`, throws
 directly) and slide 3 (`flowchart`, resolves but gets rejected by
 `isWellFormedSvg()`) both correctly show the fallback note, not broken or
 partial markup.
+
+## Development — CLI (a real virtual-filesystem shell)
+
+Development's CLI entry is real, not a stub: a new `core/cli.ts` module
+(`runCliCommand(rawLine, cwd, files, emptyFolders)`, pure - no state, no
+dispatch) running a bounded command set against this app's own virtual
+filesystem — the exact same `FileMap`/`emptyFolders` the file explorer
+already manages, not a parallel, fake one. Not an AI-backed interpreter,
+and not a real OS shell — this app is browser-only with no backend to
+shell out to.
+
+Commands: `pwd`, `ls [path]`, `cd [path]`, `cat <path>`, `mkdir <path>`,
+`touch <path>`, `rm [-r] <path>`, `mv <src> <dest>`, `echo <text>`,
+`help`, `clear`. Each mutating command returns a real `AppAction`
+(`CREATE_FILE`/`CREATE_FOLDER`/`RENAME_PATH`/`DELETE_PATH`) that
+`workspace.ts` dispatches into the real store — running `mkdir` in the
+terminal makes the same folder show up in the Editor's real file tree,
+not a terminal-only illusion. A few deliberate, real-shell-faithful
+behaviors rather than shortcuts: `touch` on an already-existing file is
+a silent no-op (this virtual filesystem has no mtime field for `touch`
+to legitimately bump, and re-creating the file would clobber real
+content with an empty string); `mv file existing-dir/` moves the file
+into that directory under its own basename, the single most-reached-for
+real `mv` invocation; `mv` refuses to move a folder into itself or its
+own descendant (`cannot move into itself`) — the underlying
+`RENAME_PATH` reducer would otherwise silently produce a corrupted,
+double-nested duplicate, since the file explorer's own rename UI can
+never trigger this case (it only ever renames within the same parent,
+never to an arbitrary destination elsewhere in the tree the way `mv`
+can). `echo` has no `>` redirection — a deliberate scope cut, not an
+oversight. `clear` is a client-side terminal built-in (wipes the local
+transcript) rather than a real filesystem command, matching how real
+terminal emulators handle it — it never reaches `core/cli.ts` at all.
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 
@@ -357,7 +393,7 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 155 assertions — boot, DDAS mounting into all
+built bundle) passes all 179 assertions — boot, DDAS mounting into all
 five routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
 stubs correctly, Deployment's Cloud providers catalog (toggling real,
@@ -377,7 +413,13 @@ disabled-state tracking the real slide count and position, and both real
 mermaid-fallback paths proved per-slide (a `sequenceDiagram` that throws
 directly, and a `flowchart` that resolves but gets rejected by
 `isWellFormedSvg()`'s structural check, both landing on the same honest
-fallback note rather than broken markup), the starter tree
+fallback note rather than broken markup), Development's CLI running a
+real command sequence against the real virtual filesystem (`pwd`/`ls`/
+`cd`/`cat`/`mkdir`/`touch`, including the no-clobber-on-an-existing-file
+proof/`rm`(`-r`)/`mv` including the move-into-directory expansion and
+the move-into-itself guard/an unknown-command error/`clear`), each
+mutating command's effect confirmed in the real file tree, not just the
+terminal's own transcript, the starter tree
 rendering real nested
 folders with the active file's ancestors auto-expanded, the regex
 highlighter tokenizing keywords/numbers, file switching, create/rename/

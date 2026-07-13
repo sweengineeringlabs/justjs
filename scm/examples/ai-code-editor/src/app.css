@@ -1500,3 +1500,61 @@ button.workspace-function-live {
 .slides-preview {
   min-height: 180px;
 }
+
+.cli-transcript {
+  min-height: 220px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.cli-entry {
+  margin-bottom: 8px;
+}
+
+.cli-entry-prompt {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.cli-entry-output {
+  margin: 2px 0 0;
+  padding: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  background: none;
+}
+
+.cli-entry-output.cli-entry-error {
+  color: var(--danger);
+}
+
+.cli-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cli-prompt {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+
+#cli-input {
+  flex: 1;
+  min-width: 0;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#cli-run-btn {
+  flex: 0 0 auto;
+}

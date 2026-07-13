@@ -220,10 +220,13 @@ document.querySelector('#mount-workspace [data-stage="development"]').click();
 await sleep(20);
 const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
-assert(developmentLive.length === 1 && developmentLive[0].textContent.includes("Editor"), "Development's Editor function is still the one real, live link");
 assert(
-  developmentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "CLI,Repository",
-  `Development also shows CLI and Repository as honestly-labeled stubs (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
+  developmentLive.length === 2 && developmentLive[0].textContent.includes("Editor") && developmentLive[1].textContent.includes("CLI"),
+  `Development's Editor and CLI are both real, live functions now (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
+);
+assert(
+  developmentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Repository",
+  `Development shows only Repository as an honestly-labeled stub now (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
 );
 assert(
   [...document.querySelectorAll("#mount-workspace .workspace-function-label")].every((el) => el.textContent !== "Git"),
@@ -438,6 +441,122 @@ window.localStorage.removeItem("justjs:ai-editor:api-key");
 
 // Restores the state every later section assumes (src/main.js active) -
 // creating design.md made it the active file instead.
+treeRow("src/main.js").querySelector('[data-action="open"]').click();
+await sleep(20);
+
+// 1e. CLI proof - a real terminal against this app's own virtual
+// filesystem, not an AI-backed interpreter and not a real OS shell.
+// Entirely synchronous - no mocked fetch/API key needed at all, unlike
+// every AI-backed section above.
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+// Workspace kept its own internal drill-down state from section 1d
+// (still showing the Slides generator) - two levels back: generator ->
+// Presentation's function list -> the Workspace overview.
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector('#mount-workspace [data-stage="development"]').click();
+await sleep(20);
+const developmentLiveForCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(developmentLiveForCli[1].textContent.includes("CLI"), "CLI is the second real, live function under Development");
+developmentLiveForCli[1].click();
+await sleep(20);
+assert(document.querySelector("#cli-input") !== null, "tapping CLI opens the real terminal directly - no intermediate list");
+
+function runCliLine(line) {
+  const input = document.querySelector("#cli-input");
+  input.value = line;
+  document.querySelector("#cli-run-btn").click();
+}
+function lastCliEntry() {
+  const entries = [...document.querySelectorAll("#cli-transcript .cli-entry")];
+  return entries[entries.length - 1] ?? null;
+}
+function lastCliOutput() {
+  return lastCliEntry()?.querySelector(".cli-entry-output")?.textContent ?? "";
+}
+function lastCliIsError() {
+  return lastCliEntry()?.querySelector(".cli-entry-output")?.classList.contains("cli-entry-error") ?? false;
+}
+
+runCliLine("pwd");
+assert(lastCliOutput() === "/", "pwd starts at the real root");
+
+runCliLine("ls");
+assert(lastCliOutput().includes("src/") && lastCliOutput().includes("README.md"), `ls at root shows the real starter tree (found "${lastCliOutput()}")`);
+
+runCliLine("cd src");
+runCliLine("pwd");
+assert(lastCliOutput() === "/src", "cd changes the real cwd, reflected in pwd");
+
+runCliLine("ls");
+assert(lastCliOutput().includes("main.js") && lastCliOutput().includes("utils/"), `ls inside src shows its real children (found "${lastCliOutput()}")`);
+
+runCliLine("cat main.js");
+assert(lastCliOutput().includes("import { greet }"), "cat prints the real file content, resolved relative to cwd");
+
+runCliLine("cd ..");
+runCliLine("pwd");
+assert(lastCliOutput() === "/", "cd .. returns to the real parent");
+
+runCliLine("mkdir cli-test");
+runCliLine("ls");
+assert(lastCliOutput().includes("cli-test/"), "mkdir creates a real folder, visible via ls");
+assert(treeRow("cli-test") !== null, "mkdir's effect is real - the same folder appears in the real file tree, not just the terminal");
+
+runCliLine("touch cli-test/note.txt");
+runCliLine("cat cli-test/note.txt");
+assert(lastCliOutput() === "", "touch creates a real, empty file");
+assert(treeRow("cli-test/note.txt") !== null, "touch's effect is real - the file appears in the real file tree");
+
+runCliLine("touch README.md");
+runCliLine("cat README.md");
+assert(lastCliOutput().includes("Starter project"), "touch on an already-existing file is a silent no-op - it does NOT clobber real content with an empty string");
+
+runCliLine("mv cli-test/note.txt cli-test/renamed.txt");
+runCliLine("cat cli-test/renamed.txt");
+assert(lastCliOutput() === "", "mv renames a real file - the moved file's (empty) content is intact at the new path");
+assert(treeRow("cli-test/note.txt") === null, "the old path is really gone from the file tree after mv");
+
+runCliLine("mkdir cli-test/sub");
+runCliLine("mv cli-test/renamed.txt cli-test/sub");
+runCliLine("ls cli-test/sub");
+assert(lastCliOutput().includes("renamed.txt"), "mv into an existing directory moves the file there under its own basename");
+
+runCliLine("mv cli-test cli-test/sub");
+assert(lastCliIsError() && lastCliOutput().includes("into itself"), "mv refuses to move a folder into its own descendant");
+
+runCliLine("rm cli-test");
+assert(lastCliIsError() && lastCliOutput().toLowerCase().includes("directory"), "rm without -r refuses to delete a real, non-empty directory");
+
+runCliLine("rm -r cli-test");
+runCliLine("ls");
+assert(!lastCliOutput().includes("cli-test"), "rm -r really removes the folder and everything inside it");
+assert(treeRow("cli-test") === null, "the real file tree no longer shows cli-test either");
+
+runCliLine("nonsense-command");
+assert(lastCliIsError() && lastCliOutput().includes("command not found"), "an unknown command shows a real, honest error, not silent failure");
+
+const cliEntryCountBeforeClear = document.querySelectorAll("#cli-transcript .cli-entry").length;
+assert(cliEntryCountBeforeClear > 0, "the transcript has real history before clearing");
+runCliLine("clear");
+assert(document.querySelectorAll("#cli-transcript .cli-entry").length === 0, "clear wipes the real transcript - a client-side built-in, not routed through core/cli.ts");
+
+document.querySelector("#cli-back-btn").click();
+await sleep(20);
+const developmentLiveAfterCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(
+  developmentLiveAfterCli.length === 2 && developmentLiveAfterCli[1].textContent.includes("CLI"),
+  "CLI's own back button returns to Development's function list, not the Workspace overview"
+);
+
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+
+// Restores the state every later section assumes (src/main.js active) -
+// touch README.md above didn't change it, but touch cli-test/note.txt
+// earlier in this section did.
 treeRow("src/main.js").querySelector('[data-action="open"]').click();
 await sleep(20);
 
