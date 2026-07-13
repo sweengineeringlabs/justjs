@@ -1,0 +1,73 @@
+{
+  "app": "ai-code-editor",
+  "elements": {
+    "ai-code-editor:app:shell:mount-chat": {
+      "component": "chat",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-chat",
+      "type": "div"
+    },
+    "ai-code-editor:app:shell:mount-editor": {
+      "component": "editor",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-editor",
+      "type": "div"
+    },
+    "ai-code-editor:app:shell:mount-review": {
+      "component": "review",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-review",
+      "type": "div"
+    },
+    "ai-code-editor:app:shell:mount-scaffold": {
+      "component": "scaffold",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:app:shell:mount-workspace": {
+      "component": "workspace",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-workspace",
+      "type": "div"
+    }
+  },
+  "mounts": {
+    "mount": {
+      "id": "ai-code-editor:app:shell:mount",
+      "selector": "#app"
+    },
+    "mount-chat": {
+      "id": "ai-code-editor:app:shell:mount-chat",
+      "selector": "#mount-chat"
+    },
+    "mount-editor": {
+      "id": "ai-code-editor:app:shell:mount-editor",
+      "selector": "#mount-editor"
+    },
+    "mount-review": {
+      "id": "ai-code-editor:app:shell:mount-review",
+      "selector": "#mount-review"
+    },
+    "mount-scaffold": {
+      "id": "ai-code-editor:app:shell:mount-scaffold",
+      "selector": "#mount-scaffold"
+    },
+    "mount-workspace": {
+      "id": "ai-code-editor:app:shell:mount-workspace",
+      "selector": "#mount-workspace"
+    }
+  },
+  "schema": "1",
+  "version": "0.1.0"
+}

@@ -1,0 +1,35 @@
+{
+  "routes": [
+    {
+      "component": "editor",
+      "feature": "editor",
+      "path": "/editor",
+      "tag": "js-editor"
+    },
+    {
+      "component": "chat",
+      "feature": "chat",
+      "path": "/chat",
+      "tag": "js-chat"
+    },
+    {
+      "component": "review",
+      "feature": "review",
+      "path": "/review",
+      "tag": "js-review"
+    },
+    {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "path": "/scaffold",
+      "tag": "js-scaffold"
+    },
+    {
+      "component": "workspace",
+      "feature": "workspace",
+      "path": "/workspace",
+      "tag": "js-workspace"
+    }
+  ],
+  "version": 1
+}

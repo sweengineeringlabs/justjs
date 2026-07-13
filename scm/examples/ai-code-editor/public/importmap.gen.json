@@ -1,0 +1,15 @@
+{
+  "imports": {
+    "@justjs/ai-assist": "/node_modules/@justjs/ai-assist/dist/saf/index.js",
+    "@justjs/aop-analytics": "/node_modules/@justjs/aop-analytics/dist/saf/index.js",
+    "@justjs/aop-flags": "/node_modules/@justjs/aop-flags/dist/saf/index.js",
+    "@justjs/aop-i18n": "/node_modules/@justjs/aop-i18n/dist/saf/index.js",
+    "@justjs/aop-observability": "/node_modules/@justjs/aop-observability/dist/saf/index.js",
+    "@justjs/aop-security": "/node_modules/@justjs/aop-security/dist/saf/index.js",
+    "@justjs/aop-theming": "/node_modules/@justjs/aop-theming/dist/saf/index.js",
+    "@justjs/application": "/node_modules/@justjs/application/dist/saf/index.js",
+    "@justjs/data": "/node_modules/@justjs/data/dist/saf/index.js",
+    "@justjs/network": "/node_modules/@justjs/network/dist/saf/index.js",
+    "@justjs/transport": "/node_modules/@justjs/transport/dist/saf/index.js"
+  }
+}

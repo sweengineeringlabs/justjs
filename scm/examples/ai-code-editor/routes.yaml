@@ -1,0 +1,16 @@
+routes:
+  - path: /editor
+    feature: editor
+    component: editor
+  - path: /chat
+    feature: chat
+    component: chat
+  - path: /review
+    feature: review
+    component: review
+  - path: /scaffold
+    feature: scaffold
+    component: scaffold
+  - path: /workspace
+    feature: workspace
+    component: workspace

@@ -20,11 +20,13 @@
       </div>
     </header>
     <main class="page-container">
-      <div id="mount-editor" class="page active" data-ddas-id="ai-code-editor:home:x-editor:root"></div>
-      <div id="mount-chat" class="page" data-ddas-id="ai-code-editor:home:x-chat:root"></div>
-      <div id="mount-review" class="page" data-ddas-id="ai-code-editor:home:x-review:root"></div>
-      <div id="mount-scaffold" class="page" data-ddas-id="ai-code-editor:home:x-scaffold:root"></div>
-      <div id="mount-workspace" class="page" data-ddas-id="ai-code-editor:home:x-workspace:root"></div>
+      <!-- data-ddas-id is stamped at runtime by stampMounts() (src/mounts.gen.ts,
+           justweb.toml's [mounts]) - not hand-authored here, see justjs#95. -->
+      <div id="mount-editor" class="page active"></div>
+      <div id="mount-chat" class="page"></div>
+      <div id="mount-review" class="page"></div>
+      <div id="mount-scaffold" class="page"></div>
+      <div id="mount-workspace" class="page"></div>
     </main>
     <nav class="nav">
       <button class="nav-btn active" data-route="/editor"><span class="nav-icon">📝</span><span class="nav-label">Editor</span></button>

@@ -55,11 +55,14 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/scaffold">Scaffold</button>
       <button class="nav-btn" data-route="/workspace">Workspace</button>
     </nav>
-    <div id="mount-editor" class="page active" data-ddas-id="ai-code-editor:home:x-editor:root"></div>
-    <div id="mount-chat" class="page" data-ddas-id="ai-code-editor:home:x-chat:root"></div>
-    <div id="mount-review" class="page" data-ddas-id="ai-code-editor:home:x-review:root"></div>
-    <div id="mount-scaffold" class="page" data-ddas-id="ai-code-editor:home:x-scaffold:root"></div>
-    <div id="mount-workspace" class="page" data-ddas-id="ai-code-editor:home:x-workspace:root"></div>
+    <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
+         call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
+         matches index.html, see justjs#95. -->
+    <div id="mount-editor" class="page active"></div>
+    <div id="mount-chat" class="page"></div>
+    <div id="mount-review" class="page"></div>
+    <div id="mount-scaffold" class="page"></div>
+    <div id="mount-workspace" class="page"></div>
     <div id="settings-panel" hidden>
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
@@ -564,8 +567,8 @@ assert(
 
 runCliLine("ssh example.com");
 assert(
-  lastCliIsError() && lastCliOutput().includes("browser sandbox"),
-  "ssh is an honest error, not a fake connection - a browser genuinely cannot open a real TCP socket"
+  !lastCliIsError() && lastCliOutput() === "ssh streaming coming soon",
+  `ssh shows an honest "coming soon" roadmap message, not a fake connection and not an error (found "${lastCliOutput()}")`
 );
 
 runCliLine("rm cli-test");

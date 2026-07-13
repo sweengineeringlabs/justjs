@@ -1,0 +1,38 @@
+# justweb.toml — project config for the justw CLI.
+# ai-code-editor's 5 top-level components (x-editor/x-chat/x-review/
+# x-scaffold/x-workspace) are hand-written, not justweb-generated — the
+# [mounts] table below exists only to get real, validated DDAS addresses
+# for their pre-existing containers (justweb#69/#70/#71). app.ts is
+# hand-authored (no "DO NOT EDIT" marker), so `justw generate app` never
+# overwrites it — see justjs#95.
+
+name = "ai-code-editor"
+version = "0.1.0"
+
+[layout]
+preset = "by-feature"
+
+[mounts.mount-editor]
+selector = "#mount-editor"
+component = "editor"
+tag = "x-editor"
+
+[mounts.mount-chat]
+selector = "#mount-chat"
+component = "chat"
+tag = "x-chat"
+
+[mounts.mount-review]
+selector = "#mount-review"
+component = "review"
+tag = "x-review"
+
+[mounts.mount-scaffold]
+selector = "#mount-scaffold"
+component = "scaffold"
+tag = "x-scaffold"
+
+[mounts.mount-workspace]
+selector = "#mount-workspace"
+component = "workspace"
+tag = "x-workspace"

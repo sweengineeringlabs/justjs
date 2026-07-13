@@ -11,6 +11,9 @@
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
+import domAddressMapJson from "../public/dom-address-map.json";
+import routesGenJson from "../public/routes.gen.json";
+import { stampMounts } from "./mounts.gen.js";
 import { createSecurityProvider } from "@justjs/aop-security";
 import { createObservabilityProvider } from "@justjs/aop-observability";
 import { createFlagsProvider } from "@justjs/aop-flags";
@@ -73,14 +76,48 @@ store.subscribe(() => {
   persistTimer = setTimeout(() => persistProject(store.state.value), PERSIST_DEBOUNCE_MS);
 });
 
-const ROUTES = ["/editor", "/chat", "/review", "/scaffold", "/workspace"] as const;
-const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
-  "/editor": "mount-editor",
-  "/chat": "mount-chat",
-  "/review": "mount-review",
-  "/scaffold": "mount-scaffold",
-  "/workspace": "mount-workspace",
-};
+// Real generated DDAS/route data (justweb#69/#70/#71, justjs#95) replaces
+// what used to be hand-typed ROUTES/MOUNT_ID_FOR_ROUTE/registry/
+// domAddressMap literals. routes.gen.json's own `tag` field is unusable
+// here - it's always auto-derived as "js-<component>"
+// (justweb's component_tag_name), never matching this app's real
+// x-editor/x-chat/... tags - so the real tag comes from
+// dom-address-map.json's bound-mount `elements` entries instead
+// (justweb.toml's [mounts.*].tag), joined by the shared bare component
+// name. Resolved once at module load; any route whose component has no
+// bound mount fails loud here rather than silently mounting nothing.
+interface ResolvedRoute {
+  readonly path: string;
+  readonly tag: string;
+  readonly mountElementId: string;
+}
+
+function resolveGeneratedRoutes(): ResolvedRoute[] {
+  const elements = domAddressMapJson.elements as Record<string, { component: string; tag?: string }>;
+  const mounts = domAddressMapJson.mounts as Record<string, { id: string; selector: string }>;
+  const routes = routesGenJson.routes as Array<{ path: string; component: string }>;
+
+  return routes.map((route) => {
+    const elementEntry = Object.entries(elements).find(([, el]) => el.component === route.component);
+    if (!elementEntry || !elementEntry[1].tag) {
+      throw new Error(
+        `ai-code-editor: no bound [mounts] entry for route component "${route.component}" (path ${route.path}) - check justweb.toml's [mounts.*].tag.`,
+      );
+    }
+    const [ddasId, element] = elementEntry;
+    const mount = Object.values(mounts).find((m) => m.id === ddasId);
+    if (!mount) {
+      throw new Error(`ai-code-editor: no [mounts] entry resolves to DDAS id "${ddasId}".`);
+    }
+    return { path: route.path, tag: element.tag!, mountElementId: mount.selector.replace(/^#/, "") };
+  });
+}
+
+const RESOLVED_ROUTES = resolveGeneratedRoutes();
+const ROUTES = RESOLVED_ROUTES.map((r) => r.path);
+const MOUNT_ID_FOR_ROUTE: Record<string, string> = Object.fromEntries(
+  RESOLVED_ROUTES.map((r) => [r.path, r.mountElementId]),
+);
 
 // Pure visual concern - which mount container is displayed. Router has no
 // notion of this at all (DefaultRouter.navigate() only ever touches the
@@ -192,30 +229,25 @@ function setupSettingsPanel(): void {
 
 async function main(): Promise<void> {
   try {
+    // Stamps each real generated DDAS id (justweb.toml's [mounts]) onto
+    // its container before boot, so MountStep's first resolveDdasAddressesForTag()
+    // lookup finds a live element - matches justweb's own intended
+    // stampMounts()-before-boot usage (cli_e2e_mounts_test.rs).
+    stampMounts();
+
     await justjs.boot({
       routes: [...ROUTES],
-      registry: {
-        "x-editor": { path: "/editor", component: "x-editor" },
-        "x-chat": { path: "/chat", component: "x-chat" },
-        "x-review": { path: "/review", component: "x-review" },
-        "x-scaffold": { path: "/scaffold", component: "x-scaffold" },
-        "x-workspace": { path: "/workspace", component: "x-workspace" },
-      },
-      componentRegistry: {
-        "x-editor": () => Promise.resolve(customElements.get("x-editor") as CustomElementConstructor),
-        "x-chat": () => Promise.resolve(customElements.get("x-chat") as CustomElementConstructor),
-        "x-review": () => Promise.resolve(customElements.get("x-review") as CustomElementConstructor),
-        "x-scaffold": () => Promise.resolve(customElements.get("x-scaffold") as CustomElementConstructor),
-        "x-workspace": () => Promise.resolve(customElements.get("x-workspace") as CustomElementConstructor),
-      },
+      registry: Object.fromEntries(
+        RESOLVED_ROUTES.map((r) => [r.tag, { path: r.path, component: r.tag }]),
+      ),
+      componentRegistry: Object.fromEntries(
+        RESOLVED_ROUTES.map((r) => [
+          r.tag,
+          () => Promise.resolve(customElements.get(r.tag) as CustomElementConstructor),
+        ]),
+      ),
       domAddressMap: {
-        elements: {
-          "ai-code-editor:home:x-editor:root": { component: "editor", tag: "x-editor" },
-          "ai-code-editor:home:x-chat:root": { component: "chat", tag: "x-chat" },
-          "ai-code-editor:home:x-review:root": { component: "review", tag: "x-review" },
-          "ai-code-editor:home:x-scaffold:root": { component: "scaffold", tag: "x-scaffold" },
-          "ai-code-editor:home:x-workspace:root": { component: "workspace", tag: "x-workspace" },
-        },
+        elements: domAddressMapJson.elements as Record<string, { component: string; tag?: string }>,
       },
       featureStore: store,
       aspects: {

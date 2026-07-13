@@ -1,0 +1,4 @@
+name: scaffold
+version: 1
+dom:
+  tag: x-scaffold
