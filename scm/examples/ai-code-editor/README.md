@@ -236,18 +236,23 @@ oversight. `clear` is a client-side terminal built-in (wipes the local
 transcript) rather than a real filesystem command, matching how real
 terminal emulators handle it — it never reaches `core/cli.ts` at all.
 
-**`ssh` is a deliberately honest error, not a fake connection.** A
-browser page cannot open a raw TCP socket at all — the only network
-primitives the web platform exposes are `fetch`/`XHR` (HTTP(S) only) and
-`WebSocket` (needs a WebSocket server on the other end, not an arbitrary
-TCP service). Even real "web SSH" terminals (the kind cloud consoles
-ship) don't run SSH in the browser either — they relay bytes over a
-WebSocket to a real backend that opens the actual SSH connection
-server-side. This app has no backend at all (same reason the Anthropic
-API key is called directly from the browser instead of through a proxy
-— see below), so even that relay pattern has nothing to connect to
-here. `ssh` prints an honest "not available" error explaining exactly
-why, rather than a pretend connection.
+**`ssh` prints `ssh streaming coming soon` — an honestly-labeled
+roadmap message, not a fake connection and not an error.** Same
+"Coming soon" framing the Workspace hub's own stub widgets already use
+elsewhere in this app, just delivered as CLI output instead of a UI
+badge. Worth understanding why this one is a genuine "not yet" rather
+than "trivially addable next": a browser page cannot open a raw TCP
+socket at all — the only network primitives the web platform exposes
+are `fetch`/`XHR` (HTTP(S) only) and `WebSocket` (needs a WebSocket
+server on the other end, not an arbitrary TCP service). Even real "web
+SSH" terminals (the kind cloud consoles ship) don't run SSH in the
+browser either — they relay bytes over a WebSocket to a real backend
+that opens the actual SSH connection server-side. This app has no
+backend at all (same reason the Anthropic API key is called directly
+from the browser instead of through a proxy — see below), so "streaming
+coming soon" is honest about what it would actually take: a real
+backend relay this app doesn't have today, not a small follow-up patch
+to `core/cli.ts`.
 
 ## File explorer — flat path-keyed storage, not a recursive tree
 

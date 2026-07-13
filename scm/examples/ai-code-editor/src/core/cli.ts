@@ -282,21 +282,17 @@ function runFind(args: string[], cwd: string, files: FileMap, emptyFolders: stri
 }
 
 // A browser page cannot open a raw TCP socket at all - not a missing
-// feature this module could add, a hard platform boundary (the only
-// network primitives the web platform exposes are fetch/XHR (HTTP(S)
-// only) and WebSocket (needs a WebSocket server on the other end, not
-// an arbitrary TCP service) - and even real "web SSH" terminals don't
-// run SSH in the browser either, they relay bytes over a WebSocket to a
-// real backend that opens the actual SSH connection server-side. This
-// app has no backend at all (same reason the Anthropic API key is
-// called directly from the browser instead of through a proxy), so even
-// that relay pattern has nothing to connect to here. An honest error,
-// not a pretend connection.
+// feature this module could add today, a hard platform boundary (the
+// only network primitives the web platform exposes are fetch/XHR
+// (HTTP(S) only) and WebSocket (needs a WebSocket server on the other
+// end, not an arbitrary TCP service) - real "web SSH" terminals relay
+// bytes over a WebSocket to a real backend that opens the actual SSH
+// connection server-side, and this app has no backend at all. Not an
+// error - an honestly-labeled roadmap message, same "Coming soon"
+// framing the Workspace hub's own stub widgets already use, just as CLI
+// output instead of a UI badge.
 function runSsh(cwd: string): CliCommandResult {
-  return err(
-    "ssh: not available - this is a browser sandbox with no raw TCP socket access, and this app has no backend to proxy a connection through",
-    cwd
-  );
+  return ok("ssh streaming coming soon", cwd);
 }
 
 const HELP_TEXT = [
