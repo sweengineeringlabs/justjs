@@ -19,11 +19,39 @@
 // AI_CODE_EDITOR_LIVE_TEST=1 + a real ANTHROPIC_API_KEY) can reach the
 // real network when explicitly requested.
 import { Window } from "happy-dom";
-import { readdirSync } from "fs";
+import { readdirSync, readFileSync, existsSync } from "fs";
+import { createServer } from "http";
+import { extname } from "path";
 
 const nodeFetch = globalThis.fetch;
 
-const window = new Window({ url: "http://localhost/" });
+// app.ts's main() now fetch()es /dom-address-map.json and /routes.gen.json
+// at runtime (justjs#95's justweb retrofit - Vite's dev server refuses to
+// resolve a JS `import` of anything under public/, so those are fetched,
+// not bundled). A relative fetch() needs a real page origin to resolve
+// against - a bare happy-dom Window with no server behind it can't do
+// that (Node's fetch throws "Failed to parse URL from /..."). Serving
+// dist/ over a real local HTTP server, same as a real browser would see
+// it, is more faithful to production than working around the fetch -
+// and it's what caught the original bug in the first place.
+const MIME_TYPES = { ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".html": "text/html" };
+const server = createServer((req, res) => {
+  const path = `./dist${req.url.split("?")[0]}`;
+  if (!existsSync(path)) {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+  res.writeHead(200, { "Content-Type": MIME_TYPES[extname(path)] ?? "application/octet-stream" });
+  res.end(readFileSync(path));
+});
+const serverOrigin = await new Promise((resolve) => {
+  server.listen(0, "127.0.0.1", () => resolve(`http://127.0.0.1:${server.address().port}`));
+});
+// One-shot script - never block process exit waiting for this to close.
+server.unref();
+
+const window = new Window({ url: `${serverOrigin}/` });
 const document = window.document;
 for (const key of Object.getOwnPropertyNames(window)) {
   if (!(key in globalThis)) {
@@ -37,7 +65,14 @@ for (const key of Object.getOwnPropertyNames(window)) {
 }
 globalThis.window = window;
 globalThis.document = document;
-globalThis.fetch = nodeFetch;
+// Plain Node fetch (unlike a real browser's) has no notion of a page
+// origin, so a relative fetch("/foo") still throws even with a real
+// server running - resolve relative input against document.baseURI
+// first. An absolute URL (e.g. the live Anthropic API test's real
+// request) passes through unchanged, since URL's base is ignored once
+// the input already has its own scheme.
+globalThis.fetch = (input, init) =>
+  nodeFetch(typeof input === "string" ? new URL(input, document.baseURI) : input, init);
 
 document.body.innerHTML = `
   <div id="app">

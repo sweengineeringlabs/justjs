@@ -11,8 +11,6 @@
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
-import domAddressMapJson from "../public/dom-address-map.json";
-import routesGenJson from "../public/routes.gen.json";
 import { stampMounts } from "./mounts.gen.js";
 import { createSecurityProvider } from "@justjs/aop-security";
 import { createObservabilityProvider } from "@justjs/aop-observability";
@@ -78,26 +76,39 @@ store.subscribe(() => {
 
 // Real generated DDAS/route data (justweb#69/#70/#71, justjs#95) replaces
 // what used to be hand-typed ROUTES/MOUNT_ID_FOR_ROUTE/registry/
-// domAddressMap literals. routes.gen.json's own `tag` field is unusable
-// here - it's always auto-derived as "js-<component>"
-// (justweb's component_tag_name), never matching this app's real
-// x-editor/x-chat/... tags - so the real tag comes from
-// dom-address-map.json's bound-mount `elements` entries instead
-// (justweb.toml's [mounts.*].tag), joined by the shared bare component
-// name. Resolved once at module load; any route whose component has no
-// bound mount fails loud here rather than silently mounting nothing.
+// domAddressMap literals. Fetched at runtime, not statically imported -
+// both files live under public/, and Vite's dev server (unlike its
+// production `vite build`, which happily inlines them) refuses to
+// resolve a JS `import` of anything under public/ ("Assets in public
+// directory cannot be imported from JavaScript"), silently breaking
+// `bun run dev` while `bun run build` looked fine. fetch() is Vite's own
+// documented way to consume public/ files, and works identically in dev
+// and build. routes.gen.json's own `tag` field is unusable here - it's
+// always auto-derived as "js-<component>" (justweb's
+// component_tag_name), never matching this app's real x-editor/x-chat/
+// ... tags - so the real tag comes from dom-address-map.json's
+// bound-mount `elements` entries instead (justweb.toml's
+// [mounts.*].tag), joined by the shared bare component name. Any route
+// whose component has no bound mount fails loud rather than silently
+// mounting nothing.
 interface ResolvedRoute {
   readonly path: string;
   readonly tag: string;
   readonly mountElementId: string;
 }
 
-function resolveGeneratedRoutes(): ResolvedRoute[] {
-  const elements = domAddressMapJson.elements as Record<string, { component: string; tag?: string }>;
+type DomAddressElements = Record<string, { component: string; tag?: string }>;
+
+async function resolveGeneratedRoutes(): Promise<{ routes: ResolvedRoute[]; elements: DomAddressElements }> {
+  const [domAddressMapJson, routesGenJson] = await Promise.all([
+    fetch("/dom-address-map.json").then((r) => r.json()),
+    fetch("/routes.gen.json").then((r) => r.json()),
+  ]);
+  const elements = domAddressMapJson.elements as DomAddressElements;
   const mounts = domAddressMapJson.mounts as Record<string, { id: string; selector: string }>;
   const routes = routesGenJson.routes as Array<{ path: string; component: string }>;
 
-  return routes.map((route) => {
+  const resolved = routes.map((route) => {
     const elementEntry = Object.entries(elements).find(([, el]) => el.component === route.component);
     if (!elementEntry || !elementEntry[1].tag) {
       throw new Error(
@@ -111,13 +122,18 @@ function resolveGeneratedRoutes(): ResolvedRoute[] {
     }
     return { path: route.path, tag: element.tag!, mountElementId: mount.selector.replace(/^#/, "") };
   });
+
+  return { routes: resolved, elements };
 }
 
-const RESOLVED_ROUTES = resolveGeneratedRoutes();
-const ROUTES = RESOLVED_ROUTES.map((r) => r.path);
-const MOUNT_ID_FOR_ROUTE: Record<string, string> = Object.fromEntries(
-  RESOLVED_ROUTES.map((r) => [r.path, r.mountElementId]),
-);
+// Populated by main() before boot() runs - showRoute()/goToRoute() are
+// only ever invoked (via the NAVIGATE_EVENT listener or a nav-bar click)
+// after main() has awaited resolveGeneratedRoutes() and boot() has
+// mounted every route, so these are never read empty.
+let RESOLVED_ROUTES: ResolvedRoute[] = [];
+let ROUTES: string[] = [];
+let MOUNT_ID_FOR_ROUTE: Record<string, string> = {};
+let DOM_ADDRESS_ELEMENTS: DomAddressElements = {};
 
 // Pure visual concern - which mount container is displayed. Router has no
 // notion of this at all (DefaultRouter.navigate() only ever touches the
@@ -229,6 +245,12 @@ function setupSettingsPanel(): void {
 
 async function main(): Promise<void> {
   try {
+    const { routes, elements } = await resolveGeneratedRoutes();
+    RESOLVED_ROUTES = routes;
+    ROUTES = routes.map((r) => r.path);
+    MOUNT_ID_FOR_ROUTE = Object.fromEntries(routes.map((r) => [r.path, r.mountElementId]));
+    DOM_ADDRESS_ELEMENTS = elements;
+
     // Stamps each real generated DDAS id (justweb.toml's [mounts]) onto
     // its container before boot, so MountStep's first resolveDdasAddressesForTag()
     // lookup finds a live element - matches justweb's own intended
@@ -247,7 +269,7 @@ async function main(): Promise<void> {
         ]),
       ),
       domAddressMap: {
-        elements: domAddressMapJson.elements as Record<string, { component: string; tag?: string }>,
+        elements: DOM_ADDRESS_ELEMENTS,
       },
       featureStore: store,
       aspects: {
