@@ -15,6 +15,18 @@ function tokenStorageKey(providerId: string): string {
   return `justjs:ai-editor:cloud-token:${providerId}`;
 }
 
+// The real site/project/app identifier a provider's own deploy()
+// returned as `targetId` after the *first* successful deploy - reused
+// on every later deploy so it updates the same live target instead of
+// creating a new one every click (real "redeploy" semantics, matching
+// how the Netlify/Vercel/Heroku CLIs themselves behave). Netlify/Heroku
+// specifically need this (their create call always makes something
+// new); Vercel's own project name naturally upserts, but still benefits
+// from staying stable across visits.
+function deployTargetStorageKey(providerId: string): string {
+  return `justjs:ai-editor:cloud-deploy-target:${providerId}`;
+}
+
 const AWS_CREDENTIALS_STORAGE_KEY = "justjs:ai-editor:aws-credentials";
 
 export function getStoredCloudToken(providerId: string): string {
@@ -60,6 +72,22 @@ export function setStoredAwsCredentials(credentials: AwsCredentials | null): voi
     } else {
       globalThis.localStorage?.removeItem(AWS_CREDENTIALS_STORAGE_KEY);
     }
+  } catch {
+    // Best-effort only, same graceful-degradation shape as ai_assist.ts.
+  }
+}
+
+export function getStoredCloudDeployTarget(providerId: string): string | null {
+  try {
+    return globalThis.localStorage?.getItem(deployTargetStorageKey(providerId)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredCloudDeployTarget(providerId: string, targetId: string): void {
+  try {
+    globalThis.localStorage?.setItem(deployTargetStorageKey(providerId), targetId);
   } catch {
     // Best-effort only, same graceful-degradation shape as ai_assist.ts.
   }

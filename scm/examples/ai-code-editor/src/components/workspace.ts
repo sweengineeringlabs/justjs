@@ -38,7 +38,12 @@ import {
   connectGcp,
   connectAwsIdentity,
   connectAwsInstances,
+  deployToNetlify,
+  deployToVercel,
+  deployToHeroku,
 } from "../core/cloud_connect.js";
+import { getStoredCloudDeployTarget, setStoredCloudDeployTarget } from "../core/cloud_credentials.js";
+import type { CloudDeployFile, CloudDeployResult } from "../core/cloud_connect.js";
 import { getStoredScmToken, setStoredScmToken } from "../core/scm_credentials.js";
 import { connectGithub, connectGitlab, connectBitbucket } from "../core/scm_connect.js";
 import type { ScmResource } from "../core/scm_connect.js";
@@ -115,6 +120,12 @@ interface CloudProvider {
   // flow - see cloud_connect.ts's comments for why). Shown verbatim in
   // the connect form, along with the token's real expiry.
   readonly tokenHint?: { readonly command: string; readonly expiry: string };
+  // Netlify/Vercel/Heroku only: a real, direct-from-browser "Deploy this
+  // project" action is available (@justjs/cloud-connect's own optional
+  // deploy() capability) - orthogonal to `kind` (all 3 stay "bearer"),
+  // same reasoning AWS's listInstances-only capability already
+  // established: an extra opt-in action, not a new provider `kind`.
+  readonly supportsDeploy?: boolean;
 }
 
 // A real, recognizable set of actual cloud providers - not arbitrary
@@ -128,10 +139,16 @@ const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
   { id: "azure", name: "Microsoft Azure", icon: "🔷", color: "#0078D4", kind: "bearer", tokenHint: { command: "az account get-access-token --query accessToken -o tsv", expiry: "~60-90 minutes" } },
   { id: "digitalocean", name: "DigitalOcean", icon: "💧", color: "#0080FF", logo: digitaloceanLogo, kind: "bearer" },
   { id: "cloudflare", name: "Cloudflare", icon: "🟠", color: "#F38020", logo: cloudflareLogo, kind: "unsupported" },
-  { id: "vercel", name: "Vercel", icon: "▲", color: "#000000", logo: vercelLogo, kind: "bearer" },
-  { id: "netlify", name: "Netlify", icon: "🟢", color: "#00C7B7", logo: netlifyLogo, kind: "bearer" },
-  { id: "heroku", name: "Heroku", icon: "🟣", color: "#430098", kind: "bearer" },
+  { id: "vercel", name: "Vercel", icon: "▲", color: "#000000", logo: vercelLogo, kind: "bearer", supportsDeploy: true },
+  { id: "netlify", name: "Netlify", icon: "🟢", color: "#00C7B7", logo: netlifyLogo, kind: "bearer", supportsDeploy: true },
+  { id: "heroku", name: "Heroku", icon: "🟣", color: "#430098", kind: "bearer", supportsDeploy: true },
 ];
+
+const CLOUD_DEPLOYERS: Record<string, (token: string, files: readonly CloudDeployFile[], existingTargetId?: string) => Promise<CloudDeployResult>> = {
+  netlify: deployToNetlify,
+  vercel: deployToVercel,
+  heroku: deployToHeroku,
+};
 
 const BEARER_CONNECTORS: Record<string, (token: string) => Promise<CloudResource[]>> = {
   gcp: connectGcp,
@@ -283,6 +300,13 @@ export class WorkspaceElement extends HTMLElement {
   private awsInstances: CloudResource[] | null = null;
   private awsInstancesError: string | null = null;
   private awsInstancesLoading = false;
+  // Real "Deploy this project" action (Netlify/Vercel/Heroku only) -
+  // same separate, opt-in-after-a-successful-connect shape as AWS's
+  // List EC2 Instances above. cloudDeployResult holds the real live
+  // URL a successful deploy resolves to.
+  private cloudDeployResult: CloudDeployResult | null = null;
+  private cloudDeployError: string | null = null;
+  private cloudDeploying = false;
 
   // Development's Repository - the source-control equivalent of the
   // Cloud state above (see SCM_PROVIDER_CATALOG), same shape minus
@@ -369,6 +393,8 @@ export class WorkspaceElement extends HTMLElement {
         this.cloudConnectError = null;
         this.awsInstances = null;
         this.awsInstancesError = null;
+        this.cloudDeployResult = null;
+        this.cloudDeployError = null;
         this.showScmConnect = false;
         this.selectedScmProviderId = null;
         this.scmResources = null;
@@ -725,6 +751,8 @@ export class WorkspaceElement extends HTMLElement {
         this.cloudConnectError = null;
         this.awsInstances = null;
         this.awsInstancesError = null;
+        this.cloudDeployResult = null;
+        this.cloudDeployError = null;
         this.renderView();
       });
     });
@@ -764,10 +792,15 @@ export class WorkspaceElement extends HTMLElement {
       this.cloudConnectError = null;
       this.awsInstances = null;
       this.awsInstancesError = null;
+      this.cloudDeployResult = null;
+      this.cloudDeployError = null;
       this.renderView();
     });
     this.querySelector("#aws-list-instances-btn")?.addEventListener("click", () => {
       void this.handleAwsListInstances();
+    });
+    this.querySelector("#cloud-deploy-btn")?.addEventListener("click", () => {
+      void this.handleCloudDeploy(provider);
     });
 
     // Already connected (a token/credential pair was saved in a
@@ -866,7 +899,20 @@ export class WorkspaceElement extends HTMLElement {
           }
         `
         : "";
-    return `<h3 class="resource-list-label">${listLabel}</h3>${rows}${awsInstancesSection}`;
+    const deploySection = provider.supportsDeploy
+      ? `
+          <div class="connect-actions">
+            <button id="cloud-deploy-btn" type="button" class="btn-secondary">${this.cloudDeploying ? "Deploying…" : "Deploy this project"}</button>
+          </div>
+          <p class="connect-status${this.cloudDeployError ? " connect-status-error" : ""}">${this.cloudDeployError ? `⚠️ ${escapeHtml(this.cloudDeployError)}` : ""}</p>
+          ${
+            this.cloudDeployResult
+              ? `<p class="connect-hint">✓ Deployed - <a href="${escapeHtml(this.cloudDeployResult.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(this.cloudDeployResult.url)}</a></p>`
+              : ""
+          }
+        `
+      : "";
+    return `<h3 class="resource-list-label">${listLabel}</h3>${rows}${awsInstancesSection}${deploySection}`;
   }
 
   private async handleCloudConnect(provider: CloudProvider): Promise<void> {
@@ -940,6 +986,30 @@ export class WorkspaceElement extends HTMLElement {
       this.awsInstances = null;
     } finally {
       this.awsInstancesLoading = false;
+      this.renderView();
+    }
+  }
+
+  private async handleCloudDeploy(provider: CloudProvider): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+    this.cloudDeploying = true;
+    this.cloudDeployError = null;
+    this.renderView();
+    try {
+      const files = Object.entries(this.store.state.value.files).map(([path, node]) => ({ path, content: node.content }));
+      const token = getStoredCloudToken(provider.id);
+      const existingTargetId = getStoredCloudDeployTarget(provider.id);
+      const result = await CLOUD_DEPLOYERS[provider.id]!(token, files, existingTargetId ?? undefined);
+      setStoredCloudDeployTarget(provider.id, result.targetId);
+      this.cloudDeployResult = result;
+      this.cloudDeployError = null;
+    } catch (e) {
+      this.cloudDeployError = e instanceof Error ? e.message : String(e);
+      this.cloudDeployResult = null;
+    } finally {
+      this.cloudDeploying = false;
       this.renderView();
     }
   }

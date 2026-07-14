@@ -192,14 +192,80 @@ not app-local code.** The first attempt hand-rolled these 7 providers'
 fetch calls directly inside this app — exactly the kind of hand-rolling
 `@justjs/ai-assist` already exists to prevent for third-party API
 integrations. Corrected into a real package mirroring `@justjs/ai-assist`'s
-own `api`/`core`/`saf`/`spi` structure: `core/` holds only the shared
-`DefaultCloudConnectProvider` generic engine plus AWS's own distinct
-signing logic; `spi/<provider>.ts` (one file per provider) holds each
+own `api`/`core`/`saf`/`spi` structure: `core/` holds the shared
+`DefaultCloudConnectProvider` generic engine plus AWS/Netlify/Vercel/
+Heroku's own distinct classes (signing, or real deploy logic — see
+below); `spi/<provider>.ts` (one file per provider) holds each
 provider's real URL/config and self-registers itself with
 `justjs.providers.register({concern: "cloudConnect", strategy, ...})`.
 Git, previously listed here, moved to Development's real "Repository"
 entry (see below) — a repository is a development-stage concern, not a
 deployment one.
+
+### Real "Deploy this project" — Netlify, Vercel, Heroku
+
+Beyond connecting, 3 of the 8 cloud providers can also push this app's
+own current project (the Editor's virtual filesystem) to a real, live
+deployment — a "Deploy this project" button appears in their connect
+screen once a successful connect has proven the credential works (same
+opt-in-after-connect gating AWS's "List EC2 Instances" already
+established). All three real request shapes were confirmed live (CORS
+headers checked directly) before being wired up:
+
+- **Netlify** — a real digest-based deploy: create (or reuse) a site,
+  hash every file with real Web Crypto SHA-1, tell Netlify the
+  `{path: sha1}` manifest, upload only the files it reports back as
+  `required`, then poll the deploy's real `state` until `"ready"`. No
+  archive format needed anywhere in this flow.
+- **Vercel** — files are inlined directly (base64) in one deployment-
+  creation call — no separate upload step at all. A project auto-
+  upserts by `name`, so redeploying with the same name updates the same
+  real project.
+- **Heroku** — the one genuinely bigger flow: a real presigned upload
+  URL pair (`POST /apps/{app}/sources`), a gzipped tarball PUT to it,
+  then a real build referencing that URL, polled until Heroku's own
+  build `status` settles. Building the tarball needed a hand-rolled
+  minimal USTAR writer (`@justjs/cloud-connect`'s `core/tar_writer.ts` —
+  fixed 512-byte header blocks, octal-encoded size/checksum fields,
+  piped through the real `CompressionStream("gzip")` Web API) since no
+  third-party archive library exists anywhere in this codebase and no
+  native browser API builds a tar/zip container directly. **A stated,
+  honest verification gap**: the presigned `put_url` points at a
+  different origin than `api.heroku.com` (Heroku's own S3-backed
+  storage) — its real CORS support for a direct browser PUT could not
+  be independently confirmed this round (getting a real presigned URL
+  needs a real authenticated Heroku call). If that upload fails, the app
+  surfaces a real, honest error naming this specific possibility rather
+  than a generic one.
+
+**Redeploying reuses the same target**, not a new site/app every click
+— the real site id (Netlify), project name (Vercel), or app id (Heroku)
+a successful deploy returns is persisted in `localStorage`
+(`core/cloud_credentials.ts`'s `getStoredCloudDeployTarget`/
+`setStoredCloudDeployTarget`) and passed back in on the next deploy,
+matching how the Netlify/Vercel/Heroku CLIs themselves behave.
+
+**A real, necessary framework extension**: Heroku's tarball PUT needed
+a genuine binary request body, which `@justjs/network`'s `FetchAdapter`/
+`@justjs/transport`'s `ApiAdapter` didn't support before this round
+(`FetchRequest.body` was typed `string | FormData` only, and
+`DefaultApiAdapter` would have silently JSON-stringified a `Uint8Array`
+into an array of numbers instead of sending real bytes). Both packages
+now accept `Blob`/`ArrayBuffer`/`Uint8Array` bodies too, passed straight
+through to the real `fetch()` call unchanged — a small, additive,
+backward-compatible extension to two foundational packages, with its
+own new regression tests in each package's own suite (a real local HTTP
+server confirming the exact bytes arrive unmodified, not just that the
+call didn't throw).
+
+**DigitalOcean/AWS/Azure/GCP have no deploy support, with real
+reasons.** DigitalOcean App Platform only deploys from a Git repository
+or container registry image — no direct-file-upload deploy API exists
+at all (confirmed via research). AWS/Azure/GCP would each need real
+infrastructure provisioned first (an S3 bucket with static-website
+hosting and a bucket policy for AWS; an App Service/Cloud Run
+application for Azure/GCP) — a materially bigger scope than "paste a
+token, deploy," out of scope here.
 
 ## Development — real source-control connections
 
@@ -592,13 +658,16 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 240 assertions — boot, DDAS mounting into all
+built bundle) passes all 246 assertions — boot, DDAS mounting into all
 seven routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
 stubs correctly, Deployment's real cloud provider connect screens (a
 bearer-token provider's real "paste a token first" error, AWS's real
 two-field form and its own error, Azure's real CLI-token hint,
-Cloudflare's honest "not available" state), Development's real
+Cloudflare's honest "not available" state, and a real end-to-end
+mocked-fetch "Deploy this project" flow for Netlify - connect, a real
+Deploy button appearing only after a successful connect, and a real
+clickable live-URL result), Development's real
 source-control connect screens (GitHub's real "paste a token first"
 error, the provider grid's own back-navigation), the Communication
 tab's real connect screens (its own nav/route navigation proof, Slack's

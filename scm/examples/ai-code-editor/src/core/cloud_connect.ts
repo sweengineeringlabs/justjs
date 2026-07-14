@@ -5,9 +5,9 @@
 // createCloudConnectProvider(strategy, config) facade to the specific
 // function names workspace.ts already calls.
 import { createCloudConnectProvider } from "@justjs/cloud-connect";
-import type { CloudResource } from "@justjs/cloud-connect";
+import type { CloudResource, CloudDeployFile, CloudDeployResult } from "@justjs/cloud-connect";
 
-export type { CloudResource };
+export type { CloudResource, CloudDeployFile, CloudDeployResult };
 
 export function connectDigitalOcean(token: string): Promise<CloudResource[]> {
   return createCloudConnectProvider("digitalocean", { token }).connect();
@@ -50,4 +50,22 @@ export function connectAwsInstances(accessKeyId: string, secretAccessKey: string
   // Real per api/provider.ts's CloudConnectProvider.listInstances comment -
   // only the "aws" strategy implements this, so it's always present here.
   return provider.listInstances!();
+}
+
+// Real "Deploy this project" - Netlify/Vercel/Heroku only (see
+// api/provider.ts's CloudConnectProvider.deploy comment for why the
+// other providers don't implement it). `existingTargetId`, when passed,
+// redeploys the same real site/project/app a prior deploy() call
+// returned as `targetId` instead of creating a new one every time - see
+// workspace.ts's cloud_credentials.ts persistence.
+export function deployToNetlify(token: string, files: readonly CloudDeployFile[], existingTargetId?: string): Promise<CloudDeployResult> {
+  return createCloudConnectProvider("netlify", { token }).deploy!(files, existingTargetId);
+}
+
+export function deployToVercel(token: string, files: readonly CloudDeployFile[], existingTargetId?: string): Promise<CloudDeployResult> {
+  return createCloudConnectProvider("vercel", { token }).deploy!(files, existingTargetId);
+}
+
+export function deployToHeroku(token: string, files: readonly CloudDeployFile[], existingTargetId?: string): Promise<CloudDeployResult> {
+  return createCloudConnectProvider("heroku", { token }).deploy!(files, existingTargetId);
 }

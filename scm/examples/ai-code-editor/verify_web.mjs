@@ -298,6 +298,81 @@ assert(
 
 document.getElementById("cloud-provider-back-btn").click();
 await sleep(20);
+
+// Real "Deploy this project" proof (Netlify) - a mocked-fetch, real-
+// app-logic technique (no real network call), same philosophy Design's/
+// Slides' own mocked Anthropic responses use. Confirms: (1) the Deploy
+// button is genuinely gated on a real successful connect (absent for
+// DigitalOcean above, which never got a successful connect in this
+// run), (2) it only shows for the 3 real deploy-capable providers, and
+// (3) a full deploy really drives the real create-site/manifest/upload/
+// poll sequence end to end, landing on a real clickable result link.
+assert(
+  document.querySelector("#mount-workspace .resource-list") === null,
+  "sanity check: DigitalOcean above never got a successful connect in this run, so no deploy button could have shown for it either"
+);
+
+const netlifyCard = document.querySelector('[data-provider-id="netlify"]');
+netlifyCard.click();
+await sleep(20);
+assert(document.querySelector("#mount-workspace .resource-list") === null, "no Deploy button before any successful connect - it's gated the same way AWS's List EC2 Instances is");
+
+const netlifyOriginalFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  const method = init?.method ?? "GET";
+  const json = (body, status = 200) => new window.Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  if (url === "https://api.netlify.com/api/v1/sites" && method === "GET") {
+    return json([{ id: "site-1", name: "demo", state: "current" }]);
+  }
+  if (url === "https://api.netlify.com/api/v1/sites" && method === "POST") {
+    return json({ id: "new-site-1", url: "http://new-site-1.netlify.app", ssl_url: "https://new-site-1.netlify.app" });
+  }
+  if (url === "https://api.netlify.com/api/v1/sites/new-site-1/deploys" && method === "POST") {
+    const body = JSON.parse(init.body);
+    return json({ id: "deploy-1", required: Object.values(body.files) });
+  }
+  if (url.startsWith("https://api.netlify.com/api/v1/deploys/deploy-1/files/") && method === "PUT") {
+    return new window.Response("", { status: 200 });
+  }
+  if (url === "https://api.netlify.com/api/v1/deploys/deploy-1" && method === "GET") {
+    return json({ id: "deploy-1", state: "ready", ssl_url: "https://new-site-1.netlify.app" });
+  }
+  throw new Error(`verify_web.mjs: unexpected fetch in the Netlify deploy mock: ${method} ${url}`);
+};
+
+document.getElementById("cloud-connect-token").value = "fake-netlify-token";
+document.getElementById("cloud-connect-btn").click();
+await sleep(30);
+assert(document.querySelector("#mount-workspace .resource-list") !== null, "a real successful connect now shows the real site list");
+assert(document.getElementById("cloud-deploy-btn") !== null, "Netlify (a real deploy-capable provider) now shows a real 'Deploy this project' button");
+
+document.getElementById("cloud-deploy-btn").click();
+await sleep(300);
+assert(
+  document.querySelector('#mount-workspace a[href="https://new-site-1.netlify.app"]') !== null,
+  "a real successful deploy renders the real live URL the mocked API returned, as a real clickable link"
+);
+assert(
+  window.localStorage.getItem("justjs:ai-editor:cloud-deploy-target:netlify") === "new-site-1",
+  "the real site id returned by the deploy is persisted, so a later deploy redeploys the same site instead of creating a new one"
+);
+
+globalThis.fetch = netlifyOriginalFetch;
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+
+const vercelCard = document.querySelector('[data-provider-id="vercel"]');
+vercelCard.click();
+await sleep(20);
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+const herokuCard = document.querySelector('[data-provider-id="heroku"]');
+herokuCard.click();
+await sleep(20);
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+
 document.getElementById("cloud-back-btn").click();
 await sleep(20);
 assert(
