@@ -1,0 +1,4 @@
+name: cartoon
+version: 1
+dom:
+  tag: x-cartoon

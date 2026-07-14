@@ -41,6 +41,10 @@ const ROUTES: ResolvedRoute[] = [
   {
     "path": "/socials",
     "tag": "js-socials"
+  },
+  {
+    "path": "/cartoon",
+    "tag": "js-cartoon"
   }
 ];
 

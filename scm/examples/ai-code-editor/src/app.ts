@@ -25,6 +25,7 @@ import "./components/scaffold.js";
 import "./components/workspace.js";
 import "./components/communication.js";
 import "./components/socials.js";
+import "./components/cartoon.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
 import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";

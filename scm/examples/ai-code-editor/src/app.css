@@ -847,6 +847,17 @@ textarea:focus {
   margin-bottom: 6px;
 }
 
+/* A real generated cartoon image (Cartoon Generator tab) - the full
+   result, not a small thumbnail like .chat-message-image above. */
+.cartoon-generated-image {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin: 12px auto 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
 /* Shared icon-button style for the mic/attach-screenshot buttons that
    sit inline in a form row (Chat) - overrides #chat-form button's
    pill-shaped Send styling with a small circular icon button. */
@@ -1655,6 +1666,37 @@ button.workspace-function-live {
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--stage-color, var(--accent)) 18%, transparent);
   color: var(--stage-color, var(--accent-strong));
+}
+
+/* A drillable resource row (Communication's real channel-list ->
+   message-thread navigation) - the button fills the same space
+   .resource-row's own two-span layout already occupied, so a
+   non-drillable row and a drillable one look identical except for the
+   cursor/hover affordance. */
+.resource-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Communication's Settings screen is the first checkbox anywhere in
+   this app - lays a checkbox + its label out side by side rather than
+   .field's own default stacked (label-above-input) layout, which reads
+   oddly for a checkbox specifically. */
+.field:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .provider-grid {

@@ -4,6 +4,7 @@
 // Regenerate with: justw generate app
 
 export const COMPONENT_REGISTRY: Record<string, () => Promise<CustomElementConstructor>> = {
+  'js-cartoon': () => import('./features/cartoon/cartoon_component.gen').then(m => m.CartoonBase),
   'js-chat': () => import('./features/chat/chat_component.gen').then(m => m.ChatBase),
   'js-communication': () => import('./features/communication/communication_component.gen').then(m => m.CommunicationBase),
   'js-editor': () => import('./features/editor/editor_component.gen').then(m => m.EditorBase),

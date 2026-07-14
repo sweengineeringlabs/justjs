@@ -125,6 +125,7 @@
         "@justjs/transport": "^0.1.0",
       },
       "devDependencies": {
+        "happy-dom": "^15.0.0",
         "typescript": "^5.5.0",
       },
     },
@@ -136,6 +137,18 @@
       },
       "devDependencies": {
         "@types/node": "^20.10.0",
+        "typescript": "^5.5.0",
+      },
+    },
+    "image-connect/scm/main": {
+      "name": "@justjs/image-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
         "typescript": "^5.5.0",
       },
     },
@@ -278,6 +291,7 @@
         "@justjs/cloud-connect": "^0.1.0",
         "@justjs/comms-connect": "^0.1.0",
         "@justjs/data": "^0.1.0",
+        "@justjs/image-connect": "^0.1.0",
         "@justjs/network": "^0.1.0",
         "@justjs/pm-connect": "^0.1.0",
         "@justjs/scm-connect": "^0.1.0",
@@ -506,6 +520,8 @@
     "@justjs/comms-connect": ["@justjs/comms-connect@workspace:comms-connect/scm/main"],
 
     "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
+
+    "@justjs/image-connect": ["@justjs/image-connect@workspace:image-connect/scm/main"],
 
     "@justjs/memory": ["@justjs/memory@workspace:memory/scm/main"],
 

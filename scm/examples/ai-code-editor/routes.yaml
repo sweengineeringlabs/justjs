@@ -20,3 +20,6 @@ routes:
   - path: /socials
     feature: socials
     component: socials
+  - path: /cartoon
+    feature: cartoon
+    component: cartoon

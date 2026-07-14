@@ -91,6 +91,7 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/workspace">Workspace</button>
       <button class="nav-btn" data-route="/communication">Comms</button>
       <button class="nav-btn" data-route="/socials">Socials</button>
+      <button class="nav-btn" data-route="/cartoon">Cartoon</button>
     </nav>
     <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
          call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
@@ -102,6 +103,7 @@ document.body.innerHTML = `
     <div id="mount-workspace" class="page"></div>
     <div id="mount-communication" class="page"></div>
     <div id="mount-socials" class="page"></div>
+    <div id="mount-cartoon" class="page"></div>
     <div id="settings-panel" hidden>
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
@@ -182,6 +184,7 @@ assert(document.getElementById("mount-scaffold").innerHTML.length > 0, "scaffold
 assert(document.getElementById("mount-workspace").innerHTML.length > 0, "workspace mount has content");
 assert(document.getElementById("mount-communication").innerHTML.length > 0, "communication mount has content");
 assert(document.getElementById("mount-socials").innerHTML.length > 0, "socials mount has content");
+assert(document.getElementById("mount-cartoon").innerHTML.length > 0, "cartoon mount has content");
 
 // 1b. Workspace hub proof - the widget-grid-then-drill-down SDLC hub.
 // Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
@@ -1016,6 +1019,137 @@ assert(
   "a provider's own back button returns to the Communication grid"
 );
 
+// Real Settings screen proof (gear icon on the grid) - 4 real local
+// preferences, none of them fake: auto-read (Slack-only, disclosed as
+// such in its own label), hide-archived (Slack/Teams-only, same
+// disclosure), an auto-refresh interval, and a default provider on
+// open. Confirms the settings actually persist across a visit, not
+// just that the checkboxes render.
+document.getElementById("comms-settings-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Settings"),
+  "the gear icon opens a real Settings screen, not a stub"
+);
+assert(
+  document.getElementById("comms-setting-auto-read") !== null &&
+    document.getElementById("comms-setting-auto-read").nextElementSibling.textContent.includes("Slack"),
+  "the auto-read setting is honestly labeled Slack-only, not a generic checkbox implying it works everywhere"
+);
+assert(
+  document.getElementById("comms-setting-hide-archived").nextElementSibling.textContent.includes("Slack") &&
+    document.getElementById("comms-setting-hide-archived").nextElementSibling.textContent.includes("Teams"),
+  "the hide-archived setting is honestly labeled Slack & Teams only, not claiming Discord support it doesn't have"
+);
+assert(document.getElementById("comms-setting-refresh-interval") !== null, "a real auto-refresh interval control is present");
+assert(document.getElementById("comms-setting-default-provider") !== null, "a real default-provider-on-open control is present");
+
+document.getElementById("comms-setting-auto-read").click();
+document.getElementById("comms-setting-auto-read").dispatchEvent(new window.Event("change"));
+document.getElementById("comms-setting-default-provider").value = "slack";
+document.getElementById("comms-setting-default-provider").dispatchEvent(new window.Event("change"));
+document.getElementById("comms-settings-back-btn").click();
+await sleep(20);
+document.getElementById("comms-settings-btn").click();
+await sleep(20);
+assert(document.getElementById("comms-setting-auto-read").checked, "the auto-read toggle really persists across a visit, not just in-memory for one render");
+assert(document.getElementById("comms-setting-default-provider").value === "slack", "the default-provider preference really persists too");
+document.getElementById("comms-settings-back-btn").click();
+await sleep(20);
+
+// Real end-to-end mocked-fetch Slack message-thread + auto-read proof -
+// a real connect, opening a real channel shows its real message list,
+// and with auto-read now on (set above), a real conversations.mark call
+// fires automatically - same mocked-fetch, no-real-network-call
+// technique the Netlify deploy section already established.
+const slackOriginalFetch = globalThis.fetch;
+const slackMarkCalls = [];
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  const json = (body) => new window.Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  if (url === "https://slack.com/api/conversations.list") {
+    return json({ ok: true, channels: [{ id: "C1", name: "general", is_private: false, is_archived: false }] });
+  }
+  if (url.startsWith("https://slack.com/api/conversations.history")) {
+    return json({ ok: true, messages: [{ ts: "111.222", user: "U1", text: "hello there" }] });
+  }
+  if (url === "https://slack.com/api/conversations.mark") {
+    slackMarkCalls.push(JSON.parse(init.body));
+    return json({ ok: true });
+  }
+  throw new Error(`verify_web.mjs: unexpected fetch in the Slack messages mock: ${url}`);
+};
+
+document.querySelector('[data-comms-provider-id="slack"]').click();
+await sleep(20);
+document.getElementById("comms-connect-token").value = "fake-slack-token";
+document.getElementById("comms-connect-btn").click();
+await sleep(30);
+assert(document.querySelector("#mount-communication .resource-open-btn") !== null, "a real successful connect shows the real channel list as drillable rows");
+document.querySelector("#mount-communication .resource-open-btn").click();
+await sleep(30);
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Messages"),
+  "tapping a Slack channel opens its own real message thread directly - no intermediate channel-list level, unlike Discord/Teams"
+);
+assert(
+  document.querySelector("#mount-communication .resource-name")?.textContent.includes("hello there"),
+  "the real message list renders the mocked API's actual message content"
+);
+assert(slackMarkCalls.length === 1 && slackMarkCalls[0].channel === "C1" && slackMarkCalls[0].ts === "111.222", "auto-read (enabled in Settings above) really called Slack's own conversations.mark with the real channel and latest message timestamp");
+globalThis.fetch = slackOriginalFetch;
+
+document.getElementById("comms-messages-back-btn").click();
+await sleep(20);
+document.getElementById("comms-back-btn").click();
+await sleep(20);
+
+// Real end-to-end mocked-fetch Discord proof - unlike Slack, Discord's
+// own connect() only returns guilds, so opening one shows a real
+// intermediate channel-list level before reaching messages.
+const discordOriginalFetch = globalThis.fetch;
+globalThis.fetch = async (input) => {
+  const url = typeof input === "string" ? input : input.url;
+  const json = (body) => new window.Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  if (url === "https://discord.com/api/v10/users/@me/guilds") {
+    return json([{ id: "G1", name: "my-server", owner: true }]);
+  }
+  if (url === "https://discord.com/api/v10/guilds/G1/channels") {
+    return json([{ id: "chan1", name: "general", type: 0 }]);
+  }
+  if (url.startsWith("https://discord.com/api/v10/channels/chan1/messages")) {
+    return json([{ id: "m1", content: "hey", timestamp: "2026-01-01T00:00:00.000Z", author: { username: "bob" } }]);
+  }
+  throw new Error(`verify_web.mjs: unexpected fetch in the Discord messages mock: ${url}`);
+};
+
+document.querySelector('[data-comms-provider-id="discord"]').click();
+await sleep(20);
+document.getElementById("comms-connect-token").value = "fake-discord-token";
+document.getElementById("comms-connect-btn").click();
+await sleep(30);
+document.querySelector("#mount-communication .resource-open-btn").click();
+await sleep(30);
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Channels"),
+  "tapping a Discord guild opens a real intermediate channel-list level, not straight to messages like Slack"
+);
+assert(document.querySelector("#mount-communication .resource-open-btn")?.textContent.includes("general"), "the real channel list shows the mocked API's actual channel");
+document.querySelector("#mount-communication .resource-open-btn").click();
+await sleep(30);
+assert(
+  document.querySelector("#mount-communication .resource-name")?.textContent.includes("hey"),
+  "tapping a Discord channel shows its own real message list"
+);
+globalThis.fetch = discordOriginalFetch;
+
+document.getElementById("comms-messages-back-btn").click();
+await sleep(20);
+document.getElementById("comms-channels-back-btn").click();
+await sleep(20);
+document.getElementById("comms-back-btn").click();
+await sleep(20);
+
 // 1f. Socials proof - the 7th top-level tab (not nested inside
 // Workspace, its own real route/mount/nav button), via
 // @justjs/social-connect. 3 real, connectable providers with 3
@@ -1138,6 +1272,125 @@ assert(
   "a provider's own back button returns to the Socials grid"
 );
 
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+
+// 1g. Cartoon Generator proof - the 8th top-level tab (not nested
+// inside Workspace, its own real route/mount/nav button), via
+// @justjs/image-connect. Architecturally different from every other
+// provider tab: the real action is "generate" (always billed), not
+// "connect and list resources" (always free) - connect() proofs use
+// the real no-credential-yet fast path like every other provider, but
+// the real end-to-end generate() flow needs a mocked-fetch technique
+// (same as the Netlify-deploy/PM-connector rounds) since there's no
+// "empty state" to fall back to for a real image result.
+document.querySelector('.nav-btn[data-route="/cartoon"]').click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/cartoon"]').classList.contains("active"), "tapping the Cartoon tab navigates to the real Cartoon route");
+assert(document.getElementById("mount-cartoon").classList.contains("active"), "the Cartoon mount is now the active page");
+assert(
+  document.querySelector("#mount-cartoon .workspace-stage-title").textContent.includes("Cartoon Generator"),
+  "Cartoon Generator renders its own real provider grid directly, not a stub"
+);
+const cartoonProviderCards = [...document.querySelectorAll("#mount-cartoon .provider-card")];
+const cartoonProviderNames = cartoonProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(
+  cartoonProviderNames.includes("OpenAI") && cartoonProviderNames.includes("Stability AI") && cartoonProviderNames.includes("Google Gemini"),
+  `Cartoon Generator opens a real catalog of all 3 actual image-generation providers (found ${cartoonProviderNames.join(", ")})`
+);
+assert(cartoonProviderCards.every((el) => !el.classList.contains("selected")), "no provider shows as Connected before any API key is ever saved");
+
+const openAiCard = document.querySelector('[data-cartoon-provider-id="openai"]');
+openAiCard.click();
+await sleep(20);
+assert(document.getElementById("cartoon-connect-token") !== null, "OpenAI shows a single API key input, same shape as a bearer-token cloud provider");
+document.getElementById("cartoon-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("cartoon-connect-status").textContent.includes("Paste an API key first"),
+  "connecting OpenAI with an empty key shows a real, actionable error, not a silent no-op"
+);
+assert(document.querySelector("#mount-cartoon .cartoon-generated-image") === null, "no generate button/image renders before a real successful connect");
+
+document.getElementById("cartoon-back-btn").click();
+await sleep(20);
+const geminiCard = document.querySelector('[data-cartoon-provider-id="gemini"]');
+geminiCard.click();
+await sleep(20);
+assert(document.getElementById("cartoon-connect-token") !== null, "Google Gemini also shows a single API key input");
+document.getElementById("cartoon-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("cartoon-connect-status").textContent.includes("Paste an API key first"),
+  "connecting Gemini with an empty key shows the same real, actionable error"
+);
+document.getElementById("cartoon-back-btn").click();
+await sleep(20);
+
+// Real end-to-end mocked-fetch Stability AI proof - chosen as the one
+// fully-proved provider since it has the most real distinct mechanics
+// (a real credit-balance connect status, a real multipart/form-data
+// generate body, a real structured style_preset field) - no real
+// network call, and critically no real billed generation ever happens
+// in this suite.
+const stabilityOriginalFetch = globalThis.fetch;
+let capturedFormData = null;
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.url;
+  const json = (body) => new window.Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+  if (url === "https://api.stability.ai/v1/user/balance") {
+    return json({ credits: 24.5 });
+  }
+  if (url === "https://api.stability.ai/v2beta/stable-image/generate/core") {
+    capturedFormData = init.body;
+    return json({ image: "ZmFrZS1wbmctYnl0ZXM=", finish_reason: "SUCCESS" });
+  }
+  throw new Error(`verify_web.mjs: unexpected fetch in the Stability cartoon mock: ${url}`);
+};
+
+const stabilityCard = document.querySelector('[data-cartoon-provider-id="stability"]');
+stabilityCard.click();
+await sleep(20);
+document.getElementById("cartoon-connect-token").value = "fake-stability-key";
+document.getElementById("cartoon-connect-btn").click();
+await sleep(30);
+assert(
+  document.getElementById("cartoon-connect-status").textContent.includes("24.5 credits available"),
+  "a real successful connect shows Stability's own real credit balance, not just a bare 'connected' label"
+);
+assert(
+  document.querySelector("#mount-cartoon .connect-hint")?.textContent.includes("style_preset"),
+  "Stability's screen discloses its real, structured style_preset field before generating"
+);
+
+document.getElementById("cartoon-generate-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("cartoon-generate-status").textContent.includes("Describe what to draw first"),
+  "generating with an empty prompt shows a real, actionable error, not a silent no-op or a wasted billed call"
+);
+
+document.getElementById("cartoon-prompt").value = "a fox riding a skateboard";
+document.getElementById("cartoon-generate-btn").click();
+await sleep(30);
+// Node has its own native global FormData (since Node 18), distinct
+// from happy-dom's window.FormData - the setup loop above only copies
+// a window global onto globalThis when the name isn't already there,
+// so the app bundle (running under plain globalThis) actually
+// constructs a Node-native FormData, not happy-dom's. Checking against
+// the real global FormData class (whichever one is actually in scope),
+// not window's, avoids a false negative from comparing two genuinely
+// different-but-both-real FormData implementations.
+assert(capturedFormData instanceof FormData, "Generate really sends a multipart/form-data body, not JSON, matching Stability's own real API");
+assert(capturedFormData.get("prompt") === "a fox riding a skateboard", "the real form data carries the prompt the user actually typed");
+assert(capturedFormData.get("style_preset") === "comic-book", "the real form data carries Stability's own real cartoon style_preset value");
+const generatedImg = document.querySelector("#mount-cartoon .cartoon-generated-image");
+assert(generatedImg !== null, "a real successful generate renders the real returned image");
+assert(generatedImg.src.startsWith("data:image/png;base64,ZmFrZS1wbmctYnl0ZXM="), "the rendered image's real data URL carries the exact base64 bytes the mocked API returned");
+globalThis.fetch = stabilityOriginalFetch;
+
+document.getElementById("cartoon-back-btn").click();
+await sleep(20);
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
 

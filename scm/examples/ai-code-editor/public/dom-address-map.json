@@ -1,6 +1,14 @@
 {
   "app": "ai-code-editor",
   "elements": {
+    "ai-code-editor:app:shell:mount-cartoon": {
+      "component": "cartoon",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-cartoon",
+      "type": "div"
+    },
     "ai-code-editor:app:shell:mount-chat": {
       "component": "chat",
       "feature": "app",
@@ -62,6 +70,10 @@
     "mount": {
       "id": "ai-code-editor:app:shell:mount",
       "selector": "#app"
+    },
+    "mount-cartoon": {
+      "id": "ai-code-editor:app:shell:mount-cartoon",
+      "selector": "#mount-cartoon"
     },
     "mount-chat": {
       "id": "ai-code-editor:app:shell:mount-chat",

@@ -4,6 +4,7 @@
 // Regenerate with: justw generate app
 
 export function stampMounts(): void {
+  document.querySelector("#mount-cartoon")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-cartoon"); // mount-cartoon
   document.querySelector("#mount-chat")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-chat"); // mount-chat
   document.querySelector("#mount-communication")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-communication"); // mount-communication
   document.querySelector("#mount-editor")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-editor"); // mount-editor

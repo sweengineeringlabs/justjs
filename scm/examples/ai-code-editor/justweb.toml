@@ -1,7 +1,7 @@
 # justweb.toml — project config for the justw CLI.
-# ai-code-editor's 7 top-level components (x-editor/x-chat/x-review/
-# x-scaffold/x-workspace/x-communication/x-socials) are hand-written,
-# not justweb-generated — the
+# ai-code-editor's 8 top-level components (x-editor/x-chat/x-review/
+# x-scaffold/x-workspace/x-communication/x-socials/x-cartoon) are
+# hand-written, not justweb-generated — the
 # [mounts] table below exists only to get real, validated DDAS addresses
 # for their pre-existing containers (justweb#69/#70/#71). app.ts is
 # hand-authored (no "DO NOT EDIT" marker), so `justw generate app` never
@@ -47,3 +47,8 @@ tag = "x-communication"
 selector = "#mount-socials"
 component = "socials"
 tag = "x-socials"
+
+[mounts.mount-cartoon]
+selector = "#mount-cartoon"
+component = "cartoon"
+tag = "x-cartoon"

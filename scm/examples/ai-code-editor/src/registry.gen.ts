@@ -3,6 +3,7 @@
 // Source of truth: *_component.yaml files
 // Regenerate with: justw generate app
 
+import { CartoonBase } from './features/cartoon/cartoon_component.gen';
 import { ChatBase } from './features/chat/chat_component.gen';
 import { CommunicationBase } from './features/communication/communication_component.gen';
 import { EditorBase } from './features/editor/editor_component.gen';
@@ -22,6 +23,7 @@ if (typeof customElements === 'object' && customElements !== null && typeof cust
   // Tag names are emitted as string literals so this file does not depend
   // on bundlers preserving the static `tagName` member on each class.
   const __components: Array<readonly [string, CustomElementConstructor]> = [
+    ['js-cartoon', CartoonBase],
     ['js-chat', ChatBase],
     ['js-communication', CommunicationBase],
     ['js-editor', EditorBase],

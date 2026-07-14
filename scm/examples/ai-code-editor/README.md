@@ -82,6 +82,10 @@ stand-in.
   Mastodon, Bluesky, or Reddit, plus X (Twitter) and LinkedIn shown
   honestly as not available — see "Socials — real, 7th top-level tab"
   below.
+- **Cartoon Generator** (`x-cartoon`, `/cartoon`) — the 8th top-level
+  tab: a real "Connect" screen for OpenAI, Stability AI, or Google
+  Gemini, then a real, billed text-to-image generation call styled as
+  a cartoon — see "Cartoon Generator — real, 8th top-level tab" below.
 
 ## Requirement & Planning — real project-management connections
 
@@ -386,24 +390,88 @@ already reads entirely from the generated `dom-address-map.json`/
 
 3 real providers:
 
-- **Discord** and **Microsoft Teams** are the same one-call bearer-token
-  pattern GitHub/GitLab already proved — both `DefaultCommsConnectProvider`
-  instances. The one real difference: Discord's own documented
-  convention for bot tokens is `Authorization: Bot <token>`, not
-  `Bearer` — the generic engine's `authScheme` is configurable per
-  provider specifically for this. Microsoft Teams' token comes from
-  `az account get-access-token --resource-type ms-graph`, the same
-  short-lived-CLI-token pattern Azure already uses.
-- **Slack** is not a generic-engine instance — its API always answers
-  HTTP 200, even on auth failure, confirmed live with a fake token
-  (`{"ok":false,"error":"invalid_auth"}`). A naive HTTP-status check
-  would silently treat that as success. `SlackCommsConnectProvider`
-  checks the real `ok` field instead — the same real-quirk-gets-its-own-
-  class treatment AWS/Bitbucket already got in the other two packages.
+- **Discord** and **Microsoft Teams**' `connect()` still use the same
+  one-call bearer-token pattern GitHub/GitLab already proved (Discord's
+  own documented `Authorization: Bot <token>` convention, not `Bearer`
+  — the generic engine's `authScheme` is configurable per provider
+  specifically for this; Teams' token comes from `az account
+  get-access-token --resource-type ms-graph`, the same short-lived-
+  CLI-token pattern Azure already uses) — but neither is a plain
+  `DefaultCommsConnectProvider` instance anymore (see "Real message
+  threads" below for why).
+- **Slack**'s `connect()` was never a generic-engine instance — its API
+  always answers HTTP 200, even on auth failure, confirmed live with a
+  fake token (`{"ok":false,"error":"invalid_auth"}`). A naive
+  HTTP-status check would silently treat that as success.
+  `SlackCommsConnectProvider` checks the real `ok` field instead — the
+  same real-quirk-gets-its-own-class treatment AWS/Bitbucket already
+  got in the other two packages.
 
 Every endpoint was confirmed live (CORS headers checked directly, and a
 real invalid-token error confirmed the exact request/response shape,
 including Slack's 200-but-`ok:false` body) before being wired up.
+
+### Real message threads + a real Settings screen
+
+Tapping a channel (Slack) or a guild/team (Discord/Teams) opens a real
+per-channel message thread, not just a resource list. Discord's and
+Teams' own `connect()` only ever return the top-level guild/team — one
+real level shallower than a channel — so opening one shows a real
+intermediate channel list first (`listChannels()`), *then* the message
+thread; Slack's `connect()` already returns channels directly, so
+tapping one goes straight to its messages. All 3 real endpoints were
+confirmed live before being wired up:
+
+- **Slack**: `conversations.history` for messages, `conversations.mark`
+  for read-state. **A real, honest limitation**: since this app
+  authenticates as a bot, `conversations.mark` moves the *bot's own*
+  read cursor, not any human user's — Slack has no API for a bot token
+  to mark read-state on a different (human) identity's behalf. Real and
+  working, but its practical significance is limited — stated plainly
+  in the Settings screen's own label text, not hidden.
+- **Discord**: real `GET /guilds/{id}/channels` (filtered to real text
+  channels only) and `GET /channels/{id}/messages`. **Bots have zero
+  real read-state capability** — confirmed via Discord's own docs and
+  community threads, not assumed: read-state is a per-user-account
+  client feature, not something a bot token can see or set.
+- **Microsoft Teams**: real `GET /teams/{id}/channels` and `GET
+  /teams/{id}/channels/{id}/messages`. Also **no real
+  read-state capability** — the only Graph read-state APIs are for
+  1:1/group chats under delegated auth with `Chat.ReadWrite`, explicitly
+  unsupported for channel messages or app-only auth. **A second real,
+  honest caveat**: this app's short-lived CLI token
+  (`az account get-access-token`) may return a real 403 on these two
+  endpoints specifically — its default consented scopes likely don't
+  include `Channel.ReadBasic.All`/`ChannelMessage.Read.All` unless your
+  tenant admin has separately granted that consent to the Azure CLI
+  client. `TeamsCommsConnectProvider` names this exact possibility in
+  its own 403 error message rather than a generic one. Teams' message
+  body (`body.content`) is real HTML — stripped to safe plain text
+  *inside the provider itself* before ever reaching the DOM (real
+  `DOMParser`-based stripping that explicitly removes `<script>`/
+  `<style>` elements first — `.textContent` alone isn't enough, since it
+  still includes a `<script>` tag's own literal source text without
+  executing it, a real gotcha this package's own test suite caught and
+  fixed, not a hypothetical).
+
+A gear-icon **Settings** screen on the provider grid holds 4 real, local
+preferences (`core/comms_credentials.ts`, one JSON blob, same pattern
+`TrelloCredentials` already uses):
+
+- **Auto-read** — Slack-only (see the real limitation above), labeled
+  as such rather than a generic checkbox implying it works everywhere.
+- **Hide archived channels** — a real client-side filter over Slack's
+  own `is_archived` and Teams' own `isArchived` fields (both confirmed
+  real via each provider's docs); has no effect for Discord, which has
+  no real archived concept for a bot token, and is labeled accordingly.
+- **Auto-refresh** — Off/30s/60s/2min, a real bounded `setInterval`
+  re-fetch of whichever list is currently on screen, always cleared the
+  moment you leave that screen (back navigation, disconnect, or the
+  component itself unmounting) — never left running against a stale
+  view.
+- **Default provider on open** — jumps straight into a chosen
+  provider's screen on the next visit instead of always showing the
+  grid first.
 
 ## Socials — real, 7th top-level tab
 
@@ -462,6 +530,68 @@ confirmed the exact error shape — Mastodon's plain 401, Bluesky's real
 `{"error":"AuthenticationRequired","message":"Invalid identifier or
 password"}` body, and Reddit's real
 `{"message":"Unauthorized","error":401}` body.
+
+## Cartoon Generator — real, 8th top-level tab
+
+Cartoon Generator (`/cartoon`) is a real, fifth framework package,
+`@justjs/image-connect`, same `api`/`core`/`saf`/`spi` shape as every
+other `*-connect` package — but architecturally different from all of
+them: the real capability is *generate*, not *connect and list
+resources*, and every generation is genuinely billed (not free), so
+each provider's own screen discloses its real approximate cost before
+the "Generate Cartoon" button is ever clicked. Replicate was checked
+live during design and excluded outright (confirmed zero CORS headers
+at all - not even an honest "not available" card, since it was never
+in the shipped provider set). Like `pm-connect`'s own round, all 3
+chosen providers turned out to have genuinely distinct real mechanics,
+so this package also ships with no shared generic engine.
+
+- **OpenAI** — a real, free `GET /v1/models` proves the key works
+  before any billed call. Real image generation via `POST
+  /v1/images/generations` — **dall-e-3 is dead** (retired from the API
+  2026-05-12, confirmed live) — uses the current `gpt-image-1.5` model
+  instead. `response_format` is no longer honored; the API always
+  returns base64, never a URL. No real structured style parameter —
+  cartoon styling is real prompt engineering (this app prefixes the
+  user's own prompt), disclosed as such rather than presented as
+  equivalent to Stability's real field. Real cost: ~$0.04/image.
+- **Stability AI** — a real, free `GET /v1/user/balance` proves the key
+  *and* shows the real remaining credit balance, more useful than a
+  bare validity check. Real image generation via `POST /v2beta/
+  stable-image/generate/core` — a real **multipart/form-data** body
+  (confirmed live, not JSON - genuinely different from the other two),
+  `Accept: application/json` returns real base64 in the response. Has
+  a real, literal `style_preset` field with a confirmed valid
+  `comic-book` enum value — an actual structured cartoon parameter,
+  not prompt-only styling. Real cost: ~$0.03/image.
+- **Google Gemini** — a real, free `GET /v1beta/models` proves the key
+  works. Real image generation via `POST /v1beta/models/gemini-2.5-
+  flash-image:generateContent` with `generationConfig.
+  responseModalities: ["IMAGE"]`, base64 returned inline. Pinned to
+  `gemini-2.5-flash-image` (confirmed generally-available/stable)
+  rather than the newer 3.x preview models — research surfaced
+  conflicting signals on their current shutdown/availability status,
+  so the known-stable model is the deliberate, safer real choice, not
+  an oversight. Auth is a real `?key=` query parameter, not a header —
+  genuinely different from the other two providers' `Authorization:
+  Bearer`. A real invalid key here is a **400**, not a 401 — handled
+  explicitly rather than assumed to match. Real cost: ~$0.04/image.
+
+Every endpoint was confirmed live before being wired up: CORS headers
+checked directly for all 4 candidates (including Replicate's
+exclusion), and a real invalid-key request against each of the 3
+shipped providers' own real key-check endpoints confirmed the exact
+error shape — including a genuinely surprising one caught by
+double-checking rather than trusting the first pass: Stability AI's
+real error body phrasing (`"Incorrect API key provided: ...you can
+find your API key at..."`) closely mirrors OpenAI's own convention,
+confirmed via a direct, independent `curl` call against Stability's
+real API, not assumed from research alone.
+
+`connect()` is always a real, free call — safe to auto-fire on revisit
+like every other provider in this app. `generate()` is never
+auto-fired; it always needs an explicit click, since unlike every
+other real action in this app, it costs real money.
 
 ## Presentation — AI-generated slide deck
 
@@ -737,8 +867,8 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 264 assertions — boot, DDAS mounting into all
-seven routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
+built bundle) passes all 297 assertions — boot, DDAS mounting into all
+eight routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
 stubs correctly, Requirement's and Planning's real project-management
 connect screens (one shared screen opened from 3 different entries
@@ -756,15 +886,33 @@ Deploy button appearing only after a successful connect, and a real
 clickable live-URL result), Development's real
 source-control connect screens (GitHub's real "paste a token first"
 error, the provider grid's own back-navigation), the Communication
-tab's real connect screens (its own nav/route navigation proof, Slack's
-real "paste a token first" error), and the Socials tab's real connect
+tab's real connect screens and Settings (its own nav/route navigation
+proof, Slack's real "paste a token first" error, a real end-to-end
+mocked-fetch Slack connect → open a channel → real message list
+renders → auto-read really calls Slack's own conversations.mark with
+the real channel/timestamp, a real end-to-end mocked-fetch Discord
+connect → open a guild → real intermediate channel-list level (proving
+Discord's/Teams' own extra real drill-down level, unlike Slack's) →
+open a channel → real message list renders, the Settings screen's 4
+controls each honestly labeled for which providers they actually apply
+to, and real persistence of 2 of them across a simulated revisit), and
+the Socials tab's real connect
 screens (its own nav/route navigation proof, Mastodon's real "paste a
 token first" error, Bluesky's real two-field form and its own "enter
 both" error, Reddit's real two-field form and its own "enter both"
 error plus its app-level-only disclosure text, X/LinkedIn's honest
-"not available" states) - none of these four connect-screen sets makes
-a live external network call in this suite, matching the Anthropic
-key's own no-key-configured fast-path philosophy), Design's Architecture and Wireframes both opening the same
+"not available" states), and the Cartoon Generator tab's real connect +
+generate flow (its own nav/route navigation proof, OpenAI's/Gemini's
+real "paste an API key first" error, a real end-to-end mocked-fetch
+Stability AI flow proving a real successful connect shows Stability's
+own real credit balance, generating with an empty prompt shows a real
+error rather than wasting a billed call, a real successful generate
+sends a genuine `multipart/form-data` body carrying Stability's own
+real `style_preset` field, and the real returned image renders as a
+real `data:` URL `<img>` carrying the exact bytes the mocked API
+returned) - none of these connect-screen/message-thread/generate-flow
+sets makes a live external network call in this suite, matching the
+Anthropic key's own no-key-configured fast-path philosophy), Design's Architecture and Wireframes both opening the same
 real generator (with the same in-progress doc, not two separate copies)
 and its
 generate→Edit/Preview→Mermaid-fallback→Create-file flow via a mocked-

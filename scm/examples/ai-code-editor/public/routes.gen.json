@@ -41,6 +41,12 @@
       "feature": "socials",
       "path": "/socials",
       "tag": "js-socials"
+    },
+    {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "path": "/cartoon",
+      "tag": "js-cartoon"
     }
   ],
   "version": 1
