@@ -2,9 +2,9 @@
 // same role core/cloud_connect.ts/core/scm_connect.ts play for their
 // own packages.
 import { createCommsConnectProvider } from "@justjs/comms-connect";
-import type { CommsResource } from "@justjs/comms-connect";
+import type { CommsResource, CommsMessage } from "@justjs/comms-connect";
 
-export type { CommsResource };
+export type { CommsResource, CommsMessage };
 
 export function connectSlack(token: string): Promise<CommsResource[]> {
   return createCommsConnectProvider("slack", { token }).connect();
@@ -22,4 +22,40 @@ export function connectDiscord(token: string): Promise<CommsResource[]> {
 // CLI-token pattern Azure already uses in @justjs/cloud-connect.
 export function connectTeams(token: string): Promise<CommsResource[]> {
   return createCommsConnectProvider("teams", { token }).connect();
+}
+
+// Real per-channel message thread + Slack's own real (bot-cursor-only)
+// mark-as-read - see @justjs/comms-connect's SlackCommsConnectProvider.
+export function listSlackMessages(token: string, channelId: string): Promise<CommsMessage[]> {
+  return createCommsConnectProvider("slack", { token }).listMessages!(channelId);
+}
+
+export function markSlackRead(token: string, channelId: string, latestTimestamp: string): Promise<void> {
+  return createCommsConnectProvider("slack", { token }).markAsRead!(channelId, latestTimestamp);
+}
+
+// Discord's connect() only returns guilds (one real level shallower
+// than a channel) - these 2 add the real channels-then-messages
+// drill-down. No markAsRead - Discord bot tokens have zero real
+// read-state capability (see @justjs/comms-connect's DiscordCommsConnectProvider).
+export function listDiscordChannels(token: string, guildId: string): Promise<CommsResource[]> {
+  return createCommsConnectProvider("discord", { token }).listChannels!(guildId);
+}
+
+export function listDiscordMessages(token: string, channelId: string): Promise<CommsMessage[]> {
+  return createCommsConnectProvider("discord", { token }).listMessages!(channelId);
+}
+
+// Teams' connect() only returns joined teams - same real 2-level
+// drill-down as Discord. listTeamsMessages needs both the real team id
+// and channel id together (Teams' own message endpoint has no
+// channel-only shape) - see @justjs/comms-connect's TeamsCommsConnectProvider.
+// No markAsRead - Teams has no real read-state capability reachable via
+// this app's CLI-delegated token.
+export function listTeamsChannels(token: string, teamId: string): Promise<CommsResource[]> {
+  return createCommsConnectProvider("teams", { token }).listChannels!(teamId);
+}
+
+export function listTeamsMessages(token: string, channelId: string, teamId: string): Promise<CommsMessage[]> {
+  return createCommsConnectProvider("teams", { token }).listMessages!(channelId, teamId);
 }
