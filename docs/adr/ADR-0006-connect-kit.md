@@ -28,6 +28,48 @@ boot time; a screen either imports it or it doesn't). It also isn't a
 no `spi/` self-registration. It's a UI library consumed BY `*-connect`
 integrations, which didn't exist as a pattern when ADR-0001 was written.
 
+## Design: real Web Components, nested rather than routed
+
+The visual pieces (provider badge, provider-connect flow) ship as real
+Custom Elements with their own Shadow DOM-encapsulated HTML and CSS — not
+plain string-returning render functions. That is a deliberate change from
+the current 6 screens, which all render via `innerHTML` template strings
+against **global, leaky** CSS classes in `app.css`
+(`.provider-grid`/`.provider-card`/...). A real Web Component encapsulates
+its own markup and styles — a host screen places the tag, sets its
+properties, and nothing it does can accidentally clash with the host's own
+CSS, which is a real bug class the current shared-global-class approach
+already has latent (nothing stops one screen's future CSS edit from
+silently breaking another screen's `.provider-card`).
+
+This does **not** mean going through JustJS's `*_component.yaml` /
+`justw generate app` pipeline. That pipeline exists for **routed,
+top-level, boot-validated** components — one YAML maps to one mount point,
+checked against `routes.gen.json`/`registry.gen.ts`/`dom-address-map.json`
+at boot (ADR-0001's DDAS section). `connect-kit`'s elements are not routed
+or independently mounted; they are nested inside an existing routed
+component's own template, the same way a third-party Web Component library
+would be consumed. Concretely:
+
+- `justjs-provider-badge` and `justjs-provider-connect` are hand-authored
+  `HTMLElement` subclasses using `attachShadow({ mode: "open" })`, each
+  with its own `<style>` in the shadow root.
+- They self-register via `customElements.define(...)` as an import
+  side-effect in `connect-kit`'s own `saf/index.ts` — the same
+  self-registering spirit as `spi/` providers, but simpler (no strategy
+  string, no registry lookup; importing the package is enough).
+- A host component (e.g. `CartoonElement.render()`) places
+  `<justjs-provider-connect>` in its template, sets its `.providers`/
+  `.connect`/`.list` properties imperatively after the element is in the
+  DOM (properties, not attributes — the config includes functions), and
+  listens for `CustomEvent`s it dispatches (`connected`, `resource-select`,
+  `error`) to react in the host's own state.
+- Because these tags are never referenced in any `AspectConfig`'s
+  `.on([])`/`.except([])`, they are outside DDAS/boot-time validation
+  entirely (ADR-0001: only tags targeted by aspect weaving need a
+  `registry.gen.ts`/`dom-address-map.json` entry) — no `component.yaml`,
+  no route, no generated files.
+
 ## Real, counted duplication (evidence, not estimate)
 
 Grepped directly from the current `ai-code-editor` tree before writing
@@ -84,16 +126,18 @@ implementations** sharing the same CSS classes
    duplicated get/set-token functions. Returns `{ get(providerId), set(providerId, token) }`,
    same localStorage-best-effort semantics already proven in every existing
    copy (empty string -> `removeItem`, try/catch swallows storage errors).
-2. `renderProviderBadge(provider)` — the shared render helper, replacing
-   the 4x duplicated function verbatim (same signature, same output).
-3. A config-driven provider-connect UI kit covering the **common case**:
-   provider grid -> tap -> single-field or two-field bearer-style
-   credential form -> Connect -> resource list. Parameterized by a
-   provider catalog (id/name/icon/color/logo) plus caller-supplied
-   `connect(config)` / `list(session)` functions — the kit renders and
-   manages selection/loading/error state, the caller supplies the actual
-   network calls (already implemented per-package in each `*-connect`
-   SAF).
+2. `<justjs-provider-badge>` — a real Custom Element (Shadow DOM,
+   `icon`/`color`/`logo` properties), replacing the 4x duplicated
+   render-to-string function with the same visual output.
+3. `<justjs-provider-connect>` — a real Custom Element covering the
+   **common case**: provider grid -> tap -> single-field or two-field
+   bearer-style credential form -> Connect -> resource list. Configured
+   via a `.providers` catalog property (id/name/icon/color/logo) plus
+   caller-supplied `.connect(config)` / `.list(session)` function
+   properties — the element renders and manages selection/loading/error
+   state internally and dispatches `CustomEvent`s for the host to react
+   to; the caller supplies the actual network calls (already implemented
+   per-package in each `*-connect` SAF).
 
 ### Out of scope, not guessed at
 
@@ -125,23 +169,26 @@ It follows the same SAF shape as every other workspace (ADR-0001's hard
 invariant), with one deliberate simplification: no `spi/` is required.
 `spi/` exists for **extension points resolved by strategy name at
 runtime** (`justjs.providers.register()`); `connect-kit` has no such
-concept — a screen imports `createCredentialStore`/`renderProviderBadge`/
-the connect-form component directly, there is nothing to swap by string
-key. `src/spi/` may still exist empty (S8 in ADR-0001's invariant table is
-a warning, not an error, if absent).
+concept — a screen imports `createCredentialStore` and the two custom
+elements directly, there is nothing to swap by string key. `src/spi/` may
+still exist empty (S8 in ADR-0001's invariant table is a warning, not an
+error, if absent).
 
 ```
 connect-kit/scm/main/src/
   api/
-    credential_store.ts   # CredentialStore interface
-    provider_catalog.ts   # ProviderCatalogEntry, ConnectFormConfig types
+    credential_store.ts     # CredentialStore interface
+    provider_catalog.ts     # ProviderCatalogEntry, ConnectConfig types
+    connect_events.ts       # ConnectedEvent/ResourceSelectEvent/ConnectErrorEvent types
   core/
-    credential_store.ts   # DefaultCredentialStore (localStorage-backed)
-    provider_badge.ts     # renderProviderBadge implementation
-    connect_form.ts       # provider grid / detail / connect-form / resource-list
+    credential_store.ts     # DefaultCredentialStore (localStorage-backed)
+    provider_badge_element.ts    # ProviderBadgeElement (HTMLElement, Shadow DOM)
+    provider_connect_element.ts  # ProviderConnectElement (HTMLElement, Shadow DOM)
   saf/
-    index.ts              # createCredentialStore(), renderProviderBadge(),
-                           # createProviderConnectElement()
+    index.ts               # createCredentialStore();
+                            # registers "justjs-provider-badge" and
+                            # "justjs-provider-connect" via customElements.define()
+                            # as an import side-effect
 ```
 
 ## Migration strategy
@@ -150,8 +197,10 @@ Build `connect-kit` fresh; do not touch the 6 existing screens in the same
 change. Retrofitting all 6 at once risks regressing ~300 already-passing
 `verify_web.mjs` assertions for a purely cosmetic/structural win. Instead:
 
-1. Ship `connect-kit` v1 (credential store + badge + connect-form kit),
-   verified in isolation with its own test suite.
+1. Ship `connect-kit` v1 (credential store + the two custom elements),
+   verified in isolation with its own test suite (jsdom/happy-dom-based
+   Shadow DOM assertions, matching the harness `comms-connect` already
+   proved out this session).
 2. Migrate exactly **one** existing screen as the first real consumer —
    Socials (`socials.ts`), chosen because it has no OAuth provider and no
    generate/billing variant, making it the closest fit to the kit's v1
@@ -169,9 +218,16 @@ change. Retrofitting all 6 at once risks regressing ~300 already-passing
   close — the other 5 screens keep their duplicated code until migrated
   individually. The duplication this ADR documents will not fully
   disappear immediately.
-- `createProviderConnectElement`'s exact API shape is a design decision for
-  the implementing issue, not fixed by this ADR — the grid/detail/form/list
-  states are fixed, the config surface is not.
+- Moving to Shadow DOM is a real, non-free styling cost, not a drop-in
+  swap: the existing `.provider-*`/`.connect-*`/`.resource-*` rules in
+  `app.css` are global and won't reach inside a shadow root. They need to
+  be ported into each element's own `<style>` block (and can drift from
+  the global copies until every screen migrates) — the exact CSS a screen
+  visually needs stays the same, only where it's declared changes.
+- `ProviderConnectElement`'s exact property/event surface is a design
+  decision for the implementing issue, not fixed by this ADR — the
+  grid/detail/form/list states are fixed, the config and event names are
+  not.
 
 ## Acceptance criteria
 
@@ -180,13 +236,13 @@ change. Retrofitting all 6 at once risks regressing ~300 already-passing
 - [ ] `createCredentialStore(namespace)` ships with tests, and replaces
       the implementation (not just the export) in at least one real
       `*_credentials.ts` file
-- [ ] `renderProviderBadge()` ships with tests, matching existing output
-      byte-for-byte
-- [ ] Provider-connect UI kit ships with tests covering grid/detail/
-      connect-form/resource-list states, explicitly excluding OAuth and
-      generate/billing variants
-- [ ] Socials tab (`socials.ts`) migrated to consume `connect-kit`,
-      `verify_web.mjs` passes with no assertion count regression
+- [ ] `<justjs-provider-badge>` ships with tests, matching existing visual
+      output (icon/logo/color rendering) of the current 4 duplicated copies
+- [ ] `<justjs-provider-connect>` ships with tests covering grid/detail/
+      connect-form/resource-list states and its dispatched events,
+      explicitly excluding OAuth and generate/billing variants
+- [ ] Socials tab (`socials.ts`) migrated to consume `connect-kit`'s two
+      elements, `verify_web.mjs` passes with no assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
 ## Relates to
