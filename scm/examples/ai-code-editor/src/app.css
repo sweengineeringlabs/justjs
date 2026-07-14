@@ -113,10 +113,27 @@ body {
 }
 
 .app-header {
+  position: relative;
   flex: 0 0 auto;
-  padding: calc(var(--safe-top) + 14px) 16px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: calc(var(--safe-top) + 14px) 16px 22px;
+  /* Was flat var(--surface) - a diagonal fade gives it real depth. 22%
+     keeps --text comfortably readable in both themes. Angled (135deg,
+     not straight-down) so it reads as a fade, not a flat tinted panel. */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)) 0%, var(--surface) 75%);
+}
+
+/* Replaces the old flat 1px border-bottom with an angled accent strip -
+   the "wedge" edge look. Sits inside the header's own box (bottom: 0,
+   14px tall), not overflowing it. */
+.app-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  clip-path: polygon(0 100%, 100% 40%, 100% 100%);
 }
 
 .brand {
@@ -279,12 +296,26 @@ body {
 
 /* Bottom tab bar */
 .nav {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   gap: 2px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 6px 4px calc(6px + var(--safe-bottom));
+  /* Mirrors .app-header's diagonal fade from the opposite edge/angle. */
+  background: linear-gradient(315deg, color-mix(in srgb, var(--accent) 22%, var(--surface)) 0%, var(--surface) 75%);
+  padding: 20px 4px calc(6px + var(--safe-bottom));
+}
+
+/* Mirrors .app-header::after at the opposite edge/angle - replaces the
+   old flat 1px border-top with the same wedge accent look. */
+.nav::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14px;
+  background: linear-gradient(315deg, var(--accent) 0%, var(--accent-strong) 100%);
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 0 100%);
 }
 
 .nav-btn {
@@ -1201,17 +1232,57 @@ textarea:focus {
   gap: 12px;
 }
 
+/* Each stage sets --stage-color once here - not scoped to .widget, so
+   it applies equally to the overview grid's widget buttons AND
+   #workspace-view once you've drilled into a stage (renderStage() sets
+   the same data-stage on the container - see workspace.ts). Custom
+   properties inherit, so .workspace-function/.dash-back-btn/etc below
+   pick this up automatically without their own per-stage rules.
+   Percentages are picked to be clearly visible (not a "technically
+   there" 5% wash). Hues spread around the wheel and stay clear of
+   --danger/--warning/--success's meaning elsewhere. */
+[data-stage="ideation"] { --stage-color: #f5a524; }
+[data-stage="requirement"] { --stage-color: #3b82f6; }
+[data-stage="planning"] { --stage-color: #14b8a6; }
+[data-stage="design"] { --stage-color: #a855f7; }
+[data-stage="development"] { --stage-color: #6366f1; }
+[data-stage="testing"] { --stage-color: #f43f5e; }
+[data-stage="deployment"] { --stage-color: #f97316; }
+[data-stage="operations"] { --stage-color: #06b6d4; }
+[data-stage="presentation"] { --stage-color: #d946ef; }
+
 .widget {
+  position: relative;
+  /* Clips the corner wedge below to the card's own rounded corner,
+     instead of poking a square corner out past it. */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
   padding: 16px;
-  background: var(--surface);
+  /* Was a flat single-value tint - now a real corner-to-corner fade,
+     each card's own --stage-color to plain --surface. */
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--surface)) 0%, var(--surface) 70%);
+  border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 25%, var(--border));
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   text-align: left;
   min-height: 92px;
+}
+
+/* Folded-corner wedge accent, top-right, in the card's own stage color -
+   the "wedge edge" look applied per-card. */
+.widget::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  background: var(--stage-color, var(--accent));
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  opacity: 0.4;
 }
 
 .widget-action {
@@ -1222,7 +1293,15 @@ textarea:focus {
 }
 
 .widget-icon {
-  font-size: 24px;
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--stage-color, var(--accent)) 35%, transparent);
 }
 
 .widget-label {
@@ -1238,17 +1317,27 @@ textarea:focus {
   margin-bottom: 14px;
 }
 
+/* Was flat var(--surface-alt)/--surface everywhere below - the drill-
+   down (function list + Design/Cloud/Presentation/CLI's own sub-views)
+   never picked up any of the widget grid's color treatment once you
+   actually clicked into a stage. Reuses the same --stage-color the
+   overview already set (see workspace.ts's renderStage(), which now
+   stamps data-stage on #workspace-view - the [data-stage="..."] rules
+   above cascade down to everything here via custom-property
+   inheritance, no per-stage duplication needed). */
 .dash-back-btn {
   flex: 0 0 auto;
   padding: 8px 14px;
   font-size: 13px;
-  background: var(--surface-alt);
+  background: color-mix(in srgb, var(--stage-color, var(--accent)) 16%, var(--surface-alt));
   color: var(--text);
 }
 
 .workspace-stage-title {
   margin: 0;
   font-size: 16px;
+  padding-left: 10px;
+  border-left: 3px solid var(--stage-color, var(--accent));
 }
 
 .workspace-function-list {
@@ -1263,7 +1352,8 @@ textarea:focus {
   justify-content: space-between;
   gap: 10px;
   padding: 14px;
-  background: var(--surface);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 10%, var(--surface)) 0%, var(--surface) 70%);
+  border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--border));
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
@@ -1276,12 +1366,18 @@ button.workspace-function-live {
 }
 
 .workspace-function-arrow {
-  color: var(--accent-strong);
+  color: var(--stage-color, var(--accent-strong));
   font-weight: 700;
 }
 
+/* Stays deliberately flat/muted, unlike the live rows above - a real
+   visual "not clickable yet" signal, not just the opacity dip it had
+   before (which would otherwise now read as a dimmed *colored* row
+   instead of a genuinely neutral stub). */
 .workspace-function-stub {
   opacity: 0.7;
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .workspace-function-label {
@@ -1485,8 +1581,8 @@ button.workspace-function-live {
   align-items: center;
   gap: 6px;
   padding: 16px 10px;
-  background: var(--surface);
-  border: 2px solid transparent;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 8%, var(--surface)) 0%, var(--surface) 70%);
+  border: 2px solid color-mix(in srgb, var(--stage-color, var(--accent)) 20%, transparent);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   text-align: center;
@@ -1498,8 +1594,25 @@ button.workspace-function-live {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 
+/* Real brand logo (5 of 8 providers, simple-icons) or an emoji fallback
+   (aws/azure/heroku), both centered on a circular badge in the
+   provider's own real brand color - was a bare 24px emoji with no
+   badge at all. The logo's fill="currentColor" (injected in
+   renderProviderBadge()) picks up this rule's `color: white`. */
 .cloud-provider-icon {
-  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-circle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+}
+
+.cloud-provider-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .cloud-provider-name {

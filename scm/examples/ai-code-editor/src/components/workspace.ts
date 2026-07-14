@@ -5,6 +5,18 @@ import { navigateTo } from "../core/navigation.js";
 import { inferLanguage, normalizePath, pathExists } from "../core/fs.js";
 import { renderMarkdownToHtml, splitMarkdownSlides } from "../core/markdown.js";
 import { runCliCommand } from "../core/cli.js";
+// Real, official brand marks (CC0, offline - no runtime network call,
+// same "no real API calls" posture as the rest of this app) via
+// simple-icons, not hand-drawn approximations. AWS/Azure/Heroku aren't
+// in simple-icons' catalog at all (its own community has had brands
+// pulled over trademark requests in the past) - those three fall back
+// to a plain colored monogram instead of a fabricated logo shape, see
+// CLOUD_PROVIDER_CATALOG below.
+import gcpLogo from "simple-icons/icons/googlecloud.svg?raw";
+import digitaloceanLogo from "simple-icons/icons/digitalocean.svg?raw";
+import cloudflareLogo from "simple-icons/icons/cloudflare.svg?raw";
+import vercelLogo from "simple-icons/icons/vercel.svg?raw";
+import netlifyLogo from "simple-icons/icons/netlify.svg?raw";
 
 interface SdlcFunction {
   readonly label: string;
@@ -47,6 +59,17 @@ interface CloudProvider {
   readonly id: string;
   readonly name: string;
   readonly icon: string;
+  // Each provider's real, recognizable brand color (not an arbitrary
+  // palette pick) - used for the badge background regardless of
+  // whether a real `logo` SVG is available.
+  readonly color: string;
+  // Raw SVG markup (simple-icons, single <path>, no fill set) for the
+  // 5 providers actually in that catalog. Recolored to white via a
+  // `fill="currentColor"` injection at render time (renderCloudProviders
+  // below) so it reads clearly against its own colored badge. Absent
+  // for aws/azure/heroku - those render their emoji `icon` instead, not
+  // a fabricated logo.
+  readonly logo?: string;
 }
 
 // A real, recognizable set of actual cloud providers - not arbitrary
@@ -54,15 +77,25 @@ interface CloudProvider {
 // list; there is no real API call to any of these, no credentials
 // collected.
 const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
-  { id: "aws", name: "AWS", icon: "🟧" },
-  { id: "gcp", name: "Google Cloud", icon: "🔴" },
-  { id: "azure", name: "Microsoft Azure", icon: "🔷" },
-  { id: "digitalocean", name: "DigitalOcean", icon: "💧" },
-  { id: "cloudflare", name: "Cloudflare", icon: "🟠" },
-  { id: "vercel", name: "Vercel", icon: "▲" },
-  { id: "netlify", name: "Netlify", icon: "🟢" },
-  { id: "heroku", name: "Heroku", icon: "🟣" },
+  { id: "aws", name: "AWS", icon: "🟧", color: "#FF9900" },
+  { id: "gcp", name: "Google Cloud", icon: "🔴", color: "#4285F4", logo: gcpLogo },
+  { id: "azure", name: "Microsoft Azure", icon: "🔷", color: "#0078D4" },
+  { id: "digitalocean", name: "DigitalOcean", icon: "💧", color: "#0080FF", logo: digitaloceanLogo },
+  { id: "cloudflare", name: "Cloudflare", icon: "🟠", color: "#F38020", logo: cloudflareLogo },
+  { id: "vercel", name: "Vercel", icon: "▲", color: "#000000", logo: vercelLogo },
+  { id: "netlify", name: "Netlify", icon: "🟢", color: "#00C7B7", logo: netlifyLogo },
+  { id: "heroku", name: "Heroku", icon: "🟣", color: "#430098" },
 ];
+
+// simple-icons ships each SVG with no `fill` set (defaults to SVG's own
+// black), meant for the consumer to recolor. Injecting fill="currentColor"
+// once here, then setting `color: white` on the wrapping badge (CSS),
+// renders every real logo in white against its own brand-colored circle -
+// one consistent treatment, not a different one per icon.
+function renderProviderBadge(p: CloudProvider): string {
+  const glyph = p.logo ? p.logo.replace("<svg ", '<svg fill="currentColor" ') : escapeHtml(p.icon);
+  return `<span class="cloud-provider-icon" style="background: ${p.color}">${glyph}</span>`;
+}
 
 // Development -> Editor, Testing -> Review, Ideation -> Chat, and
 // Planning -> Scaffold are real links into this app's existing tabs -
@@ -208,6 +241,9 @@ export class WorkspaceElement extends HTMLElement {
   }
 
   private renderOverview(container: Element): void {
+    // Clears whatever a previous drill-down's renderStage() set - the
+    // overview grid colors each widget individually, not the container.
+    container.removeAttribute("data-stage");
     container.innerHTML = `
       <div class="widget-grid">
         ${SDLC_STAGES.map(
@@ -235,6 +271,12 @@ export class WorkspaceElement extends HTMLElement {
   }
 
   private renderStage(container: Element, stage: SdlcStage): void {
+    // Lets the drill-down (function list + every special sub-view -
+    // Design's generator, Cloud, Presentation's generator, the CLI)
+    // inherit the same --stage-color the overview grid's widget already
+    // set per stage (app.css's [data-stage="..."] rules), instead of
+    // falling back to flat var(--surface) once you're inside a stage.
+    container.setAttribute("data-stage", stage.key);
     if (stage.key === "design" && this.showDesignGenerator) {
       this.renderDesignGenerator(container);
       return;
@@ -523,7 +565,7 @@ export class WorkspaceElement extends HTMLElement {
           const selected = this.cloudProviders.includes(p.id);
           return `
             <button type="button" class="cloud-provider-card${selected ? " selected" : ""}" data-provider-id="${p.id}">
-              <span class="cloud-provider-icon">${p.icon}</span>
+              ${renderProviderBadge(p)}
               <span class="cloud-provider-name">${escapeHtml(p.name)}</span>
               <span class="cloud-provider-check">✓ Added</span>
             </button>
