@@ -1,4 +1,4 @@
-# ADR-0009: `@justjs/connect-kit` — reusable status-line view component
+# ADR-0009: `@justjs/component-view` — reusable status-line view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -92,7 +92,7 @@ import side-effect, outside DDAS/boot-time validation.
 
 ## Acceptance criteria
 
-- [ ] `<view-status-line>` ships in `connect-kit`'s `core`/`saf` with
+- [ ] `<view-status-line>` ships in `component-view`'s `core`/`saf` with
       tests covering: empty text (hidden), non-empty text (visible,
       matches textContent), text cleared after being set (hides again)
 - [ ] `editor.ts` migrated to `<view-status-line>`, `verify_web.mjs`
@@ -101,8 +101,8 @@ import side-effect, outside DDAS/boot-time validation.
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — the separate
+- [ADR-0007](ADR-0007-provider-connect-package.md) — the separate
   `.connect-status` pattern this ADR explicitly excludes
 - ADR-0001 (workspace layout, SAF structure invariants)

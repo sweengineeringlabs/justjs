@@ -1,4 +1,4 @@
-# ADR-0010: `@justjs/connect-kit` — reusable image-attach view components
+# ADR-0010: `@justjs/component-view` — reusable image-attach view components
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -66,7 +66,7 @@ Originally scoped as `<control-image-attach>`. Reconsidered: the actual
 async work (validate type/size, read the file, build a data URL) is
 already a shared, non-visual utility, called directly by each of the 3
 hosts today — it was never independently reimplemented, only the
-markup around it was. Wrapping that in a `connect-kit` control would mean
+markup around it was. Wrapping that in a `component-view` control would mean
 either re-implementing already-shared logic inside a new component, or
 having the control just forward to `core/images.ts` — adding a layer that
 does nothing `ReviewElement`/`ChatElement`/`ScaffoldElement` (all
@@ -110,7 +110,7 @@ against two reusable views instead of hand-rolled markup.
 - Multi-image attachment — none of the 3 existing copies support more
   than one image at a time; not invented speculatively.
 - Promoting `isSupportedImageType`/`readImageFileAsDataUrl`/`parseDataUrl`
-  into `connect-kit` itself — they stay in `core/images.ts`, imported by
+  into `component-view` itself — they stay in `core/images.ts`, imported by
   each host as they already are. Nothing about this ADR requires moving
   them.
 
@@ -151,7 +151,7 @@ side-effects, outside DDAS/boot-time validation.
 
 ## Acceptance criteria
 
-- [ ] `<view-image-attach>` ships in `connect-kit`'s `core`/`saf` with
+- [ ] `<view-image-attach>` ships in `component-view`'s `core`/`saf` with
       tests covering: trigger renders, `files-select` dispatched with the
       picked file(s)
 - [ ] `<view-image-picker>` ships with tests covering: hidden when
@@ -163,6 +163,6 @@ side-effects, outside DDAS/boot-time validation.
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
 - ADR-0001 (workspace layout, SAF structure invariants)

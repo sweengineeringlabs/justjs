@@ -1,4 +1,4 @@
-# ADR-0016: `@justjs/connect-kit` — reusable list view component
+# ADR-0016: `@justjs/component-view` — reusable list view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -101,7 +101,7 @@ migrates Socials.
 
 ## Acceptance criteria
 
-- [ ] `<view-list>` ships in `connect-kit`'s `core`/`saf` with tests
+- [ ] `<view-list>` ships in `component-view`'s `core`/`saf` with tests
       covering: empty state renders `emptyMessage`, non-empty renders
       name+status rows, `clickable=true` renders buttons and dispatches
       `item-select` with the correct `id`, `clickable=false` renders
@@ -112,8 +112,8 @@ migrates Socials.
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — the primary real
+- [ADR-0007](ADR-0007-provider-connect-package.md) — the primary real
   consumer, `<control-provider-connector>`
 - ADR-0001 (workspace layout, SAF structure invariants)

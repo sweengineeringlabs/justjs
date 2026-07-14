@@ -1,4 +1,4 @@
-# ADR-0015: `@justjs/connect-kit` — reusable form view component
+# ADR-0015: `@justjs/component-view` — reusable form view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -119,7 +119,7 @@ before ADR-0007 composes it.
 
 ## Acceptance criteria
 
-- [ ] `<view-form>` ships in `connect-kit`'s `core`/`saf` with tests
+- [ ] `<view-form>` ships in `component-view`'s `core`/`saf` with tests
       covering: 1-field render, 2-field render, `submit` dispatched with
       correct `values`, `connecting`/`connected` props change button
       state, `disconnect` dispatched on Disconnect click
@@ -129,9 +129,9 @@ before ADR-0007 composes it.
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — the sole real
+- [ADR-0007](ADR-0007-provider-connect-package.md) — the sole real
   consumer, `<control-provider-connector>`
 - [ADR-0009](ADR-0009-connect-kit-status-line.md) — `<view-status-line>`,
   the sibling piece handling the status line below this form

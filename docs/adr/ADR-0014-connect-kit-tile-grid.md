@@ -1,4 +1,4 @@
-# ADR-0014: `@justjs/connect-kit` — reusable tile-grid view component
+# ADR-0014: `@justjs/component-view` — reusable tile-grid view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -26,7 +26,7 @@ just a reflection of data the host already computes. It's the latter —
 ## Real evidence
 
 `workspace.ts`'s `renderOverview()` (the SDLC hub — `WorkspaceElement`'s
-own top-level view, not itself a `connect-kit` scope):
+own top-level view, not itself a `component-view` scope):
 
 ```typescript
 <div class="widget-grid">
@@ -138,7 +138,7 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
   that composition is done as separate follow-up work.
 - The evidence for this component is structural-shape matching across two
   different real consumers, not byte-identical duplicated code — a
-  softer bar than most other `connect-kit` elements were justified by.
+  softer bar than most other `component-view` elements were justified by.
   Disclosed explicitly, not glossed over.
 - Shadow DOM styling cost, same as every sibling element: `.widget-grid`/
   `.widget-action`/`.provider-grid`/`.provider-card` rules in `app.css`
@@ -146,7 +146,7 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
 
 ## Acceptance criteria
 
-- [ ] `<view-grid>` ships in `connect-kit`'s `core`/`saf` with tests
+- [ ] `<view-grid>` ships in `component-view`'s `core`/`saf` with tests
       covering: plain-icon tile render, badge tile render (composes
       `<view-badge>`), `selected` prop reflected visually, `item-select`
       dispatched with the correct `id` on click, no internal mutation of
@@ -159,7 +159,7 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
 
 - [ADR-0013](ADR-0013-connect-kit-no-grid-component.md) — the decision
   this supersedes
-- [ADR-0006](ADR-0006-connect-kit-view.md) — `<view-badge>`, composed here
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — `<control-provider-connector>`,
+- [ADR-0006](ADR-0006-component-view-package.md) — `<view-badge>`, composed here
+- [ADR-0007](ADR-0007-provider-connect-package.md) — `<control-provider-connector>`,
   whose own grid state is a real, deferred consumer of this element
 - ADR-0001 (workspace layout, SAF structure invariants)

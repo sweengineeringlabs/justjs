@@ -1,4 +1,4 @@
-# ADR-0011: `@justjs/connect-kit` — reusable prompt-field view component
+# ADR-0011: `@justjs/component-view` — reusable prompt-field view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -105,7 +105,7 @@ import side-effect, outside DDAS/boot-time validation.
 
 ## Acceptance criteria
 
-- [ ] `<view-prompt-field>` ships in `connect-kit`'s `core`/`saf` with
+- [ ] `<view-prompt-field>` ships in `component-view`'s `core`/`saf` with
       tests covering: label present/absent render, placeholder/rows
       applied, `value` set and read back
 - [ ] `cartoon.ts` migrated to `<view-prompt-field>`, `verify_web.mjs`
@@ -114,8 +114,8 @@ import side-effect, outside DDAS/boot-time validation.
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — Cartoon's generate flow,
+- [ADR-0007](ADR-0007-provider-connect-package.md) — Cartoon's generate flow,
   which this ADR's field sits inside but does not itself cover
 - ADR-0001 (workspace layout, SAF structure invariants)

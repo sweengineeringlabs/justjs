@@ -1,4 +1,4 @@
-# ADR-0008: `@justjs/connect-kit` — reusable nav-header view component
+# ADR-0008: `@justjs/component-view` — reusable nav-header view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -95,7 +95,7 @@ Same reasoning as ADR-0006/ADR-0007: `HTMLElement` subclass,
 distinguishes hand-authored vs. generated **routed** components, which
 this nested element is not), self-registers via
 `customElements.define("view-nav-header", NavHeaderView)` as an import
-side-effect in `connect-kit`'s `saf/index.ts`, outside DDAS/boot-time
+side-effect in `component-view`'s `saf/index.ts`, outside DDAS/boot-time
 validation since it's never an `AspectConfig` target.
 
 ## Migration strategy
@@ -120,13 +120,13 @@ cleanly, so instead:
   other copy (10 in `workspace.ts`, 1 each in `cartoon.ts`/
   `communication.ts`) keeps its hand-written header until migrated
   individually.
-- Shadow DOM styling cost, same as every other `connect-kit` element:
+- Shadow DOM styling cost, same as every other `component-view` element:
   `.dash-subnav`/`.dash-back-btn`/`.workspace-stage-title` rules in
   `app.css` need porting into this element's own `<style>` block.
 
 ## Acceptance criteria
 
-- [ ] `<view-nav-header>` ships in `connect-kit`'s `core`/`saf` with tests
+- [ ] `<view-nav-header>` ships in `component-view`'s `core`/`saf` with tests
       covering: title-only render (no back button), title+backLabel render
       (back button present), `nav-back` event dispatch on click
 - [ ] `socials.ts`'s 2 copies migrated to `<view-nav-header>`,
@@ -135,7 +135,7 @@ cleanly, so instead:
 
 ## Relates to
 
-- [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
+- [ADR-0006](ADR-0006-component-view-package.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-connector.md)
+- [ADR-0007](ADR-0007-provider-connect-package.md)
 - ADR-0001 (workspace layout, SAF structure invariants)
