@@ -23,6 +23,12 @@ import netlifyLogo from "simple-icons/icons/netlify.svg?raw";
 import githubLogo from "simple-icons/icons/github.svg?raw";
 import gitlabLogo from "simple-icons/icons/gitlab.svg?raw";
 import bitbucketLogo from "simple-icons/icons/bitbucket.svg?raw";
+// Linear/Asana/Trello/Jira are all in simple-icons' catalog for real
+// too - no monogram fallback needed for any of the 4 PM providers.
+import linearLogo from "simple-icons/icons/linear.svg?raw";
+import asanaLogo from "simple-icons/icons/asana.svg?raw";
+import trelloLogo from "simple-icons/icons/trello.svg?raw";
+import jiraLogo from "simple-icons/icons/jira.svg?raw";
 import {
   getStoredCloudToken,
   setStoredCloudToken,
@@ -48,6 +54,17 @@ import { getStoredScmToken, setStoredScmToken } from "../core/scm_credentials.js
 import { connectGithub, connectGitlab, connectBitbucket } from "../core/scm_connect.js";
 import type { ScmResource } from "../core/scm_connect.js";
 import type { CloudResource } from "../core/cloud_connect.js";
+import {
+  getStoredPmToken,
+  setStoredPmToken,
+  getStoredTrelloCredentials,
+  setStoredTrelloCredentials,
+  getStoredJiraSession,
+  setStoredJiraSession,
+  getStoredJiraAppCredentials,
+} from "../core/pm_credentials.js";
+import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConnect } from "../core/pm_connect.js";
+import type { PmResource } from "../core/pm_connect.js";
 
 interface SdlcFunction {
   readonly label: string;
@@ -80,7 +97,13 @@ interface SdlcFunction {
   // (core/cli.ts) - not an AI-backed interpreter, and not a real OS
   // shell (this app is browser-only, no backend to shell out to). Same
   // single-real-function shape as "cloud-providers"/"scm-connect".
-  readonly action?: "design-generate" | "cloud-providers" | "scm-connect" | "presentation-generate" | "cli";
+  // "pm-connect": the project-management equivalent
+  // (@justjs/pm-connect) - Linear/Asana/Trello/Jira, see
+  // PM_PROVIDER_CATALOG - the one action shared across *two* different
+  // stages (Requirement's "Specs"/"User Stories" and Planning's new
+  // "Project Boards"), same one-real-capability-many-entries shape
+  // "design-generate" already established within a single stage.
+  readonly action?: "design-generate" | "cloud-providers" | "scm-connect" | "presentation-generate" | "cli" | "pm-connect";
 }
 
 interface SdlcStage {
@@ -183,6 +206,42 @@ const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> 
   bitbucket: connectBitbucket,
 };
 
+interface PmProvider {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+  readonly logo: string;
+  // "bearer" - Linear/Asana's single pasted token (Linear's own header
+  // convention omits the "Bearer" prefix entirely - real, handled
+  // inside @justjs/pm-connect, not a UI concern). "keytoken" - Trello's
+  // real 2-field API key + token (sent as query params, not a header -
+  // also handled inside the package). "oauth" - Jira's real OAuth 2.0
+  // redirect flow: the connect screen collects the user's own Atlassian
+  // OAuth app Client ID + Secret (never hardcoded/shipped in this app -
+  // same bring-your-own-app-credentials posture Reddit's own connect
+  // screen already established), and "Connect" navigates the real
+  // browser to Atlassian's consent screen rather than resolving in
+  // place like every other provider here.
+  readonly kind: "bearer" | "keytoken" | "oauth";
+}
+
+// A real, recognizable set of actual project-management providers -
+// all 4 are in simple-icons' catalog for real. Notion (confirmed no
+// CORS support at all when checked live) isn't offered here even as an
+// honest "not available" card - unlike Cloudflare/X/LinkedIn elsewhere,
+// it was never in the confirmed provider set this feature shipped with.
+const PM_PROVIDER_CATALOG: readonly PmProvider[] = [
+  { id: "linear", name: "Linear", color: "#5E6AD2", logo: linearLogo, kind: "bearer" },
+  { id: "asana", name: "Asana", color: "#F06A6A", logo: asanaLogo, kind: "bearer" },
+  { id: "trello", name: "Trello", color: "#0052CC", logo: trelloLogo, kind: "keytoken" },
+  { id: "jira", name: "Jira", color: "#0052CC", logo: jiraLogo, kind: "oauth" },
+];
+
+const PM_CONNECTORS: Record<string, (token: string) => Promise<PmResource[]>> = {
+  linear: connectLinear,
+  asana: connectAsana,
+};
+
 // simple-icons ships each SVG with no `fill` set (defaults to SVG's own
 // black), meant for the consumer to recolor. Injecting fill="currentColor"
 // once here, then setting `color: white` on the wrapping badge (CSS),
@@ -209,15 +268,21 @@ function renderProviderBadge(p: { readonly icon?: string; readonly color: string
 // (renderScmProviders() below).
 // Deployment's Cloud is also real - a real connect screen
 // (@justjs/cloud-connect) for actual cloud providers
-// (renderCloudProviders() below). Presentation is a 9th widget appended
-// after the 8 SDLC stages - it isn't itself an SDLC stage, but the user
-// asked for it alongside them, so it lives in the same overview grid.
-// Its one function, Slides, is real (not a stub) - a real generateSlides()
-// capability (renderPresentationGenerator() below).
+// (renderCloudProviders() below). Requirement's Specs/User Stories and
+// Planning's Project Boards are also real (not stubs) - all 3 open the
+// same real connect screen (@justjs/pm-connect) for Linear/Asana/
+// Trello/Jira (renderPmProviders() below), the same one-real-capability-
+// shared-across-multiple-entries shape Design's Architecture/Wireframes
+// already established, just spanning two different stages instead of
+// one. Presentation is a 9th widget appended after the 8 SDLC stages -
+// it isn't itself an SDLC stage, but the user asked for it alongside
+// them, so it lives in the same overview grid. Its one function,
+// Slides, is real (not a stub) - a real generateSlides() capability
+// (renderPresentationGenerator() below).
 const SDLC_STAGES: readonly SdlcStage[] = [
   { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", route: "/chat" }] },
-  { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs" }, { label: "User Stories" }] },
-  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Scaffold", route: "/scaffold" }] },
+  { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs", action: "pm-connect" }, { label: "User Stories", action: "pm-connect" }] },
+  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Scaffold", route: "/scaffold" }, { label: "Project Boards", action: "pm-connect" }] },
   {
     key: "design",
     label: "Design",
@@ -318,6 +383,16 @@ export class WorkspaceElement extends HTMLElement {
   private scmConnectError: string | null = null;
   private scmConnecting = false;
 
+  // Requirement's/Planning's project-management connections - the same
+  // shape as Cloud's/SCM's own state above, shared across both stages
+  // since it's one real capability (see PM_PROVIDER_CATALOG), not two
+  // separate ones.
+  private showPmConnect = false;
+  private selectedPmProviderId: string | null = null;
+  private pmResources: PmResource[] | null = null;
+  private pmConnectError: string | null = null;
+  private pmConnecting = false;
+
   // Presentation-stage local state - same component-local pattern as
   // Design's above. slideChunks is computed by splitMarkdownSlides()
   // once per generate/edit, not re-derived on every Prev/Next tap.
@@ -399,6 +474,10 @@ export class WorkspaceElement extends HTMLElement {
         this.selectedScmProviderId = null;
         this.scmResources = null;
         this.scmConnectError = null;
+        this.showPmConnect = false;
+        this.selectedPmProviderId = null;
+        this.pmResources = null;
+        this.pmConnectError = null;
         this.showPresentationGenerator = false;
         this.showCliTerminal = false;
         this.renderView();
@@ -431,6 +510,10 @@ export class WorkspaceElement extends HTMLElement {
     }
     if (stage.key === "development" && this.showScmConnect) {
       this.renderScmProviders(container);
+      return;
+    }
+    if ((stage.key === "requirement" || stage.key === "planning") && this.showPmConnect) {
+      this.renderPmProviders(container, stage);
       return;
     }
     container.innerHTML = `
@@ -493,6 +576,12 @@ export class WorkspaceElement extends HTMLElement {
     container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="scm-connect"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showScmConnect = true;
+        this.renderView();
+      });
+    });
+    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="pm-connect"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.showPmConnect = true;
         this.renderView();
       });
     });
@@ -1164,6 +1253,284 @@ export class WorkspaceElement extends HTMLElement {
       this.scmResources = null;
     } finally {
       this.scmConnecting = false;
+      this.renderView();
+    }
+  }
+
+  // ---- Requirement/Planning: project-management connections (opened
+  // from Specs/User Stories/Project Boards above) ----
+
+  private isPmProviderConnected(p: PmProvider): boolean {
+    if (p.kind === "keytoken") {
+      return getStoredTrelloCredentials() !== null;
+    }
+    if (p.kind === "oauth") {
+      return getStoredJiraSession() !== null;
+    }
+    return getStoredPmToken(p.id).length > 0;
+  }
+
+  private renderPmProviders(container: Element, stage: SdlcStage): void {
+    if (this.selectedPmProviderId) {
+      const provider = PM_PROVIDER_CATALOG.find((p) => p.id === this.selectedPmProviderId);
+      if (provider) {
+        this.renderPmProviderDetail(container, provider);
+        return;
+      }
+      this.selectedPmProviderId = null;
+    }
+
+    container.innerHTML = `
+      <div class="dash-subnav">
+        <button id="pm-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(stage.label)}</button>
+        <h2 class="workspace-stage-title">📋 Project Management</h2>
+      </div>
+      <p class="connect-hint">Tap a provider to connect a real account and see its actual issues/tasks/boards. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+      <div class="provider-grid">
+        ${PM_PROVIDER_CATALOG.map((p) => {
+          const connected = this.isPmProviderConnected(p);
+          return `
+            <button type="button" class="provider-card${connected ? " selected" : ""}" data-pm-provider-id="${p.id}">
+              ${renderProviderBadge(p)}
+              <span class="provider-name">${escapeHtml(p.name)}</span>
+              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    this.querySelector("#pm-back-btn")?.addEventListener("click", () => {
+      this.showPmConnect = false;
+      this.renderView();
+    });
+
+    container.querySelectorAll<HTMLButtonElement>("[data-pm-provider-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.pmProviderId;
+        if (!id) {
+          return;
+        }
+        this.selectedPmProviderId = id;
+        this.pmResources = null;
+        this.pmConnectError = null;
+        this.renderView();
+      });
+    });
+  }
+
+  private renderPmProviderDetail(container: Element, provider: PmProvider): void {
+    const connected = this.isPmProviderConnected(provider);
+    container.innerHTML = `
+      <div class="dash-subnav">
+        <button id="pm-provider-back-btn" class="dash-back-btn" type="button">← Project Management</button>
+        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+      </div>
+      ${this.renderPmProviderBody(provider, connected)}
+    `;
+
+    this.querySelector("#pm-provider-back-btn")?.addEventListener("click", () => {
+      this.selectedPmProviderId = null;
+      this.renderView();
+    });
+
+    if (provider.kind === "oauth") {
+      this.querySelector("#pm-connect-btn")?.addEventListener("click", () => {
+        this.handleJiraOAuthBegin();
+      });
+      this.querySelector("#pm-disconnect-btn")?.addEventListener("click", () => {
+        setStoredJiraSession(null);
+        this.pmResources = null;
+        this.pmConnectError = null;
+        this.renderView();
+      });
+      if (connected && !this.pmResources && !this.pmConnectError && !this.pmConnecting) {
+        void this.handleJiraResourceFetch();
+      }
+      return;
+    }
+
+    this.querySelector("#pm-connect-btn")?.addEventListener("click", () => {
+      void this.handlePmConnect(provider);
+    });
+    this.querySelector("#pm-disconnect-btn")?.addEventListener("click", () => {
+      if (provider.kind === "keytoken") {
+        setStoredTrelloCredentials(null);
+      } else {
+        setStoredPmToken(provider.id, "");
+      }
+      this.pmResources = null;
+      this.pmConnectError = null;
+      this.renderView();
+    });
+
+    // Already connected (a credential was saved in a previous session)
+    // and nothing fetched yet this visit - fetch automatically, same
+    // lazy-validation posture as every other provider's detail screen.
+    if (connected && !this.pmResources && !this.pmConnectError && !this.pmConnecting) {
+      void this.handlePmConnect(provider);
+    }
+  }
+
+  private renderPmProviderBody(provider: PmProvider, connected: boolean): string {
+    if (provider.kind === "oauth") {
+      const appCreds = getStoredJiraAppCredentials();
+      return `
+        <p class="settings-disclosure">Stored only on this device. This app has no server, so Jira's own OAuth 2.0 flow needs your own Atlassian OAuth app - register one at <code>developer.atlassian.com/console/myapps</code>, add scope <code>read:jira-work</code>, and set its callback URL to exactly <code>${escapeHtml(globalThis.location.origin + globalThis.location.pathname)}</code>. Paste that app's Client ID and Secret below - both stay local, sent directly to Atlassian, never to a backend (this app has none).</p>
+        <div class="connect-form">
+          <input id="pm-connect-client-id" type="text" placeholder="Atlassian OAuth app Client ID" autocomplete="off" spellcheck="false" value="${escapeHtml(appCreds?.clientId ?? "")}" />
+          <input id="pm-connect-client-secret" type="password" placeholder="Atlassian OAuth app Client Secret" autocomplete="off" spellcheck="false" value="${escapeHtml(appCreds?.clientSecret ?? "")}" />
+          <div class="connect-actions">
+            <button id="pm-connect-btn" type="button">${connected ? "Reconnect with Atlassian" : "Connect with Atlassian"}</button>
+            ${connected ? `<button id="pm-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
+          </div>
+          <p id="pm-connect-status" class="connect-status${this.pmConnectError ? " connect-status-error" : ""}">${this.pmConnecting ? "Connecting…" : this.pmConnectError ? `⚠️ ${escapeHtml(this.pmConnectError)}` : ""}</p>
+        </div>
+        ${this.renderPmResourceList(provider)}
+      `;
+    }
+
+    const disclosure = `Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.`;
+    const form =
+      provider.kind === "keytoken"
+        ? `
+          <input id="pm-connect-api-key" type="text" placeholder="Trello API key" autocomplete="off" spellcheck="false" />
+          <input id="pm-connect-token" type="password" placeholder="Trello token" autocomplete="off" spellcheck="false" />
+        `
+        : `<input id="pm-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />`;
+
+    return `
+      <p class="settings-disclosure">${disclosure}</p>
+      <div class="connect-form">
+        ${form}
+        <div class="connect-actions">
+          <button id="pm-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
+          ${connected ? `<button id="pm-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
+        </div>
+        <p id="pm-connect-status" class="connect-status${this.pmConnectError ? " connect-status-error" : ""}">${this.pmConnecting ? "Connecting…" : this.pmConnectError ? `⚠️ ${escapeHtml(this.pmConnectError)}` : ""}</p>
+      </div>
+      ${this.renderPmResourceList(provider)}
+    `;
+  }
+
+  private renderPmResourceList(provider: PmProvider): string {
+    if (!this.pmResources) {
+      return "";
+    }
+    const label = provider.id === "trello" ? "Boards" : "Issues / Tasks";
+    const rows =
+      this.pmResources.length === 0
+        ? `<p class="connect-hint">Connected - no results found.</p>`
+        : `<ul class="resource-list">
+            ${this.pmResources
+              .map(
+                (r) => `
+                  <li class="resource-row">
+                    <span class="resource-name">${escapeHtml(r.name)}</span>
+                    <span class="resource-status">${escapeHtml(r.status)}</span>
+                  </li>
+                `,
+              )
+              .join("")}
+          </ul>`;
+    return `<h3 class="resource-list-label">${label}</h3>${rows}`;
+  }
+
+  private async handlePmConnect(provider: PmProvider): Promise<void> {
+    const statusEl = this.querySelector<HTMLElement>("#pm-connect-status");
+    const connectBtn = this.querySelector<HTMLButtonElement>("#pm-connect-btn");
+
+    let trelloCreds: { apiKey: string; token: string } | null = null;
+    let token = "";
+    if (provider.kind === "keytoken") {
+      const apiKeyInput = this.querySelector<HTMLInputElement>("#pm-connect-api-key");
+      const tokenInput = this.querySelector<HTMLInputElement>("#pm-connect-token");
+      const apiKey = apiKeyInput?.value.trim() || getStoredTrelloCredentials()?.apiKey || "";
+      const tok = tokenInput?.value.trim() || getStoredTrelloCredentials()?.token || "";
+      if (!apiKey || !tok) {
+        this.pmConnectError = "Enter both the API key and token.";
+        this.renderView();
+        return;
+      }
+      trelloCreds = { apiKey, token: tok };
+    } else {
+      const tokenInput = this.querySelector<HTMLInputElement>("#pm-connect-token");
+      token = tokenInput?.value.trim() || getStoredPmToken(provider.id);
+      if (!token) {
+        this.pmConnectError = "Paste a token first.";
+        this.renderView();
+        return;
+      }
+    }
+
+    this.pmConnecting = true;
+    this.pmConnectError = null;
+    if (connectBtn) {
+      connectBtn.disabled = true;
+    }
+    if (statusEl) {
+      statusEl.textContent = "Connecting…";
+    }
+    try {
+      const resources =
+        provider.kind === "keytoken" && trelloCreds
+          ? await connectTrello(trelloCreds.apiKey, trelloCreds.token)
+          : await PM_CONNECTORS[provider.id]!(token);
+      if (provider.kind === "keytoken" && trelloCreds) {
+        setStoredTrelloCredentials(trelloCreds);
+      } else {
+        setStoredPmToken(provider.id, token);
+      }
+      this.pmResources = resources;
+      this.pmConnectError = null;
+    } catch (e) {
+      this.pmConnectError = e instanceof Error ? e.message : String(e);
+      this.pmResources = null;
+    } finally {
+      this.pmConnecting = false;
+      this.renderView();
+    }
+  }
+
+  // Jira's "Connect"/"Reconnect" button - reads the user's own OAuth
+  // app credentials and navigates the real browser to Atlassian's
+  // consent screen (core/pm_connect.ts's beginJiraConnect()). Nothing
+  // after a successful call to this ever runs in this page load - the
+  // real completion happens in app.ts's main(), on the return trip.
+  private handleJiraOAuthBegin(): void {
+    const clientIdInput = this.querySelector<HTMLInputElement>("#pm-connect-client-id");
+    const clientSecretInput = this.querySelector<HTMLInputElement>("#pm-connect-client-secret");
+    const clientId = clientIdInput?.value.trim() || getStoredJiraAppCredentials()?.clientId || "";
+    const clientSecret = clientSecretInput?.value.trim() || getStoredJiraAppCredentials()?.clientSecret || "";
+    if (!clientId || !clientSecret) {
+      this.pmConnectError = "Enter both the Client ID and Client Secret first.";
+      this.renderView();
+      return;
+    }
+    const redirectUri = globalThis.location.origin + globalThis.location.pathname;
+    beginJiraConnect(clientId, clientSecret, redirectUri);
+  }
+
+  // Real re-verification of an already-established Jira session (no
+  // OAuth trip needed) - used both for the lazy auto-fetch when a
+  // session already exists and after app.ts completes a fresh OAuth
+  // round-trip.
+  private async handleJiraResourceFetch(): Promise<void> {
+    const session = getStoredJiraSession();
+    if (!session) {
+      return;
+    }
+    this.pmConnecting = true;
+    this.pmConnectError = null;
+    this.renderView();
+    try {
+      this.pmResources = await connectJira(session);
+      this.pmConnectError = null;
+    } catch (e) {
+      this.pmConnectError = e instanceof Error ? e.message : String(e);
+      this.pmResources = null;
+    } finally {
+      this.pmConnecting = false;
       this.renderView();
     }
   }

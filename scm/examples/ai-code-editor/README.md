@@ -65,8 +65,12 @@ stand-in.
   screen for GitHub, GitLab, or Bitbucket (paste a Personal Access
   Token, see that account's actual repositories), called directly from
   the browser — see "Real source-control connections" below.
-  Requirement/Operations show their entries as honestly-labeled "Coming
-  soon" stubs, not fake-functional buttons.
+  **Requirement**'s Specs/User Stories and **Planning**'s new Project
+  Boards entries are also real (not stubs) — all 3 open the same real
+  project-management "Connect" screen for Linear, Asana, Trello, or
+  Jira, see "Requirement & Planning — real project-management
+  connections" below. Operations still shows its entry as an
+  honestly-labeled "Coming soon" stub, not a fake-functional button.
 - **Communication** (`x-communication`, `/communication`) — the 6th
   top-level tab, not nested inside Workspace: a real "Connect" screen
   for Slack, Discord, or Microsoft Teams (paste a real bot/access
@@ -78,6 +82,81 @@ stand-in.
   Mastodon, Bluesky, or Reddit, plus X (Twitter) and LinkedIn shown
   honestly as not available — see "Socials — real, 7th top-level tab"
   below.
+
+## Requirement & Planning — real project-management connections
+
+Requirement's Specs/User Stories and Planning's Project Boards all open
+the same real connect screen — one real capability shared across two
+different stages, the same precedent Design's Architecture/Wireframes
+already established within a single stage. Backed by a fourth real
+framework package, `@justjs/pm-connect`, same `api`/`core`/`saf`/`spi`
+shape as `@justjs/cloud-connect`/`@justjs/scm-connect`/
+`@justjs/comms-connect`/`@justjs/social-connect`. Notably: this package
+ships with **no shared generic bearer-GET engine** — all 4 chosen
+providers turned out to have genuinely distinct real logic, so a shared
+engine would have had zero real users, a deliberate simplification
+rather than an oversight.
+
+- **Linear** — a real GraphQL POST (not a GET, unlike every bearer
+  provider in the other 4 packages), and a real, deliberate deviation
+  from convention: the API key goes in `Authorization: <token>` with
+  **no `Bearer` prefix** (confirmed via Linear's own docs — sending one
+  fails auth).
+- **Asana** — real 2-call sequence: discover the first real workspace,
+  then list the current user's real tasks within it (Asana's API has no
+  single "my tasks everywhere" endpoint — confirmed via Asana's own
+  docs, same real-limitation shape Bitbucket's own provider already
+  established in `@justjs/scm-connect`). A real, easy-to-miss gotcha
+  baked in: Asana's default task fields omit `completed` entirely unless
+  explicitly requested via `opt_fields`.
+- **Trello** — real auth via **query parameters**, not a header:
+  `?key=<apiKey>&token=<token>`, both pasted from Trello's own developer
+  pages — a real 2-field form, same shape as AWS's/Jira's own two-field
+  screens. Trello's real 401 responses are plain text
+  (`"invalid token"`/`"invalid key"`), not JSON — handled explicitly
+  rather than assumed.
+- **Jira** — the one provider needing real, materially more work. Live
+  research during design found Jira's classic per-site Basic-auth REST
+  API has **no CORS support at all** (confirmed via Atlassian's own bug
+  tracker, JRACLOUD-65573) — only the OAuth 2.0 (3LO) path through
+  `api.atlassian.com` supports real browser CORS, and Atlassian's token
+  exchange requires a real `client_secret` with **no PKCE alternative**
+  for public clients. The resolved design: the same
+  bring-your-own-OAuth-app pattern `@justjs/social-connect`'s Reddit
+  integration already established (the user registers their own
+  Atlassian OAuth app and pastes its Client ID + Secret — never
+  hardcoded or shipped in this app's bundle), plus the one genuinely new
+  mechanic anywhere in this codebase: clicking "Connect" navigates the
+  real browser to Atlassian's real consent screen
+  (`core/pm_connect.ts`'s `beginJiraConnect()`), and `app.ts`'s `main()`
+  detects the real `code`/`state` return params before normal boot,
+  completes the token exchange (`@justjs/pm-connect`'s
+  `exchangeJiraAuthorizationCode()` — a real 2-call sequence: exchange
+  the code, then discover the real Jira Cloud site id via the
+  `accessible-resources` endpoint), persists the resulting session, and
+  clears the URL via `history.replaceState` (no reload) before landing
+  on the Workspace overview rather than trying to restore the exact
+  prior drill-down. A real CSRF `state` nonce is generated and checked
+  on return (`sessionStorage`, since it only needs to survive one
+  round-trip in the same tab). Token refresh is out of scope — Jira
+  sessions are short-lived and this app doesn't refresh them, the same
+  "reconnect when needed" posture Azure's/GCP's own CLI-issued tokens
+  already have in `@justjs/cloud-connect`, stated plainly rather than
+  silently gapped. Jira's own real, non-deprecated search endpoint
+  (`/rest/api/3/search/jql` — the older `/search` is deprecated/removed)
+  is deliberately not paginated beyond the first page: real 2026
+  community reports describe its `isLast`/`nextPageToken` fields looping
+  rather than terminating, so a bounded single call is safer than an
+  unbounded loop trusting a documented-buggy signal.
+
+**Notion was checked and excluded** — confirmed live to have no CORS
+support at all, unlike every provider actually shipped here.
+
+Every endpoint was confirmed live before being wired up: CORS headers
+checked directly for all 5 candidates (including Notion's exclusion),
+and the exact real request/response shapes (auth conventions, endpoint
+paths, field names) verified against each provider's own current
+documentation before writing any code.
 
 ## Design — Markdown + Mermaid doc generator
 
@@ -658,10 +737,17 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 246 assertions — boot, DDAS mounting into all
+built bundle) passes all 264 assertions — boot, DDAS mounting into all
 seven routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
-stubs correctly, Deployment's real cloud provider connect screens (a
+stubs correctly, Requirement's and Planning's real project-management
+connect screens (one shared screen opened from 3 different entries
+across 2 stages, Linear's real "paste a token first" error, Trello's
+real two-field form and its own "enter both" error, Jira's real
+two-field Client-ID/Secret form, its own "enter both" error, and a real
+spied `window.location.assign` proof that a valid Connect click
+navigates to Atlassian's real consent screen with the exact real query
+parameters rather than resolving in place), Deployment's real cloud provider connect screens (a
 bearer-token provider's real "paste a token first" error, AWS's real
 two-field form and its own error, Azure's real CLI-token hint,
 Cloudflare's honest "not available" state, and a real end-to-end

@@ -28,6 +28,7 @@ import "./components/socials.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
 import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";
+import { completeJiraOAuthCallback } from "./core/pm_connect.js";
 import { NAVIGATE_EVENT } from "./core/navigation.js";
 import type { NavigateEventDetail } from "./core/navigation.js";
 
@@ -247,6 +248,33 @@ function setupSettingsPanel(): void {
 
 async function main(): Promise<void> {
   try {
+    // Real Atlassian OAuth redirect back to this app (Jira's real
+    // connect flow, core/pm_connect.ts's beginJiraConnect()) - detected
+    // before anything else, since this is a real page load with the
+    // authorization `code`/`state` in the URL, not an in-app navigation.
+    // Completes the token exchange, then cleans the URL via
+    // history.replaceState (no reload) so a later page refresh doesn't
+    // try to redeem the same one-time code again.
+    let landingRoute = "/editor";
+    const oauthParams = new URLSearchParams(window.location.search);
+    const jiraCode = oauthParams.get("code");
+    const jiraState = oauthParams.get("state");
+    if (jiraCode && jiraState) {
+      try {
+        const redirectUri = window.location.origin + window.location.pathname;
+        await completeJiraOAuthCallback(jiraCode, jiraState, redirectUri);
+        // A clean, simple landing rather than trying to restore the
+        // exact prior Requirement/Planning drill-down - the session is
+        // already persisted, so re-opening Jira's connect screen from
+        // there shows it connected immediately.
+        landingRoute = "/workspace";
+      } catch (e) {
+        console.error("Jira OAuth callback failed:", e);
+      } finally {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+
     const { routes, elements } = await resolveGeneratedRoutes();
     RESOLVED_ROUTES = routes;
     ROUTES = routes.map((r) => r.path);
@@ -295,7 +323,7 @@ async function main(): Promise<void> {
     for (const route of ROUTES) {
       await justjs.router!.navigate(route);
     }
-    goToRoute("/editor");
+    goToRoute(landingRoute);
 
     document.querySelectorAll<HTMLElement>(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => {

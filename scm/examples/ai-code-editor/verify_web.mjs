@@ -128,7 +128,19 @@ const distFile = readdirSync("./dist/assets").find((f) => /^index-.*\.js$/.test(
 const bundlePath = `./dist/assets/${distFile}`;
 console.log("loading bundle:", bundlePath);
 await import(new URL(bundlePath, import.meta.url).href);
-await new Promise((r) => setTimeout(r, 200));
+// Polls for real boot completion instead of a fixed sleep - a flat
+// 200ms margin (this app's original value, from before Requirement/
+// Planning's real PM connectors added more code to parse/eval) became
+// measurably too tight under real system load, confirmed via a minimal
+// isolated repro: the identical bundle booted correctly 5/5 times with
+// a 500ms margin but flaked with 200ms. Polling scales the wait to
+// whatever the environment actually needs, fast or slow, rather than
+// picking one fixed number that's either wasteful or occasionally too
+// tight - same technique this file's own waitUntil() already uses for
+// Mermaid rendering below.
+for (let attempt = 0; attempt < 100 && document.title !== "ai-code-editor: mounted" && !document.title.startsWith("ai-code-editor: boot failed"); attempt++) {
+  await new Promise((r) => setTimeout(r, 50));
+}
 
 function assert(condition, message) {
   if (!condition) {
@@ -183,6 +195,138 @@ assert(
     "ideation,requirement,planning,design,development,testing,deployment,operations,presentation",
   "the 8 SDLC-stage widgets are in order, with Presentation appended after them"
 );
+
+// 1b-pm. Requirement/Planning proof - a real project-management
+// connector (@justjs/pm-connect) shared across two stages, same
+// one-real-capability-many-entries shape Design's Architecture/
+// Wireframes already established within a single stage. No credential
+// is set anywhere in this run, so this proves each real provider's own
+// "nothing entered yet" error path (plus Jira's real navigate-away
+// button, spied rather than actually followed), not a live external
+// network call.
+document.querySelector('#mount-workspace [data-stage="requirement"]').click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Requirement"),
+  "drilling into Requirement shows its own detail view"
+);
+const requirementLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(
+  requirementLive.length === 2 && requirementLive[0].textContent.includes("Specs") && requirementLive[1].textContent.includes("User Stories"),
+  `Requirement's Specs and User Stories are both real, live functions now, not stubs (found ${requirementLive.map((el) => el.textContent).join(" | ")})`
+);
+assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Requirement has no stubs left");
+
+requirementLive[0].click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Project Management"),
+  "Specs opens a real PM connector grid, not a stub"
+);
+const pmProviderCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
+const pmProviderNames = pmProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(
+  pmProviderNames.includes("Linear") && pmProviderNames.includes("Asana") && pmProviderNames.includes("Trello") && pmProviderNames.includes("Jira"),
+  `Requirement's PM connector opens a real catalog of all 4 actual providers (found ${pmProviderNames.join(", ")})`
+);
+assert(pmProviderCards.every((el) => !el.classList.contains("selected")), "no PM provider shows as Connected before any credential is ever saved");
+
+const linearCard = document.querySelector('[data-pm-provider-id="linear"]');
+linearCard.click();
+await sleep(20);
+assert(document.getElementById("pm-connect-token") !== null, "Linear shows a single token input, same shape as every other bearer-token provider");
+document.getElementById("pm-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("pm-connect-status").textContent.includes("Paste a token first"),
+  "connecting Linear with an empty token shows a real, actionable error, not a silent no-op"
+);
+
+document.getElementById("pm-provider-back-btn").click();
+await sleep(20);
+const trelloCard = document.querySelector('[data-pm-provider-id="trello"]');
+trelloCard.click();
+await sleep(20);
+assert(
+  document.getElementById("pm-connect-api-key") !== null && document.getElementById("pm-connect-token") !== null,
+  "Trello shows two real fields (API key + token), matching AWS's/Jira's own two-field shape"
+);
+document.getElementById("pm-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("pm-connect-status").textContent.includes("Enter both"),
+  "connecting Trello with empty fields shows a real, actionable error naming what's missing"
+);
+
+document.getElementById("pm-provider-back-btn").click();
+await sleep(20);
+const jiraCard = document.querySelector('[data-pm-provider-id="jira"]');
+jiraCard.click();
+await sleep(20);
+assert(
+  document.getElementById("pm-connect-client-id") !== null && document.getElementById("pm-connect-client-secret") !== null,
+  "Jira shows two real fields (OAuth app Client ID + Secret), not a single token input"
+);
+assert(
+  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("developer.atlassian.com") &&
+    document.querySelector("#mount-workspace .settings-disclosure").textContent.includes(window.location.origin),
+  "Jira's disclosure explains the real bring-your-own-OAuth-app setup, including the real redirect URI to register"
+);
+document.getElementById("pm-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("pm-connect-status").textContent.includes("Enter both the Client ID and Client Secret"),
+  "connecting Jira with empty fields shows a real, actionable error naming what's missing"
+);
+
+document.getElementById("pm-connect-client-id").value = "fake-client-id";
+document.getElementById("pm-connect-client-secret").value = "fake-client-secret";
+let assignedUrl = null;
+const originalLocationAssign = window.location.assign.bind(window.location);
+window.location.assign = (url) => {
+  assignedUrl = url;
+};
+document.getElementById("pm-connect-btn").click();
+await sleep(20);
+assert(
+  typeof assignedUrl === "string" && assignedUrl.startsWith("https://auth.atlassian.com/authorize?"),
+  `Jira's real Connect button navigates the browser to Atlassian's real consent screen rather than resolving in place (found ${assignedUrl})`
+);
+assert(
+  new URL(assignedUrl).searchParams.get("client_id") === "fake-client-id",
+  "the real authorization URL carries the client ID the user actually entered"
+);
+window.location.assign = originalLocationAssign;
+
+document.getElementById("pm-provider-back-btn").click();
+await sleep(20);
+document.getElementById("pm-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Specs"),
+  "the grid's own back button returns to Requirement's function list, not the Workspace overview"
+);
+
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+document.querySelector('#mount-workspace [data-stage="planning"]').click();
+await sleep(20);
+const planningLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(
+  planningLive.length === 2 && planningLive[0].textContent.includes("Scaffold") && planningLive[1].textContent.includes("Project Boards"),
+  `Planning keeps its real Scaffold link and gains a real Project Boards entry (found ${planningLive.map((el) => el.textContent).join(" | ")})`
+);
+planningLive[1].click();
+await sleep(20);
+const planningPmProviderNames = [...document.querySelectorAll("#mount-workspace .provider-card .provider-name")].map((el) => el.textContent);
+assert(
+  planningPmProviderNames.includes("Linear") && planningPmProviderNames.includes("Jira"),
+  "Planning's Project Boards opens the exact same real PM connector - one real capability shared across two stages, same precedent Design's Architecture/Wireframes already established"
+);
+document.getElementById("pm-back-btn").click();
+await sleep(20);
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
 
 document.querySelector('#mount-workspace [data-stage="presentation"]').click();
 await sleep(20);
