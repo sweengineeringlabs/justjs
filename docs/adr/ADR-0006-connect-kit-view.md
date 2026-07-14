@@ -11,7 +11,7 @@ credential form -> resource list), plus a byte-for-byte duplicated badge
 renderer and a byte-for-byte duplicated credential-storage helper. This
 ADR scopes the new package itself, `@justjs/connect-kit`, and its first,
 lowest-risk piece: a real, stateless view component,
-`<view-provider-badge>`, plus the non-visual credential-store helper.
+`<view-badge>`, plus the non-visual credential-store helper.
 
 The stateful piece — `<control-provider-connect>`, which owns real
 selection/loading/error state and dispatches events — is deliberately
@@ -49,7 +49,7 @@ and shippable independently.
 
 ## Design: real Web Components, nested rather than routed
 
-The visual pieces (provider badge, provider-connect flow) ship as real
+The visual pieces (badge, provider-connect flow) ship as real
 Custom Elements with their own Shadow DOM-encapsulated HTML and CSS — not
 plain string-returning render functions. That is a deliberate change from
 the current 6 screens, which all render via `innerHTML` template strings
@@ -70,7 +70,7 @@ or independently mounted; they are nested inside an existing routed
 component's own template, the same way a third-party Web Component library
 would be consumed. Concretely:
 
-- `view-provider-badge` and `control-provider-connect` are hand-authored
+- `view-badge` and `control-provider-connect` are hand-authored
   `HTMLElement` subclasses using `attachShadow({ mode: "open" })`, each
   with its own `<style>` in the shadow root. No `x-*`/`js-*` vendor prefix
   — checked via grep, that split exists in this app specifically to
@@ -155,7 +155,7 @@ implementations** sharing the same CSS classes
    localStorage-best-effort semantics already proven in every existing
    copy (empty string -> `removeItem`, try/catch swallows storage errors).
    Not a visual concept — a plain function, not a Web Component.
-3. `<view-provider-badge>` (`ProviderBadgeView`) — a real Custom Element
+3. `<view-badge>` (`BadgeView`) — a real Custom Element
    (Shadow DOM, `icon`/`color`/`logo` properties), replacing the 4x
    duplicated render-to-string function with the same visual output. Pure
    presentation: no internal state, no dispatched events.
@@ -203,11 +203,11 @@ connect-kit/scm/main/src/
     connect_events.ts       # ConnectedEvent/ResourceSelectEvent/ConnectErrorEvent types (ADR-0007)
   core/
     credential_store.ts     # DefaultCredentialStore (localStorage-backed)
-    provider_badge_view.ts        # ProviderBadgeView (HTMLElement, Shadow DOM) - this ADR
+    badge_view.ts                 # BadgeView (HTMLElement, Shadow DOM) - this ADR
     provider_connect_control.ts   # ProviderConnectControl (HTMLElement, Shadow DOM) - ADR-0007
   saf/
     index.ts               # createCredentialStore();
-                            # registers "view-provider-badge" (this ADR) and
+                            # registers "view-badge" (this ADR) and
                             # "control-provider-connect" (ADR-0007) via
                             # customElements.define() as an import side-effect
 ```
@@ -220,12 +220,12 @@ change. Retrofitting all 6 at once risks regressing ~300 already-passing
 ADR's scope specifically:
 
 1. Ship the package scaffold, `createCredentialStore`, and
-   `<view-provider-badge>`, verified in isolation with their own test
+   `<view-badge>`, verified in isolation with their own test
    suite.
 2. Replace the credential-store implementation in at least one real
    `*_credentials.ts` file (`cartoon_credentials.ts` recommended).
 3. Replace all 4 local `renderProviderBadge()` copies with
-   `<view-provider-badge>`.
+   `<view-badge>`.
 4. `<control-provider-connect>`'s migration (Socials, the first real
    stateful consumer) is scoped under ADR-0007, not here.
 
@@ -237,7 +237,7 @@ ADR's scope specifically:
 - Moving to Shadow DOM is a real, non-free styling cost, not a drop-in
   swap: the existing `.provider-icon` rule in `app.css` is global and
   won't reach inside a shadow root. It needs to be ported into
-  `<view-provider-badge>`'s own `<style>` block (and can drift from the
+  `<view-badge>`'s own `<style>` block (and can drift from the
   global copy until every screen migrates) — the exact CSS a screen
   visually needs stays the same, only where it's declared changes.
 
@@ -248,10 +248,10 @@ ADR's scope specifically:
 - [ ] `createCredentialStore(namespace)` ships with tests, and replaces
       the implementation (not just the export) in at least one real
       `*_credentials.ts` file
-- [ ] `<view-provider-badge>` ships with tests, matching existing visual
+- [ ] `<view-badge>` ships with tests, matching existing visual
       output (icon/logo/color rendering) of the current 4 duplicated copies
 - [ ] All 4 local `renderProviderBadge()` copies removed from
-      `ai-code-editor`, replaced with `<view-provider-badge>`
+      `ai-code-editor`, replaced with `<view-badge>`
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
 ## Relates to

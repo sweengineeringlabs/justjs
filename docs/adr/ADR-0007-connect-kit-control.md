@@ -14,7 +14,7 @@ independent hand-written implementations
 `cartoon.ts`).
 
 Package scaffold, SAF location, the general "why real Web Components,
-nested not routed" design, and the low-risk `<view-provider-badge>`
+nested not routed" design, and the low-risk `<view-badge>`
 element are decided in ADR-0006 — not repeated here.
 
 This ADR does **not** propose retrofitting all 6 existing screens — see
@@ -54,7 +54,7 @@ properties — the element renders and manages selection/loading/error
 state internally and dispatches `CustomEvent`s (`connected`,
 `resource-select`, `error`) for the host to react to; the caller supplies
 the actual network calls (already implemented per-package in each
-`*-connect` SAF). Composes `<view-provider-badge>` (ADR-0006) internally
+`*-connect` SAF). Composes `<view-badge>` (ADR-0006) internally
 for each provider-card icon.
 
 ### Out of scope, not guessed at
@@ -117,14 +117,14 @@ outside DDAS/boot-time validation entirely since it's never targeted by an
       connect-form/resource-list states and its dispatched events,
       explicitly excluding OAuth and generate/billing variants
 - [ ] Socials tab (`socials.ts`) migrated to consume
-      `<control-provider-connect>` and `<view-provider-badge>`,
+      `<control-provider-connect>` and `<view-badge>`,
       `verify_web.mjs` passes with no assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
 ## Relates to
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared
-  Web Component design rationale, `<view-provider-badge>`
+  Web Component design rationale, `<view-badge>`
 - ADR-0001 (workspace layout, SAF structure invariants)
 - Tracked by justjs#97 (epic), with sub-issues justjs#101 (control
   element), justjs#102 (Socials migration)
