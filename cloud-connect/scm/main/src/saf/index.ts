@@ -4,6 +4,8 @@ export type {
   BearerTokenConfig,
   AwsCredentialsConfig,
   CloudConnectProviderConfig,
+  CloudDeployFile,
+  CloudDeployResult,
 } from "../api/provider.js";
 export { CloudConnectProviderError } from "../api/provider.js";
 

@@ -17,40 +17,51 @@ import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
 (globalThis as { DOMParser?: unknown }).DOMParser = new Window().DOMParser;
 import { DefaultCloudConnectProvider } from "../core/default_cloud_connect_provider.js";
 import { AwsCloudConnectProvider } from "../core/aws_provider.js";
+import { NetlifyCloudConnectProvider } from "../core/netlify_provider.js";
+import { VercelCloudConnectProvider } from "../core/vercel_provider.js";
+import { HerokuCloudConnectProvider } from "../core/heroku_provider.js";
 import { DIGITALOCEAN_PROVIDER } from "../spi/digitalocean.js";
-import { NETLIFY_PROVIDER } from "../spi/netlify.js";
-import { VERCEL_PROVIDER } from "../spi/vercel.js";
-import { HEROKU_PROVIDER } from "../spi/heroku.js";
 import { signAwsRequest } from "../core/aws_sigv4.js";
 import { CloudConnectProviderError } from "../api/provider.js";
 
 const ALL_STRATEGIES = ["digitalocean", "netlify", "vercel", "heroku", "azure", "gcp", "aws"];
 
 // Constructor-injected fake ApiAdapter, matching @justjs/ai-assist's own
-// test harness exactly - zero real network calls in this suite.
+// test harness exactly - zero real network calls in this suite. Also
+// queues real post()/put() calls (Netlify's/Vercel's/Heroku's deploy
+// flows all need them), tracking method+body alongside url/options so
+// the sequencing tests below can assert real call order and shape.
 class FakeApiAdapter implements ApiAdapter {
-  readonly calls: { url: string; options?: Partial<ApiRequest> }[] = [];
+  readonly calls: { method: "get" | "post" | "put"; url: string; body?: unknown; options?: Partial<ApiRequest> }[] = [];
   private readonly responses: Array<() => Promise<ApiResponse<unknown>>> = [];
 
   queueResponse(fn: () => Promise<ApiResponse<unknown>>): void {
     this.responses.push(fn);
   }
 
-  async get<T = unknown>(url: string, options?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
-    this.calls.push({ url, options });
-    const next = this.responses.shift();
-    if (!next) {
+  private async next<T>(): Promise<ApiResponse<T>> {
+    const fn = this.responses.shift();
+    if (!fn) {
       throw new Error("FakeApiAdapter: no queued response for this call");
     }
-    return (await next()) as ApiResponse<T>;
+    return (await fn()) as ApiResponse<T>;
   }
 
-  async post<T = unknown>(): Promise<ApiResponse<T>> {
-    throw new Error("FakeApiAdapter.post() is not exercised by any cloud-connect provider");
+  async get<T = unknown>(url: string, options?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
+    this.calls.push({ method: "get", url, options });
+    return this.next<T>();
   }
-  async put<T = unknown>(): Promise<ApiResponse<T>> {
-    throw new Error("FakeApiAdapter.put() is not exercised by any cloud-connect provider");
+
+  async post<T = unknown>(url: string, body?: unknown, options?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
+    this.calls.push({ method: "post", url, body, options });
+    return this.next<T>();
   }
+
+  async put<T = unknown>(url: string, body?: unknown, options?: Partial<ApiRequest>): Promise<ApiResponse<T>> {
+    this.calls.push({ method: "put", url, body, options });
+    return this.next<T>();
+  }
+
   async delete<T = unknown>(): Promise<ApiResponse<T>> {
     throw new Error("FakeApiAdapter.delete() is not exercised by any cloud-connect provider");
   }
@@ -71,38 +82,10 @@ describe("DefaultCloudConnectProvider", () => {
     expect(resources).toEqual([{ id: "123", name: "web-1", status: "active" }]);
   });
 
-  it("test_connect_heroku_sends_the_required_accept_header", async () => {
-    const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: [] }));
-    const provider = new DefaultCloudConnectProvider(HEROKU_PROVIDER, { token: "tok" }, adapter);
-    await provider.connect();
-    expect(adapter.calls[0]!.options?.headers?.Accept).toBe("application/vnd.heroku+json; version=3");
-  });
-
-  it("test_connect_vercel_parses_deployed_vs_no_production_deployment_status", async () => {
-    const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({
-      status: 200,
-      headers: {},
-      data: {
-        projects: [
-          { id: "p1", name: "deployed-app", targets: { production: {} } },
-          { id: "p2", name: "undeployed-app" },
-        ],
-      },
-    }));
-    const provider = new DefaultCloudConnectProvider(VERCEL_PROVIDER, { token: "tok" }, adapter);
-    const resources = await provider.connect();
-    expect(resources).toEqual([
-      { id: "p1", name: "deployed-app", status: "deployed" },
-      { id: "p2", name: "undeployed-app", status: "no production deployment" },
-    ]);
-  });
-
   it("test_connect_with_rejected_token_throws_a_real_actionable_error_naming_the_status", async () => {
     const adapter = new FakeApiAdapter();
     adapter.queueResponse(async () => ({ status: 401, headers: {}, data: undefined, error: "Unauthorized" }));
-    const provider = new DefaultCloudConnectProvider(NETLIFY_PROVIDER, { token: "bad" }, adapter);
+    const provider = new DefaultCloudConnectProvider(DIGITALOCEAN_PROVIDER, { token: "bad" }, adapter);
     await expect(provider.connect()).rejects.toThrow(/token rejected \(401\)/);
   });
 
@@ -162,6 +145,155 @@ describe("AwsCloudConnectProvider", () => {
     const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     const resources = await provider.listInstances!();
     expect(resources).toEqual([{ id: "i-abc123", name: "my-box", status: "running" }]);
+  });
+});
+
+describe("NetlifyCloudConnectProvider", () => {
+  it("test_connect_still_lists_real_sites_same_shape_as_before_the_deploy_refactor", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: [{ id: "s1", name: "my-site", state: "current" }],
+    }));
+    const provider = new NetlifyCloudConnectProvider({ token: "tok" }, adapter);
+    const resources = await provider.connect();
+    expect(adapter.calls[0]!.url).toBe("https://api.netlify.com/api/v1/sites");
+    expect(resources).toEqual([{ id: "s1", name: "my-site", status: "current" }]);
+  });
+
+  it("test_deploy_does_the_real_create_manifest_upload_poll_sequence", async () => {
+    // The `required` array must contain this file's own real SHA-1 (not
+    // an arbitrary placeholder) - Netlify's real API tells the caller
+    // exactly which hashes it doesn't already have, and deploy() only
+    // uploads files whose hash is actually in that set.
+    const realHash = Buffer.from(await crypto.subtle.digest("SHA-1", new TextEncoder().encode("<h1>hi</h1>"))).toString("hex");
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "site-1", url: "http://my-site.netlify.app", ssl_url: "https://my-site.netlify.app" } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-1", required: [realHash] } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-1", state: "ready", ssl_url: "https://my-site.netlify.app" } }));
+
+    const provider = new NetlifyCloudConnectProvider({ token: "tok" }, adapter);
+    const result = await provider.deploy([{ path: "index.html", content: "<h1>hi</h1>" }]);
+
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://api.netlify.com/api/v1/sites");
+    expect(adapter.calls[1]!.method).toBe("post");
+    expect(adapter.calls[1]!.url).toBe("https://api.netlify.com/api/v1/sites/site-1/deploys");
+    expect((adapter.calls[1]!.body as { files: Record<string, string> }).files["/index.html"]).toMatch(/^[0-9a-f]{40}$/);
+    expect(adapter.calls[2]!.method).toBe("put");
+    expect(adapter.calls[2]!.url).toBe("https://api.netlify.com/api/v1/deploys/deploy-1/files/index.html");
+    expect(adapter.calls[2]!.body).toBe("<h1>hi</h1>");
+    expect(adapter.calls[3]!.method).toBe("get");
+    expect(adapter.calls[3]!.url).toBe("https://api.netlify.com/api/v1/deploys/deploy-1");
+    expect(result).toEqual({ url: "https://my-site.netlify.app", targetId: "site-1" });
+  });
+
+  it("test_deploy_hashes_file_content_with_the_real_known_sha1_test_vector", async () => {
+    // SHA1("hello") = aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d is a
+    // well-known, independently-verifiable test vector (not derived
+    // from this package's own code) - a real regression guard on
+    // core/netlify_provider.ts's sha1Hex(), same cross-check spirit as
+    // this package's own SigV4 independent-implementation test.
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-3", required: [] } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-3", state: "ready", url: "http://x.netlify.app" } }));
+
+    const provider = new NetlifyCloudConnectProvider({ token: "tok" }, adapter);
+    await provider.deploy([{ path: "greeting.txt", content: "hello" }], "site-x");
+
+    const manifest = (adapter.calls[0]!.body as { files: Record<string, string> }).files;
+    expect(manifest["/greeting.txt"]).toBe("aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d");
+  });
+
+  it("test_deploy_reuses_the_given_existing_target_id_instead_of_creating_a_new_site", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-2", required: [] } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "deploy-2", state: "ready", url: "http://existing-site.netlify.app" } }));
+
+    const provider = new NetlifyCloudConnectProvider({ token: "tok" }, adapter);
+    const result = await provider.deploy([{ path: "index.html", content: "hi" }], "existing-site-id");
+
+    expect(adapter.calls[0]!.url).toBe("https://api.netlify.com/api/v1/sites/existing-site-id/deploys");
+    expect(result.targetId).toBe("existing-site-id");
+  });
+});
+
+describe("VercelCloudConnectProvider", () => {
+  it("test_connect_still_parses_the_real_deployed_status_shape_as_before_the_deploy_refactor", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { projects: [{ id: "p1", name: "deployed-app", targets: { production: {} } }] },
+    }));
+    const provider = new VercelCloudConnectProvider({ token: "tok" }, adapter);
+    const resources = await provider.connect();
+    expect(resources).toEqual([{ id: "p1", name: "deployed-app", status: "deployed" }]);
+  });
+
+  it("test_deploy_inlines_base64_file_contents_in_one_post_and_polls_until_ready", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "dpl_1", url: "my-app-abc123.vercel.app", readyState: "QUEUED" } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "dpl_1", url: "my-app-abc123.vercel.app", readyState: "READY" } }));
+
+    const provider = new VercelCloudConnectProvider({ token: "tok" }, adapter);
+    const result = await provider.deploy([{ path: "index.html", content: "<h1>hi</h1>" }], "my-project");
+
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://api.vercel.com/v13/deployments?skipAutoDetectionConfirmation=1");
+    const body = adapter.calls[0]!.body as { name: string; files: Array<{ file: string; data: string; encoding: string }> };
+    expect(body.name).toBe("my-project");
+    expect(body.files[0]!.encoding).toBe("base64");
+    expect(atob(body.files[0]!.data)).toBe("<h1>hi</h1>");
+    expect(adapter.calls[1]!.method).toBe("get");
+    expect(adapter.calls[1]!.url).toBe("https://api.vercel.com/v13/deployments/dpl_1");
+    expect(result).toEqual({ url: "https://my-app-abc123.vercel.app", targetId: "my-project" });
+  });
+});
+
+describe("HerokuCloudConnectProvider", () => {
+  it("test_connect_still_sends_the_required_accept_header_as_before_the_deploy_refactor", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: [] }));
+    const provider = new HerokuCloudConnectProvider({ token: "tok" }, adapter);
+    await provider.connect();
+    expect(adapter.calls[0]!.options?.headers?.Accept).toBe("application/vnd.heroku+json; version=3");
+  });
+
+  it("test_deploy_does_the_real_app_sources_upload_build_poll_sequence", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "app-1", web_url: "https://app-1.herokuapp.com/" } })); // create app
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { source_blob: { get_url: "https://s3/get", put_url: "https://s3/put" } } })); // sources
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: undefined })); // PUT tarball
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "build-1", status: "pending" } })); // create build
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "build-1", status: "succeeded" } })); // poll build
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "app-1", web_url: "https://app-1.herokuapp.com/" } })); // get app for final URL
+
+    const provider = new HerokuCloudConnectProvider({ token: "tok" }, adapter);
+    const result = await provider.deploy([{ path: "index.html", content: "<h1>hi</h1>" }]);
+
+    expect(adapter.calls[0]!.url).toBe("https://api.heroku.com/apps");
+    expect(adapter.calls[1]!.url).toBe("https://api.heroku.com/apps/app-1/sources");
+    expect(adapter.calls[2]!.method).toBe("put");
+    expect(adapter.calls[2]!.url).toBe("https://s3/put");
+    expect(adapter.calls[2]!.body).toBeInstanceOf(Uint8Array);
+    expect(adapter.calls[3]!.url).toBe("https://api.heroku.com/apps/app-1/builds");
+    expect((adapter.calls[3]!.body as { source_blob: { url: string } }).source_blob.url).toBe("https://s3/get");
+    expect(adapter.calls[4]!.url).toBe("https://api.heroku.com/apps/app-1/builds/build-1");
+    expect(result).toEqual({ url: "https://app-1.herokuapp.com/", targetId: "app-1" });
+  });
+
+  it("test_deploy_with_a_failed_build_throws_a_real_actionable_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { source_blob: { get_url: "https://s3/get", put_url: "https://s3/put" } } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: undefined }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "build-1", status: "pending" } }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "build-1", status: "failed" } }));
+
+    const provider = new HerokuCloudConnectProvider({ token: "tok" }, adapter);
+    await expect(provider.deploy([{ path: "index.html", content: "hi" }], "existing-app-id")).rejects.toThrow(/real failure/);
   });
 });
 

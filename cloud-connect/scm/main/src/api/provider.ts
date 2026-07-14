@@ -29,6 +29,25 @@ export interface AwsCredentialsConfig {
 
 export type CloudConnectProviderConfig = BearerTokenConfig | AwsCredentialsConfig;
 
+// A single real file this app's own virtual filesystem (core/fs.ts)
+// holds - always plain text, never binary/data-URL content.
+export interface CloudDeployFile {
+  readonly path: string;
+  readonly content: string;
+}
+
+// The real, live URL a successful deploy resolves to, plus `targetId` -
+// the provider's own real site/project/app identifier (Netlify's site
+// id, Vercel's project name, Heroku's app id) a caller should persist
+// and pass back into the next deploy() call as `existingTargetId`, so a
+// second deploy updates the same live site/app instead of creating a
+// new one every time - real "redeploy" semantics, matching how the
+// Netlify/Vercel/Heroku CLIs themselves behave.
+export interface CloudDeployResult {
+  readonly url: string;
+  readonly targetId: string;
+}
+
 export interface CloudConnectProvider {
   readonly concern: "cloudConnect";
   readonly strategy: string;
@@ -44,6 +63,16 @@ export interface CloudConnectProvider {
   // separate, opt-in action only after connect() succeeds, never
   // automatically. Absent on every other strategy's implementation.
   listInstances?(): Promise<CloudResource[]>;
+  // Netlify/Vercel/Heroku-only, optional: pushes this app's own project
+  // files to a real, live deployment on that provider - same
+  // opt-in-after-a-successful-connect posture as listInstances().
+  // `existingTargetId`, when passed, redeploys the same real
+  // site/project/app a prior deploy() call returned as `targetId`
+  // instead of creating a new one - callers should persist and reuse
+  // it (see CloudDeployResult). Absent on every strategy that has no
+  // real direct-file-upload deploy API (DigitalOcean/Azure/GCP/AWS -
+  // see @justjs/cloud-connect's README for why each was excluded).
+  deploy?(files: readonly CloudDeployFile[], existingTargetId?: string): Promise<CloudDeployResult>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)`
   // call for every concern actually listed in the `aspects` config it's
   // given (application/scm/main/src/core/boot.ts) - cloudConnect isn't
