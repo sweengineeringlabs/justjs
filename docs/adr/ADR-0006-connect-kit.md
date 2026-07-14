@@ -51,7 +51,7 @@ or independently mounted; they are nested inside an existing routed
 component's own template, the same way a third-party Web Component library
 would be consumed. Concretely:
 
-- `justjs-provider-badge` and `justjs-provider-connect` are hand-authored
+- `x-view-provider-badge` and `x-control-provider-connect` are hand-authored
   `HTMLElement` subclasses using `attachShadow({ mode: "open" })`, each
   with its own `<style>` in the shadow root.
 - They self-register via `customElements.define(...)` as an import
@@ -59,7 +59,7 @@ would be consumed. Concretely:
   self-registering spirit as `spi/` providers, but simpler (no strategy
   string, no registry lookup; importing the package is enough).
 - A host component (e.g. `CartoonElement.render()`) places
-  `<justjs-provider-connect>` in its template, sets its `.providers`/
+  `<x-control-provider-connect>` in its template, sets its `.providers`/
   `.connect`/`.list` properties imperatively after the element is in the
   DOM (properties, not attributes — the config includes functions), and
   listens for `CustomEvent`s it dispatches (`connected`, `resource-select`,
@@ -126,10 +126,10 @@ implementations** sharing the same CSS classes
    duplicated get/set-token functions. Returns `{ get(providerId), set(providerId, token) }`,
    same localStorage-best-effort semantics already proven in every existing
    copy (empty string -> `removeItem`, try/catch swallows storage errors).
-2. `<justjs-provider-badge>` — a real Custom Element (Shadow DOM,
+2. `<x-view-provider-badge>` — a real Custom Element (Shadow DOM,
    `icon`/`color`/`logo` properties), replacing the 4x duplicated
    render-to-string function with the same visual output.
-3. `<justjs-provider-connect>` — a real Custom Element covering the
+3. `<x-control-provider-connect>` — a real Custom Element covering the
    **common case**: provider grid -> tap -> single-field or two-field
    bearer-style credential form -> Connect -> resource list. Configured
    via a `.providers` catalog property (id/name/icon/color/logo) plus
@@ -182,12 +182,12 @@ connect-kit/scm/main/src/
     connect_events.ts       # ConnectedEvent/ResourceSelectEvent/ConnectErrorEvent types
   core/
     credential_store.ts     # DefaultCredentialStore (localStorage-backed)
-    provider_badge_element.ts    # ProviderBadgeElement (HTMLElement, Shadow DOM)
-    provider_connect_element.ts  # ProviderConnectElement (HTMLElement, Shadow DOM)
+    provider_badge_view.ts        # ProviderBadgeView (HTMLElement, Shadow DOM)
+    provider_connect_control.ts   # ProviderConnectControl (HTMLElement, Shadow DOM)
   saf/
     index.ts               # createCredentialStore();
-                            # registers "justjs-provider-badge" and
-                            # "justjs-provider-connect" via customElements.define()
+                            # registers "x-view-provider-badge" and
+                            # "x-control-provider-connect" via customElements.define()
                             # as an import side-effect
 ```
 
@@ -224,7 +224,7 @@ change. Retrofitting all 6 at once risks regressing ~300 already-passing
   be ported into each element's own `<style>` block (and can drift from
   the global copies until every screen migrates) — the exact CSS a screen
   visually needs stays the same, only where it's declared changes.
-- `ProviderConnectElement`'s exact property/event surface is a design
+- `ProviderConnectControl`'s exact property/event surface is a design
   decision for the implementing issue, not fixed by this ADR — the
   grid/detail/form/list states are fixed, the config and event names are
   not.
@@ -236,9 +236,9 @@ change. Retrofitting all 6 at once risks regressing ~300 already-passing
 - [ ] `createCredentialStore(namespace)` ships with tests, and replaces
       the implementation (not just the export) in at least one real
       `*_credentials.ts` file
-- [ ] `<justjs-provider-badge>` ships with tests, matching existing visual
+- [ ] `<x-view-provider-badge>` ships with tests, matching existing visual
       output (icon/logo/color rendering) of the current 4 duplicated copies
-- [ ] `<justjs-provider-connect>` ships with tests covering grid/detail/
+- [ ] `<x-control-provider-connect>` ships with tests covering grid/detail/
       connect-form/resource-list states and its dispatched events,
       explicitly excluding OAuth and generate/billing variants
 - [ ] Socials tab (`socials.ts`) migrated to consume `connect-kit`'s two
