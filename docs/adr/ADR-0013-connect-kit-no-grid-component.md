@@ -1,7 +1,20 @@
 # ADR-0013: `@justjs/connect-kit` — no standalone grid component
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0014](ADR-0014-connect-kit-tile-grid.md)
 - **Date:** 2026-07-14
+
+## Why this was superseded
+
+This ADR's "Decision" compared `.provider-grid` and `.widget-grid` as
+they exist in the *current, tightly-coupled* code and found no separate
+duplication — technically accurate, but that comparison only holds
+because `.widget-grid` is welded into `WorkspaceElement` and
+`.provider-grid` is welded into `<control-provider-connect>`. Once you
+ask "what shape is this markup, independent of which host currently owns
+it" instead of "is this exact code duplicated as-is," both are the same
+tile-grid pattern (icon/badge + label + click-to-select, arranged in a
+grid). Kept below, unedited, as the record of the reasoning that turned
+out to be incomplete — see ADR-0014 for the corrected decision.
 
 ## Summary
 
