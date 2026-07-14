@@ -1,0 +1,30 @@
+{
+  "name": "@justjs/cloud-connect",
+  "version": "0.1.0",
+  "description": "Pluggable cloud-provider connection SPI - real direct-from-browser account connections (DigitalOcean, Netlify, Vercel, Heroku, Azure, Google Cloud, AWS via real SigV4 signing).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    },
+    "./spi": {
+      "import": "./dist/spi/index.js",
+      "types": "./dist/spi/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@justjs/application": "^0.1.0",
+    "@justjs/network": "^0.1.0",
+    "@justjs/transport": "^0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "happy-dom": "^15.0.0"
+  }
+}
