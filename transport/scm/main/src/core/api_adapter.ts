@@ -46,9 +46,20 @@ export class DefaultApiAdapter implements ApiAdapter {
 
   private toFetchRequest(request: Partial<ApiRequest> & { url: string }): FetchRequest {
     const headers: Record<string, string> = { ...request.headers }
-    let body: string | FormData | undefined
+    let body: string | FormData | Blob | ArrayBuffer | Uint8Array | undefined
     if (request.body !== undefined) {
-      if (typeof request.body === "string" || request.body instanceof FormData) {
+      if (
+        typeof request.body === "string" ||
+        request.body instanceof FormData ||
+        request.body instanceof Blob ||
+        request.body instanceof ArrayBuffer ||
+        request.body instanceof Uint8Array
+      ) {
+        // Binary bodies (Blob/ArrayBuffer/Uint8Array) pass straight
+        // through, same as a raw string body - never JSON-stringified,
+        // and no content-type is guessed on the caller's behalf (a
+        // presigned-upload URL is often signed against an exact body,
+        // so an unrequested header would risk a signature mismatch).
         body = request.body
       } else {
         body = JSON.stringify(request.body)

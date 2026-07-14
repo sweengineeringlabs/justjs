@@ -5,7 +5,12 @@ export class DefaultFetchAdapter implements FetchAdapter {
     const init: RequestInit = {}
     if (request.method !== undefined) init.method = request.method
     if (request.headers !== undefined) init.headers = request.headers
-    if (request.body !== undefined) init.body = request.body
+    // Cast needed for Uint8Array specifically: TS's DOM lib types
+    // BodyInit against ArrayBufferView<ArrayBuffer>, but a plain
+    // `new Uint8Array(...)` is typed as Uint8Array<ArrayBufferLike> -
+    // a real structural mismatch in the type checker only, not at
+    // runtime (a Uint8Array has always been a valid fetch() body).
+    if (request.body !== undefined) init.body = request.body as BodyInit
     const signal = request.signal ?? (request.timeout ? AbortSignal.timeout(request.timeout) : undefined)
     if (signal !== undefined) init.signal = signal
 

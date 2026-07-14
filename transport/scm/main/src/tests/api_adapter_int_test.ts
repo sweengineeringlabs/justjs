@@ -81,6 +81,34 @@ describe("DefaultApiAdapter", () => {
     expect(receivedMethods).toEqual(["PUT", "DELETE"])
   })
 
+  it("test_put_with_a_binary_uint8array_body_sends_the_exact_same_bytes_not_json", async () => {
+    // Regression test for a real gap this session's Heroku deploy work
+    // (@justjs/cloud-connect) hit: PUTting a gzipped tarball to a
+    // presigned upload URL needs the literal binary bytes on the wire,
+    // not a JSON-stringified array of numbers - a real local HTTP
+    // server confirms the received body byte-for-byte, not just that
+    // the call didn't throw.
+    let receivedBytes: Uint8Array | undefined
+    let receivedContentType: string | null = null
+
+    server = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        receivedContentType = req.headers.get("content-type")
+        receivedBytes = new Uint8Array(await req.arrayBuffer())
+        return new Response(null, { status: 200 })
+      },
+    })
+
+    const api = new DefaultApiAdapter(createFetchAdapter())
+    const bytes = new Uint8Array([0x1f, 0x8b, 0x08, 0x00, 0xde, 0xad, 0xbe, 0xef])
+    const result = await api.put(`http://localhost:${server.port}/upload`, bytes)
+
+    expect(result.status).toBe(200)
+    expect(receivedContentType).not.toBe("application/json")
+    expect(receivedBytes).toEqual(bytes)
+  })
+
   it("test_non_2xx_response_populates_error_instead_of_throwing", async () => {
     server = Bun.serve({
       port: 0,

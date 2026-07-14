@@ -60,6 +60,25 @@ describe("DefaultFetchAdapter", () => {
     globalThis.fetch = originalFetch
   })
 
+  it("test_fetch_passes_a_binary_uint8array_body_through_unchanged", async () => {
+    // Regression test for a real gap this session's Heroku deploy work
+    // hit: a binary body (e.g. a gzipped tarball PUT to a presigned
+    // upload URL) must reach the real fetch() call as the same bytes,
+    // never re-encoded (e.g. JSON-stringified into an array of numbers).
+    const mockResponse = new Response("{}", { status: 200 })
+    const bytes = new Uint8Array([0x1f, 0x8b, 0x00, 0xff])
+    globalThis.fetch = mock(() => Promise.resolve(mockResponse))
+
+    const adapter = new DefaultFetchAdapter()
+    await adapter.fetch({ url: "https://api.example.com/upload", method: "PUT", body: bytes })
+
+    expect(globalThis.fetch).toHaveBeenCalledWith("https://api.example.com/upload", {
+      method: "PUT",
+      body: bytes,
+    })
+    globalThis.fetch = originalFetch
+  })
+
   it("test_fetch_derives_abort_signal_from_timeout_when_no_signal_given", async () => {
     const mockResponse = new Response("{}", { status: 200 })
     globalThis.fetch = mock((_url: RequestInfo | URL, init?: RequestInit) => {
