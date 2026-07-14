@@ -1,0 +1,15 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../../application/scm/main" },
+    { "path": "../../../network/scm/main" },
+    { "path": "../../../transport/scm/main" }
+  ],
+  "exclude": ["src/tests", "**/*_test.ts"]
+}
