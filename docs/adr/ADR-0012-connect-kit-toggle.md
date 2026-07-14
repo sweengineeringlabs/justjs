@@ -1,4 +1,4 @@
-# ADR-0012: `@justjs/connect-kit` — reusable tab-toggle control component
+# ADR-0012: `@justjs/connect-kit` — reusable toggle view component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -7,7 +7,15 @@
 
 Three instances of the same 2-way segmented toggle exist in `workspace.ts`
 and `scaffold.ts`: two buttons, one marked `.active`, clicking either
-swaps which content is visible. Extract it as `<control-tab-toggle>`.
+swaps which content is visible. Extract it as `<view-toggle>`.
+
+Originally scoped as `<control-tab-toggle>` (a `control-*`). Reclassified:
+checked which value is "active" in all 3 existing instances, and in every
+case it's data the **host** already tracks (`designViewMode`,
+`slidesViewMode`, Scaffold's mode) — the toggle itself never needs to
+remember anything across a re-render if the host just passes the current
+value back in as a property. That's the same shape as `<view-nav-header>`
+(relays a click, owns nothing) — so this is a view, not a control.
 
 ## Real, counted duplication (evidence, not estimate)
 
@@ -46,34 +54,40 @@ this.querySelector("#scaffold-mode-project-btn")?.addEventListener("click", () =
 // setMode() toggles .active on both buttons and hidden on both content panes
 ```
 
-3 real instances total across 2 files.
+3 real instances total across 2 files. In every one, `designViewMode`/
+`slidesViewMode`/Scaffold's mode is a field the *host* owns and re-renders
+from — the `.active` class is a pure reflection of that host state, never
+computed or remembered by the toggle markup itself.
 
-## Why this is a `control-*`, not a `view-*`
+## Why this is a `view-*`, not a `control-*`
 
-It owns real state (which option is currently active) and reacts to
-interaction — the same bar `<control-provider-connect>` and
-`<control-image-attach>` were held to. Unlike `<view-nav-header>` (which
-only relays a click without tracking anything), this element must
-remember which option is selected to render the correct `.active` class
-on re-render.
+A "controlled component" in the classic UI sense: the host passes in
+which value is currently active (`activeValue`), the toggle renders that
+value as `.active` and relays clicks as an event — it never stores
+"which one is active" as its own internal field. That's props in, markup
++ events out, the same bar `<view-badge>`/`<view-nav-header>` were held
+to, not the "owns real state across renders" bar that keeps
+`<control-provider-flow>` (ADR-0007) a control.
 
 ## Scope
 
 ### In scope
 
-`<control-tab-toggle>` (`TabToggleControl`) — Shadow DOM, one property:
-`options` (an array of `{value, label}`, 2 entries in every existing
-instance — not artificially restricted to exactly 2, since nothing about
-the shape requires it, but not designed for many either). Dispatches a
-`tab-change` `CustomEvent` (`detail: {value}`) when a different option is
-clicked. The host owns what the two states actually show/hide — this
-element only owns which one is marked active and firing the event.
+`<view-toggle>` (`ToggleView`) — Shadow DOM, properties: `options` (an
+array of `{value, label}`, 2 entries in every existing instance — not
+artificially restricted to exactly 2, since nothing about the shape
+requires it, but not designed for many either) and `activeValue` (which
+one is currently active, supplied by the host). Dispatches a `change`
+`CustomEvent` (`detail: {value}`) when a different option is clicked. The
+host owns both which value is active and what the two states actually
+show/hide — this element only renders the current value and fires the
+event.
 
 ### Out of scope, not guessed at
 
 - Content swapping (showing/hiding the panes underneath) stays the host's
-  job in v1 — none of the 3 existing instances have identical panes, so
-  there's nothing common to extract there beyond the toggle itself.
+  job — none of the 3 existing instances have identical panes, so there's
+  nothing common to extract there beyond the toggle itself.
 - No animation/transition between states — none of the 3 existing
   instances have one.
 
@@ -81,17 +95,19 @@ element only owns which one is marked active and firing the event.
 
 Same reasoning as ADR-0006 through ADR-0011: `HTMLElement` subclass,
 `attachShadow({mode: "open"})`, no `x-*`/`js-*` vendor prefix, self-registers
-via `customElements.define("control-tab-toggle", TabToggleControl)` as an
-import side-effect, outside DDAS/boot-time validation.
+via `customElements.define("view-toggle", ToggleView)` as an import
+side-effect, outside DDAS/boot-time validation.
 
 ## Migration strategy
 
-1. Ship `<control-tab-toggle>`, verified in isolation with its own test
-   suite (render, click switches active state, `tab-change` dispatched
-   with correct `value`).
+1. Ship `<view-toggle>`, verified in isolation with its own test suite
+   (render reflects `activeValue`, click dispatches `change` with correct
+   `value`, does not mutate its own `activeValue` property — the host
+   must set it again for the visual state to update, proving it's truly
+   controlled).
 2. Migrate exactly **one** existing screen as the first real consumer —
-   Scaffold's New File/New Project toggle (simpler than Design/Slides:
-   no Mermaid-render token-guard complexity sitting behind it).
+   Scaffold's New File/New Project toggle (simpler than Design/Slides: no
+   Mermaid-render token-guard complexity sitting behind it).
 3. Migrate Design's and Slides' copies opportunistically, not as a
    dedicated sweep.
 
@@ -107,23 +123,26 @@ import side-effect, outside DDAS/boot-time validation.
   treatments for the same underlying component, ported once and
   parameterized (or left as a CSS custom-property hook), a decision for
   the implementing issue.
+- Being a controlled view means every host must re-set `activeValue`
+  after handling `change` for the visual state to update — a small extra
+  step compared to the toggle managing its own state, traded deliberately
+  for a simpler, stateless component.
 
 ## Acceptance criteria
 
-- [ ] `<control-tab-toggle>` ships in `connect-kit`'s `api`/`core`/`saf`
-      with tests covering: initial active state (first option by default,
-      matching all 3 existing instances), click switches active state,
-      `tab-change` dispatched with the correct `value`
-- [ ] Scaffold's New File/New Project toggle migrated to
-      `<control-tab-toggle>`, `verify_web.mjs` passes with no assertion
-      count regression
+- [ ] `<view-toggle>` ships in `connect-kit`'s `core`/`saf` with tests
+      covering: renders `activeValue` as active, click dispatches
+      `change` with the correct `value`, does not self-mutate
+      `activeValue`
+- [ ] Scaffold's New File/New Project toggle migrated to `<view-toggle>`,
+      `verify_web.mjs` passes with no assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
 ## Relates to
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-control.md) through
+- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) through
   [ADR-0011](ADR-0011-connect-kit-prompt-field.md) — the other elements in
   this package
 - ADR-0001 (workspace layout, SAF structure invariants)

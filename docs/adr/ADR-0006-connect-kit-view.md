@@ -13,9 +13,9 @@ ADR scopes the new package itself, `@justjs/connect-kit`, and its first,
 lowest-risk piece: a real, stateless view component,
 `<view-badge>`, plus the non-visual credential-store helper.
 
-The stateful piece — `<control-provider-connect>`, which owns real
+The stateful piece — `<control-provider-flow>`, which owns real
 selection/loading/error state and dispatches events — is deliberately
-**not** decided here. See [ADR-0007](ADR-0007-connect-kit-control.md).
+**not** decided here. See [ADR-0007](ADR-0007-connect-kit-provider-flow.md).
 Splitting the two lets the low-risk, easy-to-review view piece ship
 independently of the higher-risk stateful one — see
 [Why split view from control](#why-split-view-from-control-adr-0007).
@@ -70,7 +70,7 @@ or independently mounted; they are nested inside an existing routed
 component's own template, the same way a third-party Web Component library
 would be consumed. Concretely:
 
-- `view-badge` and `control-provider-connect` are hand-authored
+- `view-badge` and `control-provider-flow` are hand-authored
   `HTMLElement` subclasses using `attachShadow({ mode: "open" })`, each
   with its own `<style>` in the shadow root. No `x-*`/`js-*` vendor prefix
   — checked via grep, that split exists in this app specifically to
@@ -82,7 +82,7 @@ would be consumed. Concretely:
   self-registering spirit as `spi/` providers, but simpler (no strategy
   string, no registry lookup; importing the package is enough).
 - A host component (e.g. `CartoonElement.render()`) places
-  `<control-provider-connect>` in its template, sets its `.providers`/
+  `<control-provider-flow>` in its template, sets its `.providers`/
   `.connect`/`.list` properties imperatively after the element is in the
   DOM (properties, not attributes — the config includes functions), and
   listens for `CustomEvent`s it dispatches (`connected`, `resource-select`,
@@ -141,7 +141,7 @@ implementations** sharing the same CSS classes
 `.connect-status`/`.resource-list`/`.resource-row`) but each hand-coded:
 `workspace.ts` (Cloud, SCM, PM — 3 separate render paths in one file),
 `communication.ts`, `socials.ts`, `cartoon.ts`. (This is what
-`<control-provider-connect>` replaces — decided in ADR-0007.)
+`<control-provider-flow>` replaces — decided in ADR-0007.)
 
 ## Scope
 
@@ -162,8 +162,8 @@ implementations** sharing the same CSS classes
 
 ### Out of scope (split to ADR-0007 or excluded entirely)
 
-- `<control-provider-connect>` — the stateful provider-connect flow.
-  Decided in [ADR-0007](ADR-0007-connect-kit-control.md), not here.
+- `<control-provider-flow>` — the stateful provider-connect flow.
+  Decided in [ADR-0007](ADR-0007-connect-kit-provider-flow.md), not here.
 - **OAuth-redirect providers (Jira)** and **billed-generate providers
   (Cartoon)** — out of scope for the whole package (both ADRs); see
   ADR-0007's Scope section for the full reasoning.
@@ -191,7 +191,7 @@ directly, there is nothing to swap by string key. `src/spi/` may still
 exist empty (S8 in ADR-0001's invariant table is a warning, not an error,
 if absent).
 
-`provider_connect_control.ts` (ADR-0007's element) lives in this same
+`provider_flow_control.ts` (ADR-0007's element) lives in this same
 package/directory tree — the two ADRs split the *design decision*, not the
 physical package.
 
@@ -204,11 +204,12 @@ connect-kit/scm/main/src/
   core/
     credential_store.ts     # DefaultCredentialStore (localStorage-backed)
     badge_view.ts                 # BadgeView (HTMLElement, Shadow DOM) - this ADR
-    provider_connect_control.ts   # ProviderConnectControl (HTMLElement, Shadow DOM) - ADR-0007
+    provider_flow_control.ts      # ProviderFlowControl (HTMLElement, Shadow DOM) - ADR-0007
+    grid_view.ts / toggle_view.ts / form_view.ts / list_view.ts / ...   # the rest of this package's view/control elements, one file per ADR-0008 through ADR-0016
   saf/
     index.ts               # createCredentialStore();
                             # registers "view-badge" (this ADR) and
-                            # "control-provider-connect" (ADR-0007) via
+                            # "control-provider-flow" (ADR-0007) via
                             # customElements.define() as an import side-effect
 ```
 
@@ -226,7 +227,7 @@ ADR's scope specifically:
    `*_credentials.ts` file (`cartoon_credentials.ts` recommended).
 3. Replace all 4 local `renderProviderBadge()` copies with
    `<view-badge>`.
-4. `<control-provider-connect>`'s migration (Socials, the first real
+4. `<control-provider-flow>`'s migration (Socials, the first real
    stateful consumer) is scoped under ADR-0007, not here.
 
 ## Known limitations (disclosed, not papered over)
@@ -257,8 +258,8 @@ ADR's scope specifically:
 ## Relates to
 
 - ADR-0001 (workspace layout, SAF structure invariants)
-- [ADR-0007](ADR-0007-connect-kit-control.md) — the stateful
-  `<control-provider-connect>` element, split out deliberately
+- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — the stateful
+  `<control-provider-flow>` element, split out deliberately
 - Real duplication introduced across this session's `cloud-connect`,
   `scm-connect`, `comms-connect`, `social-connect`, `pm-connect`,
   `image-connect` rounds (all six `ai-code-editor` provider-connect

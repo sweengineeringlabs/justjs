@@ -35,7 +35,7 @@ The identical shape (markup + show/hide pair, differing only by element
 different sub-feature), and `review.ts:49`. 5 real instances total.
 
 **Explicitly not this pattern:** `.connect-status`/`.connect-status-error`
-(used inside `<control-provider-connect>`'s connect-form and Cartoon's
+(used inside `<control-provider-flow>`'s connect-form and Cartoon's
 generate flow) is a **different, separate class** with its own error-vs-info
 styling variant, already implicitly covered by ADR-0007's scope. This ADR
 covers only `.editor-status`'s 5 copies.
@@ -103,6 +103,6 @@ import side-effect, outside DDAS/boot-time validation.
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-control.md) — the separate
+- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — the separate
   `.connect-status` pattern this ADR explicitly excludes
 - ADR-0001 (workspace layout, SAF structure invariants)
