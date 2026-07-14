@@ -83,7 +83,7 @@ a parent route) exactly as it does today.
   single-target "back to X" header, not a navigation manager. If a screen
   ever needs multi-level breadcrumbs, that's a different, bigger component.
 - No composition with `<view-badge>` in v1 (unlike
-  `<control-provider-flow>`) — some headers show a provider badge next
+  `<control-provider-connector>`) — some headers show a provider badge next
   to the title (`socials.ts:150`), most don't. The `title` slot accepts
   arbitrary content so a caller can still place a badge inside it; the
   element itself doesn't special-case that.
@@ -100,7 +100,7 @@ validation since it's never an `AspectConfig` target.
 
 ## Migration strategy
 
-Unlike `<control-provider-flow>` (tied 1:1 to a screen), this header
+Unlike `<control-provider-connector>` (tied 1:1 to a screen), this header
 appears many times **within** a single file (`workspace.ts` has 10 copies
 across unrelated sub-features). Migrating "one screen" doesn't map
 cleanly, so instead:
@@ -137,5 +137,5 @@ cleanly, so instead:
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md)
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md)
 - ADR-0001 (workspace layout, SAF structure invariants)

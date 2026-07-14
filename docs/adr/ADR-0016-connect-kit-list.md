@@ -7,7 +7,7 @@
 
 The resource-list step at the end of every provider-connect screen is a
 simple list of name+status rows. Extract the rendering of that step as
-`<view-list>`, to be composed by `<control-provider-flow>` (ADR-0007).
+`<view-list>`, to be composed by `<control-provider-connector>` (ADR-0007).
 This also closes the "is this a table?" question raised earlier — it's
 this component, not a table (no headers, no columns, no sorting).
 
@@ -51,7 +51,7 @@ this one shape.
 ## Why this is a `view-*`, not a `control-*`
 
 The list doesn't fetch anything or own loading/error state — that's
-`<control-provider-flow>`'s job. It only renders whatever `items` it's
+`<control-provider-connector>`'s job. It only renders whatever `items` it's
 given (including the empty case) and relays a click as an event — the
 same "props in, event out" shape as `<view-grid>`.
 
@@ -82,7 +82,7 @@ side-effect, outside DDAS/boot-time validation.
 
 ## Migration strategy
 
-Not migrated standalone — ships as part of `<control-provider-flow>`'s
+Not migrated standalone — ships as part of `<control-provider-connector>`'s
 own migration (ADR-0007), since it has no real, independent consumer
 outside that composition. Verified in isolation with its own test suite
 before ADR-0007 composes it. `communication.ts`'s clickable channel/
@@ -93,7 +93,7 @@ migrates Socials.
 ## Known limitations (disclosed, not papered over)
 
 - No standalone migration target in this ADR's own issues — this view
-  only proves itself real once composed into `<control-provider-flow>`
+  only proves itself real once composed into `<control-provider-connector>`
   and that element migrates Socials.
 - Shadow DOM styling cost: `.resource-list`/`.resource-row`/
   `.resource-name`/`.resource-status`/`.resource-open-btn` rules in
@@ -106,7 +106,7 @@ migrates Socials.
       name+status rows, `clickable=true` renders buttons and dispatches
       `item-select` with the correct `id`, `clickable=false` renders
       plain non-interactive rows
-- [ ] Composed correctly by `<control-provider-flow>` (verified as part of
+- [ ] Composed correctly by `<control-provider-connector>` (verified as part of
       ADR-0007's own acceptance criteria, not duplicated here)
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
@@ -114,6 +114,6 @@ migrates Socials.
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — the primary real
-  consumer, `<control-provider-flow>`
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — the primary real
+  consumer, `<control-provider-connector>`
 - ADR-0001 (workspace layout, SAF structure invariants)

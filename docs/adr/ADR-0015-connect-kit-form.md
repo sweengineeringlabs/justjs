@@ -10,7 +10,7 @@ screens is a small form: either one password-type input (bearer token) or
 two inputs (identifier+password, client ID+secret, access key+secret
 key, API key+token — 4 real 2-field shapes across Bluesky/Reddit/AWS/
 Trello/Jira). Extract the rendering of that step as `<view-form>`, to be
-composed by `<control-provider-flow>` (ADR-0007).
+composed by `<control-provider-connector>` (ADR-0007).
 
 ## Real, counted duplication (evidence, not estimate)
 
@@ -64,7 +64,7 @@ The status line at the bottom is already `<view-status-line>`'s job
 ## Why this is a `view-*`, not a `control-*`
 
 The form doesn't own whether it's "connecting" or what the result was —
-that's `<control-provider-flow>`'s job (ADR-0007), passed in as a
+that's `<control-provider-connector>`'s job (ADR-0007), passed in as a
 `connecting`/`connected` property. The form itself only renders the
 configured fields, reflects whether Disconnect should show, and reports
 submitted values — the same "props in, event out, nothing remembered"
@@ -104,7 +104,7 @@ side-effect, outside DDAS/boot-time validation.
 
 ## Migration strategy
 
-Not migrated standalone — ships as part of `<control-provider-flow>`'s
+Not migrated standalone — ships as part of `<control-provider-connector>`'s
 own migration (ADR-0007), since it has no real, independent consumer
 outside that composition. Verified in isolation with its own test suite
 before ADR-0007 composes it.
@@ -112,7 +112,7 @@ before ADR-0007 composes it.
 ## Known limitations (disclosed, not papered over)
 
 - No standalone migration target — this view only proves itself real once
-  composed into `<control-provider-flow>` and that element migrates
+  composed into `<control-provider-connector>` and that element migrates
   Socials (ADR-0007's own migration step).
 - Shadow DOM styling cost: `.connect-form`/`.connect-actions` rules in
   `app.css` need porting into this element's own `<style>` block.
@@ -123,7 +123,7 @@ before ADR-0007 composes it.
       covering: 1-field render, 2-field render, `submit` dispatched with
       correct `values`, `connecting`/`connected` props change button
       state, `disconnect` dispatched on Disconnect click
-- [ ] Composed correctly by `<control-provider-flow>` (verified as part of
+- [ ] Composed correctly by `<control-provider-connector>` (verified as part of
       ADR-0007's own acceptance criteria, not duplicated here)
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
@@ -131,8 +131,8 @@ before ADR-0007 composes it.
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — the sole real
-  consumer, `<control-provider-flow>`
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — the sole real
+  consumer, `<control-provider-connector>`
 - [ADR-0009](ADR-0009-connect-kit-status-line.md) — `<view-status-line>`,
   the sibling piece handling the status line below this form
 - ADR-0001 (workspace layout, SAF structure invariants)

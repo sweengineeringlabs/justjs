@@ -68,7 +68,7 @@ before.
 
 ## Relates to
 
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — where `.provider-grid`'s
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — where `.provider-grid`'s
   actual duplication is already addressed, as part of
   `<control-provider-connect>`
 - ADR-0001 (workspace layout, SAF structure invariants)

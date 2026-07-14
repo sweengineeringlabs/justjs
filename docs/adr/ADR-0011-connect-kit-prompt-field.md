@@ -71,7 +71,7 @@ textarea's own value — pure view.
 
 - Voice/mic input — see above.
 - Cost disclosure / Generate button (Cartoon's own concern, already
-  excluded from `<control-provider-flow>` per ADR-0007 — this ADR
+  excluded from `<control-provider-connector>` per ADR-0007 — this ADR
   covers only the bare labeled textarea, not what sits around it).
 
 ## Design: real Web Component, nested rather than routed
@@ -116,6 +116,6 @@ import side-effect, outside DDAS/boot-time validation.
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — Cartoon's generate flow,
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — Cartoon's generate flow,
   which this ADR's field sits inside but does not itself cover
 - ADR-0001 (workspace layout, SAF structure invariants)

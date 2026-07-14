@@ -1,4 +1,4 @@
-# ADR-0007: `@justjs/connect-kit` — reusable provider-flow control component
+# ADR-0007: `@justjs/connect-kit` — reusable provider-connector control component
 
 - **Status:** Proposed
 - **Date:** 2026-07-14
@@ -7,7 +7,7 @@
 
 Split out from [ADR-0006](ADR-0006-connect-kit-view.md) to review the
 stateful, higher-risk piece of `@justjs/connect-kit` independently:
-`<control-provider-flow>`, a real Custom Element covering provider grid
+`<control-provider-connector>`, a real Custom Element covering provider grid
 -> tap -> credential form -> Connect -> resource list, replacing 6
 independent hand-written implementations
 (`workspace.ts`'s Cloud/SCM/PM, `communication.ts`, `socials.ts`,
@@ -20,17 +20,25 @@ element are decided in ADR-0006 — not repeated here.
 This ADR does **not** propose retrofitting all 6 existing screens — see
 [Migration strategy](#migration-strategy).
 
-## Naming: `provider-flow`, not `provider-connect`
+## Naming: `provider-connector`, not `provider-connect`
 
-Originally named `<control-provider-connect>`. Renamed: "connect" is a
-bare verb with no object ("connect" what, to what?) — every sibling
+Originally named `<control-provider-connect>`, briefly renamed
+`<control-provider-flow>`. Settled on `provider-connector`: "connect" is
+a bare verb with no object ("connect" what, to what?) — every sibling
 `control-*`/`view-*` name ends in a noun describing what the thing *is*
-(`grid`, `toggle`, `badge`), not what it does. What this element actually
-is: a multi-step **flow** (grid → form → list) that happens to end in a
-network call. "Provider" stays, unlike the badge's naming — this
-element's entire API is built around the concept of a provider (the
-`.providers` catalog, `kind`-based form branching), not incidentally
-borrowing the word from its current use site.
+(`grid`, `toggle`, `badge`), not what it does. "Flow" fixed that but
+implied more generality than this element actually has — it's not a
+general multi-step-wizard component (it explicitly excludes Jira's OAuth
+flow and Cartoon's billed-generate flow, both real multi-step processes
+this element deliberately does *not* handle). "Connector" is narrower and
+more accurate, and matches vocabulary already real in this codebase —
+`BEARER_CONNECTORS`, `SCM_CONNECTORS`, `PM_CONNECTORS`,
+`COMMS_CONNECTORS`, `CARTOON_CONNECTORS` are all existing variable names
+for "the function that does the connecting," in every one of the 6
+screens this element replaces. "Provider" stays, unlike the badge's
+naming — this element's entire API is built around the concept of a
+provider (the `.providers` catalog, `kind`-based form branching), not
+incidentally borrowing the word from its current use site.
 
 ## Why this is a real control, not decomposed further
 
@@ -61,7 +69,7 @@ paths in one file), `communication.ts`, `socials.ts`, `cartoon.ts`.
 
 ### In scope
 
-`<control-provider-flow>` (`ProviderFlowControl`) — a real Custom Element
+`<control-provider-connector>` (`ProviderConnectorControl`) — a real Custom Element
 (`HTMLElement` subclass, `attachShadow({mode: "open"})`) covering the
 **common case**: single- or two-field bearer-style credential form.
 Configured via a `.providers` catalog property (id/name/icon/color/logo)
@@ -108,7 +116,7 @@ into props on the next view down. That's the real, non-decomposable
 ## Design recap (decided in ADR-0006, applies here)
 
 Real Web Component, Shadow DOM-encapsulated HTML/CSS, self-registers via
-`customElements.define("control-provider-flow", ProviderFlowControl)`
+`customElements.define("control-provider-connector", ProviderConnectorControl)`
 as an import side-effect, no `x-*`/`js-*` vendor prefix, nested inside an
 existing routed component's template rather than independently routed —
 outside DDAS/boot-time validation entirely since it's never targeted by an
@@ -116,7 +124,7 @@ outside DDAS/boot-time validation entirely since it's never targeted by an
 
 ## Migration strategy
 
-1. Ship `<control-provider-flow>`, verified in isolation with its own
+1. Ship `<control-provider-connector>`, verified in isolation with its own
    test suite (jsdom/happy-dom-based Shadow DOM assertions, matching the
    harness `comms-connect` already proved out this session) — including
    tests that it correctly composes and reacts to events from
@@ -146,19 +154,19 @@ outside DDAS/boot-time validation entirely since it's never targeted by an
   `.resource-*` rules in `app.css` need to be ported into the composed
   views' own `<style>` blocks — real work, and they can drift from the
   global copies until every screen migrates.
-- `ProviderFlowControl`'s exact property/event surface is a design
+- `ProviderConnectorControl`'s exact property/event surface is a design
   decision for the implementing issue, not fully fixed by this ADR — the
   grid/form/list states and which views they compose are fixed, the
   precise config and event names are not.
 
 ## Acceptance criteria
 
-- [ ] `<control-provider-flow>` ships with tests covering grid/form/
+- [ ] `<control-provider-connector>` ships with tests covering grid/form/
       connecting/error/list states, composing
       `<view-grid>`/`<view-form>`/`<view-list>`/`<view-status-line>`
       correctly, explicitly excluding OAuth and generate/billing variants
 - [ ] Socials tab (`socials.ts`) migrated to consume
-      `<control-provider-flow>`, `verify_web.mjs` passes with no
+      `<control-provider-connector>`, `verify_web.mjs` passes with no
       assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
 
@@ -173,5 +181,5 @@ outside DDAS/boot-time validation entirely since it's never targeted by an
 - [ADR-0015](ADR-0015-connect-kit-form.md) — `<view-form>`, composed here
 - [ADR-0016](ADR-0016-connect-kit-list.md) — `<view-list>`, composed here
 - ADR-0001 (workspace layout, SAF structure invariants)
-- Tracked by justjs#97 (epic), with sub-issues justjs#101 (provider-flow
+- Tracked by justjs#97 (epic), with sub-issues justjs#101 (provider-connector
   element), justjs#102 (Socials migration)

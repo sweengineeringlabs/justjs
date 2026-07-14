@@ -67,7 +67,7 @@ value as `.active` and relays clicks as an event — it never stores
 "which one is active" as its own internal field. That's props in, markup
 + events out, the same bar `<view-badge>`/`<view-nav-header>` were held
 to, not the "owns real state across renders" bar that keeps
-`<control-provider-flow>` (ADR-0007) a control.
+`<control-provider-connector>` (ADR-0007) a control.
 
 ## Scope
 
@@ -142,7 +142,7 @@ side-effect, outside DDAS/boot-time validation.
 
 - [ADR-0006](ADR-0006-connect-kit-view.md) — package scaffold, shared Web
   Component design rationale
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) through
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) through
   [ADR-0011](ADR-0011-connect-kit-prompt-field.md) — the other elements in
   this package
 - ADR-0001 (workspace layout, SAF structure invariants)

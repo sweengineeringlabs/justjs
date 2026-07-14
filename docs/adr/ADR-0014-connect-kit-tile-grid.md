@@ -8,7 +8,7 @@
 
 ADR-0013 concluded no grid component was needed by comparing
 `.provider-grid` and `.widget-grid` as literal code — each currently
-welded into a different host (`<control-provider-flow>` and
+welded into a different host (`<control-provider-connector>` and
 `WorkspaceElement` respectively), so neither looked duplicated *as code*.
 That comparison missed the actual question: **what shape is this markup,
 independent of which host currently owns it.** Once asked that way, both
@@ -39,7 +39,7 @@ own top-level view, not itself a `connect-kit` scope):
 </div>
 ```
 
-`<control-provider-flow>`'s grid state (ADR-0007 — currently the same
+`<control-provider-connector>`'s grid state (ADR-0007 — currently the same
 markup independently duplicated 6x pre-migration, unified to one render
 site once ADR-0007 ships):
 
@@ -61,7 +61,7 @@ site once ADR-0007 ships):
 Same skeleton in both: a grid container, a `<button>` tile per item, an
 icon-ish element, a label, a click handler that reports which item was
 picked. The real difference is the icon slot — `WorkspaceElement`'s tiles
-use a plain emoji `<span>`, `<control-provider-flow>`'s use a colored
+use a plain emoji `<span>`, `<control-provider-connector>`'s use a colored
 `<view-badge>` (ADR-0006) — and the provider grid additionally shows a
 `selected` status, computed entirely from `connected` data the *host*
 already has, not from anything the grid remembers itself. Both are real,
@@ -102,8 +102,8 @@ the other's visual shape). Dispatches an `item-select` `CustomEvent`
 - Does not own what happens after selection (drilling into a stage,
   opening a provider's connect form) — that stays the host's job, exactly
   as `<view-toggle>` (ADR-0012) leaves content-swapping to its host.
-- Does not compose `<control-provider-flow>` itself in this ADR — that
-  composition (having `<control-provider-flow>` use `<view-grid>`
+- Does not compose `<control-provider-connector>` itself in this ADR — that
+  composition (having `<control-provider-connector>` use `<view-grid>`
   internally for its own grid state) is real follow-up work for ADR-0007's
   implementing issue, not fixed here.
 - Does not depend on, or require, decomposing `WorkspaceElement` into
@@ -127,14 +127,14 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
 2. Migrate `WorkspaceElement`'s `renderOverview()` (the SDLC hub) as the
    first real consumer — chosen over the provider-grid because it has no
    `selected`-styling complexity, the simpler of the two real shapes.
-3. `<control-provider-flow>`'s own internal grid state migrates
+3. `<control-provider-connector>`'s own internal grid state migrates
    opportunistically, as part of its own implementing issue (ADR-0007),
    not bundled into this ADR's issues.
 
 ## Known limitations (disclosed, not papered over)
 
 - Only `WorkspaceElement`'s hub migrates as part of this ADR's issues —
-  `<control-provider-flow>` keeps rendering its own grid inline until
+  `<control-provider-connector>` keeps rendering its own grid inline until
   that composition is done as separate follow-up work.
 - The evidence for this component is structural-shape matching across two
   different real consumers, not byte-identical duplicated code — a
@@ -160,6 +160,6 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
 - [ADR-0013](ADR-0013-connect-kit-no-grid-component.md) — the decision
   this supersedes
 - [ADR-0006](ADR-0006-connect-kit-view.md) — `<view-badge>`, composed here
-- [ADR-0007](ADR-0007-connect-kit-provider-flow.md) — `<control-provider-flow>`,
+- [ADR-0007](ADR-0007-connect-kit-provider-connector.md) — `<control-provider-connector>`,
   whose own grid state is a real, deferred consumer of this element
 - ADR-0001 (workspace layout, SAF structure invariants)
