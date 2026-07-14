@@ -38,20 +38,23 @@ labeled, some not; some with a mic button, some without).
 
 ## Why voice input is out of scope
 
-Checked `scaffold.ts`'s `setupVoiceButton`/`startHold` directly: the mic
-button is not a decoration on the textarea, it's a genuinely separate,
-stateful piece — it owns a `voiceHandle` (a live `startVoicePrompt()`
-session), a hold-to-record gesture (`pointerdown`/`pointerup`/
-`pointercancel`/`pointerleave`), live transcript streaming into the
-textarea as the user speaks, and cleanup on `disconnectedCallback()`. That
-is real, substantial `control-*`-shaped behavior in its own right — folding
-it into a "prompt field" view would either force the view to own state
-(contradicting what a view is) or require a second, more complex element
-this ADR hasn't scoped. Same reasoning ADR-0007 used to exclude Jira's
-OAuth and Cartoon's billed-generate: one real pattern (2 mic instances,
-both in `scaffold.ts`) isn't enough evidence yet to design its API
-surface. Revisit as its own ADR (`<control-voice-prompt>`) if a clearer
-pattern emerges.
+Checked `scaffold.ts`'s `setupVoiceButton`/`startHold` **and** `chat.ts`'s
+`setupVoicePrompt`/`startHold` directly (correction: an earlier pass of
+this ADR said "2 mic instances, both in `scaffold.ts`" — wrong, `chat.ts`
+has its own independent third instance, targeting the chat input rather
+than a textarea): the mic button is not a decoration on the textarea,
+it's a genuinely separate, stateful piece — it owns a `voiceHandle` (a
+live `startVoicePrompt()` session), a hold-to-record gesture
+(`pointerdown`/`pointerup`/`pointercancel`/`pointerleave`), live
+transcript streaming into the target field as the user speaks, and
+cleanup on `disconnectedCallback()`. That is real, substantial
+`control-*`-shaped behavior in its own right — folding it into a "prompt
+field" view would either force the view to own state (contradicting what
+a view is) or require a second, more complex element this ADR hasn't
+scoped. 3 real instances across 2 files (`chat.ts`, `scaffold.ts`) is
+real, counted evidence for a dedicated `<control-voice-input>` element —
+not yet scoped in its own ADR as of this writing; revisit when that work
+is prioritized.
 
 ## Scope
 
