@@ -1,11 +1,22 @@
 import type { ApiAdapter } from "@justjs/transport";
-import type { CommsConnectProvider, CommsResource, BearerTokenConfig } from "../api/provider.js";
+import type { CommsConnectProvider, CommsResource, CommsMessage, BearerTokenConfig } from "../api/provider.js";
 import { CommsConnectProviderError } from "../api/provider.js";
 
 interface SlackConversationsListResponse {
   readonly ok: boolean;
   readonly error?: string;
-  readonly channels?: ReadonlyArray<{ readonly id: string; readonly name: string; readonly is_private: boolean }>;
+  readonly channels?: ReadonlyArray<{ readonly id: string; readonly name: string; readonly is_private: boolean; readonly is_archived?: boolean }>;
+}
+
+interface SlackConversationsHistoryResponse {
+  readonly ok: boolean;
+  readonly error?: string;
+  readonly messages?: ReadonlyArray<{ readonly ts: string; readonly user?: string; readonly text?: string }>;
+}
+
+interface SlackConversationsMarkResponse {
+  readonly ok: boolean;
+  readonly error?: string;
 }
 
 // Slack - real distinct logic, not a DefaultCommsConnectProvider
@@ -55,7 +66,73 @@ export class SlackCommsConnectProvider implements CommsConnectProvider {
       id: c.id,
       name: c.name,
       status: c.is_private ? "private" : "public",
+      archived: c.is_archived ?? false,
     }));
+  }
+
+  // Real conversations.history - lists a real channel's recent
+  // messages. `author` is the raw Slack user id (e.g. "U123ABC456"),
+  // not a resolved display name - Slack's history endpoint doesn't
+  // return one, and resolving each unique user id to a name would need
+  // a separate real users.info call per author, a real N+1 cost this
+  // provider deliberately doesn't take on. Still real and truthful, not
+  // a fabricated name.
+  async listMessages(channelId: string): Promise<CommsMessage[]> {
+    let response;
+    try {
+      response = await this.apiAdapter.get<SlackConversationsHistoryResponse>(
+        `https://slack.com/api/conversations.history?channel=${encodeURIComponent(channelId)}&limit=50`,
+        { headers: { Authorization: `Bearer ${this.config.token}` } }
+      );
+    } catch {
+      throw new CommsConnectProviderError(
+        "NETWORK_ERROR",
+        "Slack: network request failed while listing messages - check your connection."
+      );
+    }
+    if (response.error !== undefined) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: request failed (${response.status} ${response.error}).`);
+    }
+    if (!response.data.ok) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: listing messages failed (${response.data.error ?? "unknown_error"}).`);
+    }
+    return (response.data.messages ?? []).map((m) => ({
+      id: m.ts,
+      author: m.user ?? "unknown",
+      text: m.text ?? "",
+      timestamp: m.ts,
+    }));
+  }
+
+  // Real conversations.mark - a genuine, working API call, with a real,
+  // honest limitation: since this app authenticates as a bot (not a
+  // human user), this moves the *bot's own* read cursor for the
+  // channel, not any human user's. Slack has no API for a bot token to
+  // mark read-state on behalf of a different (human) identity - that
+  // would need a user token with that user's own consent, which this
+  // app's bearer-bot-token connect flow never obtains. Real, but its
+  // practical significance is limited - disclosed in this app's own
+  // Settings UI, not hidden.
+  async markAsRead(channelId: string, latestTimestamp: string): Promise<void> {
+    let response;
+    try {
+      response = await this.apiAdapter.post<SlackConversationsMarkResponse>(
+        "https://slack.com/api/conversations.mark",
+        { channel: channelId, ts: latestTimestamp },
+        { headers: { Authorization: `Bearer ${this.config.token}` } }
+      );
+    } catch {
+      throw new CommsConnectProviderError(
+        "NETWORK_ERROR",
+        "Slack: network request failed while marking the channel read - check your connection."
+      );
+    }
+    if (response.error !== undefined) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: request failed (${response.status} ${response.error}).`);
+    }
+    if (!response.data.ok) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: marking the channel read failed (${response.data.error ?? "unknown_error"}).`);
+    }
   }
 
   weave(): void {

@@ -1,4 +1,4 @@
-export type { CommsConnectProvider, CommsResource, BearerTokenConfig } from "../api/provider.js";
+export type { CommsConnectProvider, CommsResource, CommsMessage, BearerTokenConfig } from "../api/provider.js";
 export { CommsConnectProviderError } from "../api/provider.js";
 
 // Same justjs#91-pattern fix @justjs/ai-assist's/@justjs/cloud-connect's/
