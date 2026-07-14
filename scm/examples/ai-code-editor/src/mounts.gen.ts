@@ -5,8 +5,10 @@
 
 export function stampMounts(): void {
   document.querySelector("#mount-chat")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-chat"); // mount-chat
+  document.querySelector("#mount-communication")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-communication"); // mount-communication
   document.querySelector("#mount-editor")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-editor"); // mount-editor
   document.querySelector("#mount-review")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-review"); // mount-review
   document.querySelector("#mount-scaffold")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-scaffold"); // mount-scaffold
+  document.querySelector("#mount-socials")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-socials"); // mount-socials
   document.querySelector("#mount-workspace")?.setAttribute('data-ddas-id', "ai-code-editor:app:shell:mount-workspace"); // mount-workspace
 }

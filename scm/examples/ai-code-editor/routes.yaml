@@ -14,3 +14,9 @@ routes:
   - path: /workspace
     feature: workspace
     component: workspace
+  - path: /communication
+    feature: communication
+    component: communication
+  - path: /socials
+    feature: socials
+    component: socials

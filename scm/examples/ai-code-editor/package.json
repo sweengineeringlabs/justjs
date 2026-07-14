@@ -18,8 +18,12 @@
     "@justjs/aop-security": "^0.1.0",
     "@justjs/aop-theming": "^0.1.0",
     "@justjs/application": "^0.1.0",
+    "@justjs/cloud-connect": "^0.1.0",
+    "@justjs/comms-connect": "^0.1.0",
     "@justjs/data": "^0.1.0",
     "@justjs/network": "^0.1.0",
+    "@justjs/scm-connect": "^0.1.0",
+    "@justjs/social-connect": "^0.1.0",
     "@justjs/transport": "^0.1.0",
     "mermaid": "11.16.0",
     "simple-icons": "^16.26.0"

@@ -1561,20 +1561,109 @@ button.workspace-function-live {
   flex: 0 0 auto;
 }
 
-.cloud-providers-hint {
+.connect-hint {
   margin: 0 0 14px;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.4;
 }
 
-.cloud-provider-grid {
+/* Real connect form (token, or AWS's two fields) + resource list -
+   provider's own drill-down (workspace.ts's renderCloudProviderDetail).
+   Reuses the same fade/stage-color language the rest of the drill-down
+   already uses, not a new visual pattern. */
+.connect-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 10%, var(--surface)) 0%, var(--surface) 70%);
+  border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--border));
+  border-radius: var(--radius-md);
+}
+
+.connect-form input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.connect-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.connect-actions button {
+  flex: 1;
+}
+
+.connect-status {
+  margin: 0;
+  min-height: 1em;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.connect-status-error {
+  color: var(--danger);
+}
+
+.resource-list-label {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.resource-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resource-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.resource-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--stage-color, var(--accent)) 18%, transparent);
+  color: var(--stage-color, var(--accent-strong));
+}
+
+.provider-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.cloud-provider-card {
+.provider-card {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1589,7 +1678,7 @@ button.workspace-function-live {
   min-height: 92px;
 }
 
-.cloud-provider-card.selected {
+.provider-card.selected {
   border-color: var(--accent-strong);
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
@@ -1599,7 +1688,7 @@ button.workspace-function-live {
    provider's own real brand color - was a bare 24px emoji with no
    badge at all. The logo's fill="currentColor" (injected in
    renderProviderBadge()) picks up this rule's `color: white`. */
-.cloud-provider-icon {
+.provider-icon {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-circle);
@@ -1610,18 +1699,18 @@ button.workspace-function-live {
   font-size: 20px;
 }
 
-.cloud-provider-icon svg {
+.provider-icon svg {
   width: 20px;
   height: 20px;
 }
 
-.cloud-provider-name {
+.provider-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
 }
 
-.cloud-provider-check {
+.provider-check {
   display: none;
   font-size: 10px;
   font-weight: 700;
@@ -1633,7 +1722,7 @@ button.workspace-function-live {
   color: var(--accent-text);
 }
 
-.cloud-provider-card.selected .cloud-provider-check {
+.provider-card.selected .provider-check {
   display: inline-block;
 }
 

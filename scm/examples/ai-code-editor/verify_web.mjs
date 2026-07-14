@@ -89,6 +89,8 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/review">Review</button>
       <button class="nav-btn" data-route="/scaffold">Scaffold</button>
       <button class="nav-btn" data-route="/workspace">Workspace</button>
+      <button class="nav-btn" data-route="/communication">Comms</button>
+      <button class="nav-btn" data-route="/socials">Socials</button>
     </nav>
     <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
          call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
@@ -98,6 +100,8 @@ document.body.innerHTML = `
     <div id="mount-review" class="page"></div>
     <div id="mount-scaffold" class="page"></div>
     <div id="mount-workspace" class="page"></div>
+    <div id="mount-communication" class="page"></div>
+    <div id="mount-socials" class="page"></div>
     <div id="settings-panel" hidden>
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
@@ -164,6 +168,8 @@ assert(document.getElementById("mount-chat").innerHTML.length > 0, "chat mount h
 assert(document.getElementById("mount-review").innerHTML.length > 0, "review mount has content");
 assert(document.getElementById("mount-scaffold").innerHTML.length > 0, "scaffold mount has content");
 assert(document.getElementById("mount-workspace").innerHTML.length > 0, "workspace mount has content");
+assert(document.getElementById("mount-communication").innerHTML.length > 0, "communication mount has content");
+assert(document.getElementById("mount-socials").innerHTML.length > 0, "socials mount has content");
 
 // 1b. Workspace hub proof - the widget-grid-then-drill-down SDLC hub.
 // Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
@@ -204,47 +210,99 @@ assert(
   `Deployment shows exactly one real function, Cloud (found ${deploymentFunctions.map((el) => el.textContent).join(" | ")})`
 );
 
-// Cloud providers: a real, recognizable catalog of actual cloud
-// providers (not a free-text "type any name" list) - tapping a card
-// toggles it on/off, no real cloud API calls or credentials.
+// Cloud providers: a real, recognizable catalog (not a free-text "type
+// any name" list) - tapping a card opens that provider's own real
+// connect screen. No API key is set anywhere in this run, so every
+// provider proves its real "not connected"/"paste a token first" path -
+// same fast-path philosophy as the Anthropic key's "no key configured"
+// tests above, not a live external network call.
 deploymentFunctions[0].click();
 await sleep(20);
-const providerCards = [...document.querySelectorAll("#mount-workspace .cloud-provider-card")];
-const providerNames = providerCards.map((el) => el.querySelector(".cloud-provider-name").textContent);
+const providerCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
+const providerNames = providerCards.map((el) => el.querySelector(".provider-name").textContent);
 assert(
   providerNames.includes("AWS") && providerNames.includes("Microsoft Azure") && providerNames.includes("Google Cloud"),
   `Cloud opens a real catalog of actual, recognizable providers (found ${providerNames.join(", ")})`
 );
-assert(providerCards.every((el) => !el.classList.contains("selected")), "no provider is selected by default");
+assert(providerCards.every((el) => !el.classList.contains("selected")), "no provider shows as Connected before any token is ever saved");
 
-const awsCard = providerCards.find((el) => el.querySelector(".cloud-provider-name").textContent === "AWS");
+const digitalOceanCard = document.querySelector('[data-provider-id="digitalocean"]');
+digitalOceanCard.click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("DigitalOcean"),
+  "tapping a provider card opens that provider's own connect screen"
+);
+assert(document.getElementById("cloud-connect-token") !== null, "a bearer-token provider shows a single token input");
+assert(
+  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("Stored only on this device"),
+  "the connect screen discloses where the token is stored/sent, same tone as the Anthropic key's settings sheet"
+);
+document.getElementById("cloud-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("cloud-connect-status").textContent.includes("Paste a token first"),
+  "connecting with an empty token shows a real, actionable error, not a silent no-op"
+);
+assert(document.querySelector("#mount-workspace .resource-list") === null, "no resource list renders without a real successful connect");
+
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Cloud Providers"),
+  "a provider's own back button returns to the Cloud Providers grid, not all the way to Deployment"
+);
+
+const awsCard = document.querySelector('[data-provider-id="aws"]');
 awsCard.click();
 await sleep(20);
-assert(document.querySelector('[data-provider-id="aws"]').classList.contains("selected"), "tapping a provider card selects it");
-assert(document.querySelector('[data-provider-id="aws"] .cloud-provider-check').textContent.includes("Added"), "a selected card shows an 'Added' badge");
-
-const gcpCard = document.querySelector('[data-provider-id="gcp"]');
-gcpCard.click();
+assert(
+  document.getElementById("cloud-connect-access-key") !== null && document.getElementById("cloud-connect-secret-key") !== null,
+  "AWS shows two real fields (access key ID + secret access key), not a single token input"
+);
+assert(
+  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("SigV4") &&
+    document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("temporary"),
+  "AWS's disclosure mentions real SigV4 signing and AWS's own temporary-credentials guidance, not the generic bearer-token copy"
+);
+document.getElementById("cloud-connect-btn").click();
 await sleep(20);
 assert(
-  document.querySelector('[data-provider-id="aws"]').classList.contains("selected") &&
-    document.querySelector('[data-provider-id="gcp"]').classList.contains("selected"),
-  "selecting a second provider doesn't deselect the first"
+  document.getElementById("cloud-connect-status").textContent.includes("Enter both"),
+  "connecting AWS with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.querySelector('[data-provider-id="aws"]').click();
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+const azureCard = document.querySelector('[data-provider-id="azure"]');
+azureCard.click();
 await sleep(20);
 assert(
-  !document.querySelector('[data-provider-id="aws"]').classList.contains("selected") &&
-    document.querySelector('[data-provider-id="gcp"]').classList.contains("selected"),
-  "tapping a selected card again deselects just that one"
+  document.querySelector("#mount-workspace .connect-hint").textContent.includes("az account get-access-token"),
+  "Azure's connect screen shows the real CLI command to get a token, not a hidden requirement"
 );
 
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
+const cloudflareCard = document.querySelector('[data-provider-id="cloudflare"]');
+cloudflareCard.click();
+await sleep(20);
+assert(
+  document.getElementById("cloud-connect-token") === null && document.getElementById("cloud-connect-btn") === null,
+  "Cloudflare shows no connect form at all - no confirmed CORS access, not a form that would silently fail"
+);
+assert(
+  document.querySelector("#mount-workspace .connect-hint").textContent.includes("did not return CORS headers"),
+  "Cloudflare's screen states honestly why it can't connect, not a generic disabled state"
+);
+
+document.getElementById("cloud-provider-back-btn").click();
+await sleep(20);
 document.getElementById("cloud-back-btn").click();
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Cloud"),
-  "Cloud's own back button returns to Deployment's function list, not the Workspace overview"
+  "the grid's own back button returns to Deployment's function list, not the Workspace overview"
 );
 
 document.querySelector("#workspace-back-btn").click();
@@ -259,16 +317,19 @@ await sleep(20);
 const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
 assert(
-  developmentLive.length === 2 && developmentLive[0].textContent.includes("Editor") && developmentLive[1].textContent.includes("CLI"),
-  `Development's Editor and CLI are both real, live functions now (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
+  developmentLive.length === 3 &&
+    developmentLive[0].textContent.includes("Editor") &&
+    developmentLive[1].textContent.includes("CLI") &&
+    developmentLive[2].textContent.includes("Repository"),
+  `Development's Editor, CLI, and Repository are all real, live functions now (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
 );
 assert(
-  developmentStubs.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Repository",
-  `Development shows only Repository as an honestly-labeled stub now (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
+  developmentStubs.length === 0,
+  `Development has no stubs left - Repository is now real too (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
 );
 assert(
   [...document.querySelectorAll("#mount-workspace .workspace-function-label")].every((el) => el.textContent !== "Git"),
-  "Git no longer appears anywhere in the Workspace hub - it moved into Development's Repository stub"
+  "Git no longer appears anywhere in the Workspace hub - it moved into Development's Repository, now a real connect screen"
 );
 developmentLive[0].click();
 await sleep(20);
@@ -626,8 +687,60 @@ document.querySelector("#cli-back-btn").click();
 await sleep(20);
 const developmentLiveAfterCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
-  developmentLiveAfterCli.length === 2 && developmentLiveAfterCli[1].textContent.includes("CLI"),
+  developmentLiveAfterCli.length === 3 && developmentLiveAfterCli[1].textContent.includes("CLI"),
   "CLI's own back button returns to Development's function list, not the Workspace overview"
+);
+
+// Repository: a real, recognizable catalog (GitHub/GitLab/Bitbucket via
+// @justjs/scm-connect) - same real-connect shape Deployment's Cloud
+// already proved, minus AWS's two-field/signing special case. No token
+// is set anywhere in this run, so this proves the real "paste a token
+// first" error path, not a live external network call.
+developmentLiveAfterCli[2].click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Repository"),
+  "Repository opens a real provider grid, not a stub"
+);
+const scmProviderCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
+const scmProviderNames = scmProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(
+  scmProviderNames.includes("GitHub") && scmProviderNames.includes("GitLab") && scmProviderNames.includes("Bitbucket"),
+  `Repository opens a real catalog of actual source-control providers (found ${scmProviderNames.join(", ")})`
+);
+assert(scmProviderCards.every((el) => !el.classList.contains("selected")), "no SCM provider shows as Connected before any token is ever saved");
+
+const githubCard = document.querySelector('[data-scm-provider-id="github"]');
+githubCard.click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("GitHub"),
+  "tapping a provider card opens that provider's own connect screen"
+);
+assert(document.getElementById("scm-connect-token") !== null, "GitHub shows a single token input, same shape as a bearer-token cloud provider");
+assert(
+  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("Stored only on this device"),
+  "the connect screen discloses where the token is stored/sent, same tone as the Anthropic key's settings sheet"
+);
+document.getElementById("scm-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("scm-connect-status").textContent.includes("Paste a token first"),
+  "connecting with an empty token shows a real, actionable error, not a silent no-op"
+);
+assert(document.querySelector("#mount-workspace .resource-list") === null, "no repository list renders without a real successful connect");
+
+document.getElementById("scm-provider-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Repository"),
+  "a provider's own back button returns to the Repository grid, not all the way to Development"
+);
+document.getElementById("scm-back-btn").click();
+await sleep(20);
+assert(
+  [...document.querySelectorAll("#mount-workspace .workspace-function-live")][2].textContent.includes("Repository"),
+  "the grid's own back button returns to Development's function list, not the Workspace overview"
 );
 
 document.querySelector("#workspace-back-btn").click();
@@ -637,6 +750,176 @@ await sleep(20);
 // touch README.md above didn't change it, but touch cli-test/note.txt
 // earlier in this section did.
 treeRow("src/main.js").querySelector('[data-action="open"]').click();
+await sleep(20);
+
+// 1e. Communication proof - the 6th top-level tab (not nested inside
+// Workspace, its own real route/mount/nav button). Same real-connect
+// shape Deployment's Cloud/Development's Repository already proved,
+// via @justjs/comms-connect this time. No token is set anywhere in
+// this run, so this proves the real "paste a token first" error path,
+// not a live external network call.
+document.querySelector('.nav-btn[data-route="/communication"]').click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/communication"]').classList.contains("active"), "tapping the Comms tab navigates to the real Communication route");
+assert(document.getElementById("mount-communication").classList.contains("active"), "the Communication mount is now the active page");
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Communication"),
+  "Communication renders its own real provider grid directly, not a stub"
+);
+const commsProviderCards = [...document.querySelectorAll("#mount-communication .provider-card")];
+const commsProviderNames = commsProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(
+  commsProviderNames.includes("Slack") && commsProviderNames.includes("Discord") && commsProviderNames.includes("Microsoft Teams"),
+  `Communication opens a real catalog of actual communication providers (found ${commsProviderNames.join(", ")})`
+);
+assert(commsProviderCards.every((el) => !el.classList.contains("selected")), "no communication provider shows as Connected before any token is ever saved");
+
+const slackCard = document.querySelector('[data-comms-provider-id="slack"]');
+slackCard.click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Slack"),
+  "tapping a provider card opens that provider's own connect screen"
+);
+assert(document.getElementById("comms-connect-token") !== null, "Slack shows a single token input, same shape as a bearer-token cloud/SCM provider");
+document.getElementById("comms-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("comms-connect-status").textContent.includes("Paste a token first"),
+  "connecting with an empty token shows a real, actionable error, not a silent no-op"
+);
+assert(document.querySelector("#mount-communication .resource-list") === null, "no channel/team list renders without a real successful connect");
+
+document.getElementById("comms-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Communication"),
+  "a provider's own back button returns to the Communication grid"
+);
+
+// 1f. Socials proof - the 7th top-level tab (not nested inside
+// Workspace, its own real route/mount/nav button), via
+// @justjs/social-connect. 3 real, connectable providers with 3
+// genuinely different auth shapes (Mastodon's single token, Bluesky's
+// 2-field identifier+App Password, Reddit's 2-field client
+// ID+secret), plus X/Twitter and LinkedIn shown honestly as not
+// available - same treatment Deployment's Cloud already gives
+// Cloudflare. No credential is set anywhere in this run, so this
+// proves each real provider's own "nothing entered yet" error path,
+// not a live external network call.
+document.querySelector('.nav-btn[data-route="/socials"]').click();
+await sleep(20);
+assert(document.querySelector('.nav-btn[data-route="/socials"]').classList.contains("active"), "tapping the Socials tab navigates to the real Socials route");
+assert(document.getElementById("mount-socials").classList.contains("active"), "the Socials mount is now the active page");
+assert(
+  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Socials"),
+  "Socials renders its own real provider grid directly, not a stub"
+);
+const socialProviderCards = [...document.querySelectorAll("#mount-socials .provider-card")];
+const socialProviderNames = socialProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(
+  socialProviderNames.includes("Mastodon") &&
+    socialProviderNames.includes("Bluesky") &&
+    socialProviderNames.includes("Reddit") &&
+    socialProviderNames.includes("X (Twitter)") &&
+    socialProviderNames.includes("LinkedIn"),
+  `Socials opens a real catalog of all 5 actual social providers, including the 2 honestly-unsupported ones (found ${socialProviderNames.join(", ")})`
+);
+assert(socialProviderCards.every((el) => !el.classList.contains("selected")), "no social provider shows as Connected before any credential is ever saved");
+
+const mastodonCard = document.querySelector('[data-social-provider-id="mastodon"]');
+mastodonCard.click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Mastodon"),
+  "tapping a provider card opens that provider's own connect screen"
+);
+assert(document.getElementById("socials-connect-token") !== null, "Mastodon shows a single token input, same shape as a bearer-token cloud/SCM/comms provider");
+document.getElementById("socials-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-status").textContent.includes("Paste a token first"),
+  "connecting Mastodon with an empty token shows a real, actionable error, not a silent no-op"
+);
+assert(document.querySelector("#mount-socials .resource-list") === null, "no resource list renders without a real successful connect");
+
+document.getElementById("socials-back-btn").click();
+await sleep(20);
+const blueskyCard = document.querySelector('[data-social-provider-id="bluesky"]');
+blueskyCard.click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-identifier") !== null && document.getElementById("socials-connect-app-password") !== null,
+  "Bluesky shows two real fields (handle/email + App Password), not a single token input"
+);
+assert(
+  document.querySelector("#mount-socials .settings-disclosure").textContent.includes("App Password") &&
+    document.querySelector("#mount-socials .settings-disclosure").textContent.includes("never your actual account password"),
+  "Bluesky's disclosure explains the real App Password requirement, not the generic bearer-token copy"
+);
+document.getElementById("socials-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-status").textContent.includes("Enter both"),
+  "connecting Bluesky with empty fields shows a real, actionable error naming what's missing"
+);
+
+document.getElementById("socials-back-btn").click();
+await sleep(20);
+const redditCard = document.querySelector('[data-social-provider-id="reddit"]');
+redditCard.click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-client-id") !== null && document.getElementById("socials-connect-client-secret") !== null,
+  "Reddit shows two real fields (client ID + client secret), matching AWS's own two-field shape"
+);
+assert(
+  document.querySelector("#mount-socials .settings-disclosure").textContent.includes("app-level only"),
+  "Reddit's disclosure honestly states its client_credentials grant is app-level only, not presented as full personal access"
+);
+document.getElementById("socials-connect-btn").click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-status").textContent.includes("Enter both"),
+  "connecting Reddit with empty fields shows a real, actionable error naming what's missing"
+);
+
+document.getElementById("socials-back-btn").click();
+await sleep(20);
+const xCard = document.querySelector('[data-social-provider-id="x"]');
+xCard.click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-token") === null && document.getElementById("socials-connect-btn") === null,
+  "X (Twitter) shows no connect form at all - no confirmed CORS access, not a form that would silently fail"
+);
+assert(
+  document.querySelector("#mount-socials .connect-hint").textContent.includes("did not return CORS headers"),
+  "X (Twitter)'s screen states honestly why it can't connect, not a generic disabled state"
+);
+
+document.getElementById("socials-back-btn").click();
+await sleep(20);
+const linkedinCard = document.querySelector('[data-social-provider-id="linkedin"]');
+linkedinCard.click();
+await sleep(20);
+assert(
+  document.getElementById("socials-connect-token") === null && document.getElementById("socials-connect-btn") === null,
+  "LinkedIn shows no connect form at all either - no confirmed CORS access"
+);
+assert(
+  document.querySelector("#mount-socials .connect-hint").textContent.includes("did not return CORS headers"),
+  "LinkedIn's screen also states honestly why it can't connect"
+);
+
+document.getElementById("socials-back-btn").click();
+await sleep(20);
+assert(
+  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Socials"),
+  "a provider's own back button returns to the Socials grid"
+);
+
+document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
 
 // 2. Starter tree proof - real nested folders, not a flat list, and the

@@ -1,0 +1,4 @@
+name: socials
+version: 1
+dom:
+  tag: x-socials

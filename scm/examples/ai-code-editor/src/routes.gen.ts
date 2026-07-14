@@ -33,6 +33,14 @@ const ROUTES: ResolvedRoute[] = [
   {
     "path": "/workspace",
     "tag": "js-workspace"
+  },
+  {
+    "path": "/communication",
+    "tag": "js-communication"
+  },
+  {
+    "path": "/socials",
+    "tag": "js-socials"
   }
 ];
 

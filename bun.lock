@@ -103,6 +103,31 @@
         "typescript": "^5.5.0",
       },
     },
+    "cloud-connect/scm/main": {
+      "name": "@justjs/cloud-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "happy-dom": "^15.0.0",
+        "typescript": "^5.5.0",
+      },
+    },
+    "comms-connect/scm/main": {
+      "name": "@justjs/comms-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
     "data/scm/main": {
       "name": "@justjs/data",
       "version": "0.1.0",
@@ -193,6 +218,18 @@
         "typescript": "^5.5.0",
       },
     },
+    "scm-connect/scm/main": {
+      "name": "@justjs/scm-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
     "scm/examples/agentic-memory-demo": {
       "name": "agentic-memory-demo",
       "version": "0.1.0",
@@ -226,8 +263,12 @@
         "@justjs/aop-security": "^0.1.0",
         "@justjs/aop-theming": "^0.1.0",
         "@justjs/application": "^0.1.0",
+        "@justjs/cloud-connect": "^0.1.0",
+        "@justjs/comms-connect": "^0.1.0",
         "@justjs/data": "^0.1.0",
         "@justjs/network": "^0.1.0",
+        "@justjs/scm-connect": "^0.1.0",
+        "@justjs/social-connect": "^0.1.0",
         "@justjs/transport": "^0.1.0",
         "mermaid": "11.16.0",
         "simple-icons": "^16.26.0",
@@ -272,6 +313,18 @@
       "devDependencies": {
         "@justjs/vite": "workspace:*",
         "vite": "^5.0.0",
+      },
+    },
+    "social-connect/scm/main": {
+      "name": "@justjs/social-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+        "@justjs/network": "^0.1.0",
+        "@justjs/transport": "^0.1.0",
+      },
+      "devDependencies": {
+        "typescript": "^5.5.0",
       },
     },
     "tooling/build/scm/main": {
@@ -435,6 +488,10 @@
 
     "@justjs/build": ["@justjs/build@workspace:tooling/build/scm/main"],
 
+    "@justjs/cloud-connect": ["@justjs/cloud-connect@workspace:cloud-connect/scm/main"],
+
+    "@justjs/comms-connect": ["@justjs/comms-connect@workspace:comms-connect/scm/main"],
+
     "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
 
     "@justjs/memory": ["@justjs/memory@workspace:memory/scm/main"],
@@ -448,6 +505,10 @@
     "@justjs/platform-mobile": ["@justjs/platform-mobile@workspace:platform/mobile/scm/main"],
 
     "@justjs/platform-native": ["@justjs/platform-native@workspace:platform/native/scm/main"],
+
+    "@justjs/scm-connect": ["@justjs/scm-connect@workspace:scm-connect/scm/main"],
+
+    "@justjs/social-connect": ["@justjs/social-connect@workspace:social-connect/scm/main"],
 
     "@justjs/ssr": ["@justjs/ssr@workspace:tooling/ssr/scm/main"],
 

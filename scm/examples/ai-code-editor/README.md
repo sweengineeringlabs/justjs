@@ -49,17 +49,35 @@ stand-in.
   (below), since one generated doc genuinely covers both. **Deployment**'s
   Cloud entry is also real (not a stub) — a fixed catalog of actual,
   recognizable cloud providers (AWS, Google Cloud, Microsoft Azure,
-  DigitalOcean, Cloudflare, Vercel, Netlify, Heroku) to toggle on/off, not
-  a free-text "type any name" list — no real cloud API calls or
-  credentials either way. **Presentation**'s Slides entry is also real
+  DigitalOcean, Cloudflare, Vercel, Netlify, Heroku), each with a real
+  "Connect" screen: paste a token (or, for AWS, an access key ID +
+  secret access key) and see that account's actual resources, called
+  directly from the browser with no backend proxy (this app has none) —
+  see "Real cloud provider connections" below for exactly what's real,
+  what each provider needs, and the security tradeoffs. **Presentation**'s Slides entry is also real
   (not a stub) — an AI-generated slide deck (below), opened directly
   since it's the stage's only function (unlike Design's two entries
   sharing one generator). **Development**'s CLI entry is also real (not
   a stub) — a real terminal against this app's own virtual filesystem
   (below), not an AI-backed interpreter and not a real OS shell.
-  Development's Repository, and Requirement/Operations, show their
-  entries as honestly-labeled "Coming soon" stubs, not fake-functional
-  buttons.
+  **Development**'s Repository entry is also real (not a stub) — the
+  source-control equivalent of Deployment's Cloud: a real "Connect"
+  screen for GitHub, GitLab, or Bitbucket (paste a Personal Access
+  Token, see that account's actual repositories), called directly from
+  the browser — see "Real source-control connections" below.
+  Requirement/Operations show their entries as honestly-labeled "Coming
+  soon" stubs, not fake-functional buttons.
+- **Communication** (`x-communication`, `/communication`) — the 6th
+  top-level tab, not nested inside Workspace: a real "Connect" screen
+  for Slack, Discord, or Microsoft Teams (paste a real bot/access
+  token, see that account's actual channels/guilds/teams), same
+  no-backend-proxy posture as every other real connection in this app —
+  see "Real communication connections" below.
+- **Socials** (`x-socials`, `/socials`) — the 7th top-level tab, same
+  standalone shape as Communication: a real "Connect" screen for
+  Mastodon, Bluesky, or Reddit, plus X (Twitter) and LinkedIn shown
+  honestly as not available — see "Socials — real, 7th top-level tab"
+  below.
 
 ## Design — Markdown + Mermaid doc generator
 
@@ -128,21 +146,177 @@ silent assumption: before calling this feature fully done, open
 design doc, and confirm Preview shows a real rendered diagram (not just
 that the fallback note correctly *doesn't* appear).
 
-## Deployment — Cloud providers catalog
+## Deployment — real cloud provider connections
 
-Deployment's Cloud entry is real, not a stub: a fixed catalog of actual,
-recognizable cloud providers (AWS, Google Cloud, Microsoft Azure,
-DigitalOcean, Cloudflare, Vercel, Netlify, Heroku — `workspace.ts`'s
-`CLOUD_PROVIDER_CATALOG`), each rendered as a card with its own icon and
-name. Tapping a card toggles it on/off (an "Added" badge and an
-accent-colored border mark a selected card) — a real multi-select, not a
-free-text "type any name" list that could hold anything. There is still
-no real cloud API integration — no credentials are collected or stored,
-matching this app's established security posture around the Anthropic
-API key; toggling a provider on just means "listed," not "connected."
-Git, previously listed here, moved to Development's "Repository" entry
-(also a stub — a repository is a development-stage concern, not a
-deployment one).
+Deployment's Cloud entry is real, not a stub, and not just a local list
+either: tapping a provider (`workspace.ts`'s `CLOUD_PROVIDER_CATALOG`)
+opens its own connect screen, and connecting calls that provider's real
+API, directly from the browser, no backend proxy (this app has none) —
+same posture as the Anthropic key. Every endpoint was confirmed live
+(CORS headers checked directly) before being wired up.
+
+7 of 8 providers are connectable, split into two real shapes:
+
+- **A pasted bearer token** (DigitalOcean, Netlify, Vercel, Heroku,
+  Microsoft Azure, Google Cloud) — same UX as the Anthropic key: paste,
+  Connect, stored in `localStorage` only, sent in every request.
+  Azure/Google Cloud's tokens come from the user's own CLI
+  (`az account get-access-token` / `gcloud auth print-access-token`,
+  shown verbatim in the connect screen) rather than a full OAuth-in-SPA
+  flow — real, short-lived (~1 hour), and needs zero app-registration
+  setup before the feature works. A full OAuth flow (MSAL.js / Google
+  Identity Services) is real and buildable but a materially bigger v2,
+  not attempted here.
+- **AWS** — a real access key ID + secret access key pair and real
+  client-side SigV4 request signing (`@justjs/cloud-connect`'s
+  `core/aws_sigv4.ts`, Web Crypto only, no AWS SDK dependency —
+  cross-checked against an independent Node-crypto implementation of
+  the same spec before trusting it, not assumed correct). CORS being
+  enabled doesn't remove AWS's signing requirement (confirmed against
+  AWS's own docs). "Connect" always calls STS `GetCallerIdentity` first
+  — AWS's own docs: "No permissions are required" — the safest possible
+  proof the credentials work. Listing real EC2 instances
+  (`DescribeInstances`) is a separate, opt-in button shown only after a
+  successful connect, since it needs the real `ec2:DescribeInstances`
+  IAM permission GetCallerIdentity doesn't. The connect screen surfaces
+  AWS's own guidance directly: prefer short-lived/temporary credentials
+  over a long-term key pair like this one.
+
+**Cloudflare stays local-list-only.** Its API returned no CORS headers
+when checked directly from a browser — connecting isn't confirmed
+possible without a backend proxy, so its screen says so honestly rather
+than offering a connect form that might silently fail.
+
+**This is a real `@justjs/*` framework package (`@justjs/cloud-connect`),
+not app-local code.** The first attempt hand-rolled these 7 providers'
+fetch calls directly inside this app — exactly the kind of hand-rolling
+`@justjs/ai-assist` already exists to prevent for third-party API
+integrations. Corrected into a real package mirroring `@justjs/ai-assist`'s
+own `api`/`core`/`saf`/`spi` structure: `core/` holds only the shared
+`DefaultCloudConnectProvider` generic engine plus AWS's own distinct
+signing logic; `spi/<provider>.ts` (one file per provider) holds each
+provider's real URL/config and self-registers itself with
+`justjs.providers.register({concern: "cloudConnect", strategy, ...})`.
+Git, previously listed here, moved to Development's real "Repository"
+entry (see below) — a repository is a development-stage concern, not a
+deployment one.
+
+## Development — real source-control connections
+
+Development's Repository entry is real too, the source-control
+equivalent of Deployment's Cloud above, via a second, separate real
+framework package: `@justjs/scm-connect`, same `api`/`core`/`saf`/`spi`
+shape as `@justjs/cloud-connect`. 3 real providers, all a single pasted
+bearer token (a real Personal Access Token) — no AWS-style signing
+needed for any of them:
+
+- **GitHub** (`GET /user/repos`) and **GitLab** (`GET /api/v4/projects?membership=true`)
+  are the same one-call pattern — both are `DefaultScmConnectProvider`
+  instances (`@justjs/scm-connect`'s own generic engine), just
+  configured with a different URL and response parser.
+- **Bitbucket** is not — its API has no single cross-workspace
+  repo-list endpoint (confirmed via search, not assumed), unlike
+  GitHub/GitLab. Its own `BitbucketScmConnectProvider` does two real
+  calls: list workspaces, then list the *first* workspace's
+  repositories — a real, disclosed limitation (not silently presented
+  as "every repository across every workspace you belong to").
+
+Every endpoint was confirmed live (CORS headers checked directly, and a
+real invalid-token 401 confirmed the exact request shape) before being
+wired up — same verification standard `@justjs/cloud-connect` was held
+to.
+
+## Communication — real, 6th top-level tab
+
+Communication (`/communication`) is a real, third framework package,
+`@justjs/comms-connect`, same `api`/`core`/`saf`/`spi` shape as
+`@justjs/cloud-connect`/`@justjs/scm-connect` — but it's a top-level
+tab in its own right, not nested inside Workspace like Cloud/Repository
+are. A real 6th route: its own mount container, nav button, and
+`justweb.toml`/`routes.yaml` entries, generated the same way the
+original 5 were (`justjs#95`'s retrofit) — `app.ts` itself needed
+exactly one new line (a side-effect import), since its route resolution
+already reads entirely from the generated `dom-address-map.json`/
+`routes.gen.json`, no hardcoded route list to edit.
+
+3 real providers:
+
+- **Discord** and **Microsoft Teams** are the same one-call bearer-token
+  pattern GitHub/GitLab already proved — both `DefaultCommsConnectProvider`
+  instances. The one real difference: Discord's own documented
+  convention for bot tokens is `Authorization: Bot <token>`, not
+  `Bearer` — the generic engine's `authScheme` is configurable per
+  provider specifically for this. Microsoft Teams' token comes from
+  `az account get-access-token --resource-type ms-graph`, the same
+  short-lived-CLI-token pattern Azure already uses.
+- **Slack** is not a generic-engine instance — its API always answers
+  HTTP 200, even on auth failure, confirmed live with a fake token
+  (`{"ok":false,"error":"invalid_auth"}`). A naive HTTP-status check
+  would silently treat that as success. `SlackCommsConnectProvider`
+  checks the real `ok` field instead — the same real-quirk-gets-its-own-
+  class treatment AWS/Bitbucket already got in the other two packages.
+
+Every endpoint was confirmed live (CORS headers checked directly, and a
+real invalid-token error confirmed the exact request/response shape,
+including Slack's 200-but-`ok:false` body) before being wired up.
+
+## Socials — real, 7th top-level tab
+
+Socials (`/socials`) is a real, fourth framework package,
+`@justjs/social-connect`, same `api`/`core`/`saf`/`spi` shape as
+`@justjs/cloud-connect`/`@justjs/scm-connect`/`@justjs/comms-connect` —
+another standalone top-level tab, not nested inside Workspace, same
+real 7th-route wiring mechanics Communication's 6th route already
+proved (`app.ts` needed exactly one new line again).
+
+5 providers shown, 3 real and connectable, 2 honestly not:
+
+- **Mastodon** is the same one-call bearer-token pattern
+  Discord/Microsoft Teams already proved — a `DefaultSocialConnectProvider`
+  instance against a single, real, well-known instance
+  (`mastodon.social` — same fixed-single-region simplification AWS's
+  STS/EC2 calls already use), listing the account's real lists.
+- **Bluesky** is not — the AT Protocol has no static bearer token at
+  all. Its own `BlueskySocialConnectProvider` does two real calls: a
+  real `com.atproto.server.createSession` exchange (a real "App
+  Password" — generated on bsky.app, never the account password —
+  plus the account identifier) returning a `did` and a short-lived
+  `accessJwt` (confirmed via Bluesky's own docs: expires after a few
+  minutes), then one `app.bsky.graph.getFollows` call using that
+  momentary token. Nothing but the identifier/App Password is ever
+  persisted — connecting re-authenticates fresh every time rather than
+  trying to cache a fast-expiring session.
+- **Reddit** is also not — a real OAuth2 `client_credentials` exchange
+  (HTTP Basic `clientId:clientSecret` against `/api/v1/access_token`,
+  confirmed live with a real `{"message":"Unauthorized","error":401}`
+  for bad credentials) issues an **app-level-only** token: it proves
+  the credentials work against real public data (`r/popular/hot`), it
+  cannot list the connecting user's own saved posts or subscriptions —
+  a real, disclosed limitation stated directly in the connect screen,
+  not silently presented as "your Reddit account." Real personal access
+  needs Reddit's full OAuth authorization-code consent flow, a
+  materially bigger v2, not attempted here. Also real and disclosed:
+  Reddit's CORS `Access-Control-Allow-Headers` does not include
+  `User-Agent` (and browsers block scripts from overriding it
+  regardless — a Fetch-spec forbidden header), so the request goes out
+  with the browser's own default User-Agent rather than a custom
+  app-identifying one; confirmed live this doesn't block the token
+  exchange itself.
+
+**X (Twitter) and LinkedIn stay local-list-only**, same honest
+treatment Deployment's Cloud already gives Cloudflare. Both APIs
+returned no CORS headers when checked directly from a browser —
+connecting isn't confirmed possible without a backend proxy, so both
+screens say so rather than offering a connect form that might silently
+fail.
+
+Every endpoint was confirmed live before being wired up: CORS headers
+checked directly for all 5 providers, and a real invalid-credential
+request against each of the 3 connectable providers' own APIs
+confirmed the exact error shape — Mastodon's plain 401, Bluesky's real
+`{"error":"AuthenticationRequired","message":"Invalid identifier or
+password"}` body, and Reddit's real
+`{"message":"Unauthorized","error":401}` body.
 
 ## Presentation — AI-generated slide deck
 
@@ -418,12 +592,24 @@ succeeds and confirms real code-splitting (the main entry stays ~88KB;
 `mermaid` and its per-diagram-type chunks load lazily, several hundred
 KB combined, only when Design's or Presentation's Preview is actually
 used); `node verify_web.mjs` (real DOM via happy-dom against the real
-built bundle) passes all 190 assertions — boot, DDAS mounting into all
-five routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
+built bundle) passes all 240 assertions — boot, DDAS mounting into all
+seven routes, the Workspace hub's 9 widgets (the 8 SDLC stages in order,
 plus Presentation) drilling into real live links vs. honestly-labeled
-stubs correctly, Deployment's Cloud providers catalog (toggling real,
-recognizable providers on/off individually, no "Git" label anywhere
-anymore), Design's Architecture and Wireframes both opening the same
+stubs correctly, Deployment's real cloud provider connect screens (a
+bearer-token provider's real "paste a token first" error, AWS's real
+two-field form and its own error, Azure's real CLI-token hint,
+Cloudflare's honest "not available" state), Development's real
+source-control connect screens (GitHub's real "paste a token first"
+error, the provider grid's own back-navigation), the Communication
+tab's real connect screens (its own nav/route navigation proof, Slack's
+real "paste a token first" error), and the Socials tab's real connect
+screens (its own nav/route navigation proof, Mastodon's real "paste a
+token first" error, Bluesky's real two-field form and its own "enter
+both" error, Reddit's real two-field form and its own "enter both"
+error plus its app-level-only disclosure text, X/LinkedIn's honest
+"not available" states) - none of these four connect-screen sets makes
+a live external network call in this suite, matching the Anthropic
+key's own no-key-configured fast-path philosophy), Design's Architecture and Wireframes both opening the same
 real generator (with the same in-progress doc, not two separate copies)
 and its
 generate→Edit/Preview→Mermaid-fallback→Create-file flow via a mocked-

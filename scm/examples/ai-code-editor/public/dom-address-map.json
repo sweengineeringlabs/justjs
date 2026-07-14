@@ -9,6 +9,14 @@
       "tag": "x-chat",
       "type": "div"
     },
+    "ai-code-editor:app:shell:mount-communication": {
+      "component": "communication",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-communication",
+      "type": "div"
+    },
     "ai-code-editor:app:shell:mount-editor": {
       "component": "editor",
       "feature": "app",
@@ -33,6 +41,14 @@
       "tag": "x-scaffold",
       "type": "div"
     },
+    "ai-code-editor:app:shell:mount-socials": {
+      "component": "socials",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-socials",
+      "type": "div"
+    },
     "ai-code-editor:app:shell:mount-workspace": {
       "component": "workspace",
       "feature": "app",
@@ -51,6 +67,10 @@
       "id": "ai-code-editor:app:shell:mount-chat",
       "selector": "#mount-chat"
     },
+    "mount-communication": {
+      "id": "ai-code-editor:app:shell:mount-communication",
+      "selector": "#mount-communication"
+    },
     "mount-editor": {
       "id": "ai-code-editor:app:shell:mount-editor",
       "selector": "#mount-editor"
@@ -62,6 +82,10 @@
     "mount-scaffold": {
       "id": "ai-code-editor:app:shell:mount-scaffold",
       "selector": "#mount-scaffold"
+    },
+    "mount-socials": {
+      "id": "ai-code-editor:app:shell:mount-socials",
+      "selector": "#mount-socials"
     },
     "mount-workspace": {
       "id": "ai-code-editor:app:shell:mount-workspace",

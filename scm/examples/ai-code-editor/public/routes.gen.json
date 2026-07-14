@@ -29,6 +29,18 @@
       "feature": "workspace",
       "path": "/workspace",
       "tag": "js-workspace"
+    },
+    {
+      "component": "communication",
+      "feature": "communication",
+      "path": "/communication",
+      "tag": "js-communication"
+    },
+    {
+      "component": "socials",
+      "feature": "socials",
+      "path": "/socials",
+      "tag": "js-socials"
     }
   ],
   "version": 1

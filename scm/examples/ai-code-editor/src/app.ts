@@ -23,6 +23,8 @@ import "./components/chat.js";
 import "./components/review.js";
 import "./components/scaffold.js";
 import "./components/workspace.js";
+import "./components/communication.js";
+import "./components/socials.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
 import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";
