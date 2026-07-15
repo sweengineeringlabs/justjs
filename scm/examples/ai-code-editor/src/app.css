@@ -1725,26 +1725,10 @@ button.workspace-function-live {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 
-/* Real brand logo (5 of 8 providers, simple-icons) or an emoji fallback
-   (aws/azure/heroku), both centered on a circular badge in the
-   provider's own real brand color - was a bare 24px emoji with no
-   badge at all. The logo's fill="currentColor" (injected in
-   renderProviderBadge()) picks up this rule's `color: white`. */
-.provider-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-circle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 20px;
-}
-
-.provider-icon svg {
-  width: 20px;
-  height: 20px;
-}
+/* Badge rendering (real brand logo or emoji fallback, centered on a
+   circular badge in the provider's own brand color) moved into
+   <view-badge>'s own Shadow DOM (@justjs/component-view) - no longer a
+   global class here. */
 
 .provider-name {
   font-size: 13px;

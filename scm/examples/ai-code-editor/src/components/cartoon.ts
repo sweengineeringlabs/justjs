@@ -15,6 +15,8 @@ import {
   buildImageDataUrl,
 } from "../core/cartoon_connect.js";
 import type { GeneratedImage } from "../core/cartoon_connect.js";
+import "@justjs/component-view";
+import type { BadgeView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -82,14 +84,18 @@ const CARTOON_GENERATORS: Record<string, (token: string, prompt: string) => Prom
   gemini: generateGeminiCartoon,
 };
 
-// simple-icons ships each SVG with no `fill` set, meant for the
-// consumer to recolor. Same treatment every other provider badge in
-// this app already uses - fill="currentColor" injected here, `color:
-// white` set on the wrapping badge in CSS (the already-generic
-// .provider-icon rule, reused as-is - no new CSS needed).
-function renderProviderBadge(p: { readonly icon?: string; readonly color: string; readonly logo?: string }): string {
-  const glyph = p.logo ? p.logo.replace("<svg ", '<svg fill="currentColor" ') : escapeHtml(p.icon ?? "");
-  return `<span class="provider-icon" style="background: ${p.color}">${glyph}</span>`;
+function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
+  const badge = el as BadgeView | null;
+  if (!badge) {
+    return;
+  }
+  badge.color = p.color;
+  if (p.icon !== undefined) {
+    badge.icon = p.icon;
+  }
+  if (p.logo !== undefined) {
+    badge.logo = p.logo;
+  }
 }
 
 // Cartoon Generator - the 8th top-level tab. Same standalone shape
@@ -142,7 +148,7 @@ export class CartoonElement extends HTMLElement {
           const connected = this.isProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-cartoon-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -165,6 +171,12 @@ export class CartoonElement extends HTMLElement {
         this.renderView();
       });
     });
+    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = CARTOON_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
+    });
   }
 
   private renderDetail(provider: CartoonProvider): void {
@@ -172,7 +184,7 @@ export class CartoonElement extends HTMLElement {
     this.innerHTML = `
       <div class="dash-subnav">
         <button id="cartoon-back-btn" class="dash-back-btn" type="button">← Cartoon Generator</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="cartoon-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
       <div class="connect-form">
@@ -185,6 +197,7 @@ export class CartoonElement extends HTMLElement {
       </div>
       ${this.renderGenerateSection(provider)}
     `;
+    setBadgeProps(this.querySelector("#cartoon-header-badge"), provider);
 
     this.querySelector("#cartoon-back-btn")?.addEventListener("click", () => {
       this.selectedProviderId = null;

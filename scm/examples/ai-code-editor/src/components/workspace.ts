@@ -65,6 +65,8 @@ import {
 } from "../core/pm_credentials.js";
 import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConnect } from "../core/pm_connect.js";
 import type { PmResource } from "../core/pm_connect.js";
+import "@justjs/component-view";
+import type { BadgeView } from "@justjs/component-view";
 
 interface SdlcFunction {
   readonly label: string;
@@ -242,14 +244,18 @@ const PM_CONNECTORS: Record<string, (token: string) => Promise<PmResource[]>> = 
   asana: connectAsana,
 };
 
-// simple-icons ships each SVG with no `fill` set (defaults to SVG's own
-// black), meant for the consumer to recolor. Injecting fill="currentColor"
-// once here, then setting `color: white` on the wrapping badge (CSS),
-// renders every real logo in white against its own brand-colored circle -
-// one consistent treatment, not a different one per icon.
-function renderProviderBadge(p: { readonly icon?: string; readonly color: string; readonly logo?: string }): string {
-  const glyph = p.logo ? p.logo.replace("<svg ", '<svg fill="currentColor" ') : escapeHtml(p.icon ?? "");
-  return `<span class="provider-icon" style="background: ${p.color}">${glyph}</span>`;
+function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
+  const badge = el as BadgeView | null;
+  if (!badge) {
+    return;
+  }
+  badge.color = p.color;
+  if (p.icon !== undefined) {
+    badge.icon = p.icon;
+  }
+  if (p.logo !== undefined) {
+    badge.logo = p.logo;
+  }
 }
 
 // Development -> Editor, Testing -> Review, Ideation -> Chat, and
@@ -813,7 +819,7 @@ export class WorkspaceElement extends HTMLElement {
           const connected = this.isCloudProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -845,6 +851,12 @@ export class WorkspaceElement extends HTMLElement {
         this.renderView();
       });
     });
+    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = CLOUD_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
+    });
   }
 
   // ---- Deployment: a single provider's own connect screen (opened from the grid above) ----
@@ -854,10 +866,11 @@ export class WorkspaceElement extends HTMLElement {
     container.innerHTML = `
       <div class="dash-subnav">
         <button id="cloud-provider-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="cloud-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       ${this.renderCloudProviderBody(provider, connected)}
     `;
+    setBadgeProps(container.querySelector("#cloud-header-badge"), provider);
 
     this.querySelector("#cloud-provider-back-btn")?.addEventListener("click", () => {
       this.selectedCloudProviderId = null;
@@ -1133,7 +1146,7 @@ export class WorkspaceElement extends HTMLElement {
           const connected = this.isScmProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-scm-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -1159,6 +1172,12 @@ export class WorkspaceElement extends HTMLElement {
         this.renderView();
       });
     });
+    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = SCM_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
+    });
   }
 
   private renderScmProviderDetail(container: Element, provider: ScmProvider): void {
@@ -1166,7 +1185,7 @@ export class WorkspaceElement extends HTMLElement {
     container.innerHTML = `
       <div class="dash-subnav">
         <button id="scm-provider-back-btn" class="dash-back-btn" type="button">← Repository</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="scm-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
       <div class="connect-form">
@@ -1179,6 +1198,7 @@ export class WorkspaceElement extends HTMLElement {
       </div>
       ${this.renderScmResourceList()}
     `;
+    setBadgeProps(container.querySelector("#scm-header-badge"), provider);
 
     this.querySelector("#scm-provider-back-btn")?.addEventListener("click", () => {
       this.selectedScmProviderId = null;
@@ -1291,7 +1311,7 @@ export class WorkspaceElement extends HTMLElement {
           const connected = this.isPmProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-pm-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -1317,6 +1337,12 @@ export class WorkspaceElement extends HTMLElement {
         this.renderView();
       });
     });
+    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = PM_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
+    });
   }
 
   private renderPmProviderDetail(container: Element, provider: PmProvider): void {
@@ -1324,10 +1350,11 @@ export class WorkspaceElement extends HTMLElement {
     container.innerHTML = `
       <div class="dash-subnav">
         <button id="pm-provider-back-btn" class="dash-back-btn" type="button">← Project Management</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="pm-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       ${this.renderPmProviderBody(provider, connected)}
     `;
+    setBadgeProps(container.querySelector("#pm-header-badge"), provider);
 
     this.querySelector("#pm-provider-back-btn")?.addEventListener("click", () => {
       this.selectedPmProviderId = null;

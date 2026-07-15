@@ -18,6 +18,8 @@ import {
 } from "../core/socials_credentials.js";
 import { connectMastodon, connectBluesky, connectReddit } from "../core/socials_connect.js";
 import type { SocialResource } from "../core/socials_connect.js";
+import "@justjs/component-view";
+import type { BadgeView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -60,14 +62,18 @@ const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
   { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2", kind: "unsupported" },
 ];
 
-// simple-icons ships each SVG with no `fill` set, meant for the
-// consumer to recolor. Same treatment workspace.ts's/communication.ts's
-// own provider badges already use - fill="currentColor" injected here,
-// `color: white` set on the wrapping badge in CSS (the already-generic
-// .provider-icon rule, reused as-is - no new CSS needed).
-function renderProviderBadge(p: { readonly icon?: string; readonly color: string; readonly logo?: string }): string {
-  const glyph = p.logo ? p.logo.replace("<svg ", '<svg fill="currentColor" ') : escapeHtml(p.icon ?? "");
-  return `<span class="provider-icon" style="background: ${p.color}">${glyph}</span>`;
+function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
+  const badge = el as BadgeView | null;
+  if (!badge) {
+    return;
+  }
+  badge.color = p.color;
+  if (p.icon !== undefined) {
+    badge.icon = p.icon;
+  }
+  if (p.logo !== undefined) {
+    badge.logo = p.logo;
+  }
 }
 
 // Socials - the 7th top-level tab. Same simpler-than-Workspace shape
@@ -121,7 +127,7 @@ export class SocialsElement extends HTMLElement {
           const connected = this.isProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-social-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -142,6 +148,12 @@ export class SocialsElement extends HTMLElement {
         this.renderView();
       });
     });
+    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = SOCIAL_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
+    });
   }
 
   private renderDetail(provider: SocialProvider): void {
@@ -149,10 +161,11 @@ export class SocialsElement extends HTMLElement {
     this.innerHTML = `
       <div class="dash-subnav">
         <button id="socials-back-btn" class="dash-back-btn" type="button">← Socials</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="socials-detail-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       ${this.renderProviderBody(provider, connected)}
     `;
+    setBadgeProps(this.querySelector("#socials-detail-badge"), provider);
 
     this.querySelector("#socials-back-btn")?.addEventListener("click", () => {
       this.selectedProviderId = null;

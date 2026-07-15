@@ -20,6 +20,7 @@
     "@justjs/application": "^0.1.0",
     "@justjs/cloud-connect": "^0.1.0",
     "@justjs/comms-connect": "^0.1.0",
+    "@justjs/component-view": "^0.1.0",
     "@justjs/data": "^0.1.0",
     "@justjs/image-connect": "^0.1.0",
     "@justjs/network": "^0.1.0",

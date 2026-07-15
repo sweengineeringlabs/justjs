@@ -19,6 +19,8 @@ import {
   listTeamsMessages,
 } from "../core/comms_connect.js";
 import type { CommsResource, CommsMessage } from "../core/comms_connect.js";
+import "@justjs/component-view";
+import type { BadgeView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -86,14 +88,18 @@ const COMMS_MESSAGE_LISTERS: Record<string, (token: string, channelId: string, p
   teams: (token, channelId, parentId) => listTeamsMessages(token, channelId, parentId),
 };
 
-// simple-icons ships each SVG with no `fill` set, meant for the
-// consumer to recolor. Same treatment workspace.ts's cloud/SCM provider
-// badges already use - fill="currentColor" injected here, `color:
-// white` set on the wrapping badge in CSS (the already-generic
-// .provider-icon rule, reused as-is - no new CSS needed).
-function renderProviderBadge(p: { readonly icon?: string; readonly color: string; readonly logo?: string }): string {
-  const glyph = p.logo ? p.logo.replace("<svg ", '<svg fill="currentColor" ') : escapeHtml(p.icon ?? "");
-  return `<span class="provider-icon" style="background: ${p.color}">${glyph}</span>`;
+function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
+  const badge = el as BadgeView | null;
+  if (!badge) {
+    return;
+  }
+  badge.color = p.color;
+  if (p.icon !== undefined) {
+    badge.icon = p.icon;
+  }
+  if (p.logo !== undefined) {
+    badge.logo = p.logo;
+  }
 }
 
 const AUTO_REFRESH_OPTIONS: readonly { readonly seconds: number; readonly label: string }[] = [
@@ -208,7 +214,7 @@ export class CommunicationElement extends HTMLElement {
           const connected = this.isProviderConnected(p);
           return `
             <button type="button" class="provider-card${connected ? " selected" : ""}" data-comms-provider-id="${p.id}">
-              ${renderProviderBadge(p)}
+              <view-badge data-badge-for="${p.id}"></view-badge>
               <span class="provider-name">${escapeHtml(p.name)}</span>
               <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
             </button>
@@ -238,6 +244,12 @@ export class CommunicationElement extends HTMLElement {
         this.messagesError = null;
         this.renderView();
       });
+    });
+    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+      const provider = COMMS_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
+      if (provider) {
+        setBadgeProps(el, provider);
+      }
     });
   }
 
@@ -316,7 +328,7 @@ export class CommunicationElement extends HTMLElement {
     this.innerHTML = `
       <div class="dash-subnav">
         <button id="comms-back-btn" class="dash-back-btn" type="button">← Communication</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} ${escapeHtml(provider.name)}</h2>
+        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
       </div>
       <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
       ${tokenHint}
@@ -330,6 +342,7 @@ export class CommunicationElement extends HTMLElement {
       </div>
       ${this.renderResourceList(provider)}
     `;
+    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
 
     this.querySelector("#comms-back-btn")?.addEventListener("click", () => {
       this.selectedProviderId = null;
@@ -439,11 +452,12 @@ export class CommunicationElement extends HTMLElement {
     this.innerHTML = `
       <div class="dash-subnav">
         <button id="comms-channels-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(provider.name)}</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} Channels</h2>
+        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> Channels</h2>
       </div>
       <p id="comms-channels-status" class="connect-status${this.channelsError ? " connect-status-error" : ""}">${this.channelsLoading ? "Loading…" : this.channelsError ? `⚠️ ${escapeHtml(this.channelsError)}` : ""}</p>
       ${this.renderChannelRows()}
     `;
+    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
 
     this.querySelector("#comms-channels-back-btn")?.addEventListener("click", () => {
       this.selectedParentId = null;
@@ -519,11 +533,12 @@ export class CommunicationElement extends HTMLElement {
     this.innerHTML = `
       <div class="dash-subnav">
         <button id="comms-messages-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(backTarget)}</button>
-        <h2 class="workspace-stage-title">${renderProviderBadge(provider)} Messages</h2>
+        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> Messages</h2>
       </div>
       <p id="comms-messages-status" class="connect-status${this.messagesError ? " connect-status-error" : ""}">${this.messagesLoading ? "Loading…" : this.messagesError ? `⚠️ ${escapeHtml(this.messagesError)}` : ""}</p>
       ${this.renderMessageRows()}
     `;
+    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
 
     this.querySelector("#comms-messages-back-btn")?.addEventListener("click", () => {
       this.selectedChannelId = null;
