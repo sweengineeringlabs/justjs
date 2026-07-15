@@ -5,6 +5,7 @@ import type {
   ConnectFunction,
   ListFunction,
   DisconnectFunction,
+  OAuthBeginFunction,
 } from "../api/provider_connector_control.js";
 
 // Real Custom Element covering the common case ADR-0007 scoped: single-
@@ -20,11 +21,14 @@ import type {
 // sequencing is why this is a control, not a view, unlike every
 // sibling element in this package family.
 //
-// Explicitly does NOT cover Jira's OAuth-redirect flow or Cartoon's
-// billed-generate flow (ADR-0007's own exclusions) - no dead config
-// surface for either: no redirect-URL property, no cost-disclosure
-// property, nothing invented for cases this element doesn't handle.
-// A provider with `unsupportedMessage` set (a real third case found
+// Now covers Jira's real OAuth-redirect flow too (justjs#125, via
+// oauthRedirect/oauthBegin) - ADR-0007's original exclusion was
+// speculative ("we haven't built this yet"), not a permanent scope
+// line; extended once a real migration needed it, same bar
+// unsupportedMessage was held to. Still explicitly does NOT cover
+// Cartoon's billed-generate flow - no cost-disclosure property, nothing
+// invented for a case no consumer of this control has needed yet. A
+// provider with `unsupportedMessage` set (a real third case found
 // migrating Socials - X/LinkedIn's no-confirmed-CORS-access state)
 // shows that message instead of a form, no connect()/list() ever
 // called for it either.
@@ -33,6 +37,7 @@ export class ProviderConnectorControl extends HTMLElement {
   #connect: ConnectFunction | undefined;
   #list: ListFunction | undefined;
   #disconnect: DisconnectFunction | undefined;
+  #oauthBegin: OAuthBeginFunction | undefined;
   #catalogLabel = "";
   #selectedProviderId: string | null = null;
   #connecting = false;
@@ -71,6 +76,10 @@ export class ProviderConnectorControl extends HTMLElement {
     this.#disconnect = fn;
   }
 
+  set oauthBegin(fn: OAuthBeginFunction | undefined) {
+    this.#oauthBegin = fn;
+  }
+
   get catalogLabel(): string {
     return this.#catalogLabel;
   }
@@ -107,6 +116,55 @@ export class ProviderConnectorControl extends HTMLElement {
     }
   }
 
+  // oauthRedirect's own re-verify path (justjs#125) - unlike
+  // #handleSubmit, there's no `connect()` call to produce a session:
+  // the caller's own list() reads whatever persisted session it already
+  // has (e.g. getStoredJiraSession()) directly, matching the original
+  // handleJiraResourceFetch()'s own shape before this migration.
+  async #fetchList(provider: ProviderCatalogItem): Promise<void> {
+    this.#connecting = true;
+    this.#error = null;
+    this.render();
+    try {
+      this.#resources = (await this.#list?.(provider.id, undefined)) ?? [];
+    } catch (e) {
+      this.#error = e instanceof Error ? e.message : String(e);
+      this.dispatchEvent(
+        new CustomEvent("error", { detail: { providerId: provider.id, message: this.#error }, bubbles: true, composed: true })
+      );
+    } finally {
+      this.#connecting = false;
+      this.render();
+    }
+  }
+
+  // Real, synchronous browser navigation (justjs#125) - never awaited,
+  // the page unloads before there's anything else to do. A thrown
+  // validation error (e.g. missing fields) is the only outcome this
+  // control ever actually observes, shown via the same status line
+  // #handleSubmit's own catch path already uses. Deliberately does NOT
+  // re-render on success (matches the original handleJiraOAuthBegin()'s
+  // own shape exactly - it only ever called renderView() on its early
+  // validation-error return, never after a real beginJiraConnect()
+  // call) - a real bug caught writing this migration's own keep-alive
+  // test: re-rendering here would rebuild <view-form> from this
+  // `provider` object's still-stale `fields` (computed before
+  // oauthBegin's own side effect, e.g. persisting the just-typed
+  // credentials, could be reflected in a fresh toCatalogItem() call),
+  // wiping the exact values the user just typed and submitted.
+  #handleOAuthBegin(provider: ProviderCatalogItem, values: Readonly<Record<string, string>>): void {
+    try {
+      this.#oauthBegin?.(provider.id, values);
+      this.#error = null;
+    } catch (e) {
+      this.#error = e instanceof Error ? e.message : String(e);
+      this.dispatchEvent(
+        new CustomEvent("error", { detail: { providerId: provider.id, message: this.#error }, bubbles: true, composed: true })
+      );
+      this.render();
+    }
+  }
+
   #handleDisconnect(provider: ProviderCatalogItem): void {
     this.#disconnect?.(provider.id);
     this.#connectedIds.delete(provider.id);
@@ -122,7 +180,11 @@ export class ProviderConnectorControl extends HTMLElement {
   // workspace.ts/communication.ts before porting, not assumed.
   #maybeAutoConnect(provider: ProviderCatalogItem): void {
     if (this.#connectedIds.has(provider.id) && this.#resources === null && !this.#connecting && !this.#error) {
-      void this.#handleSubmit(provider, {});
+      if (provider.oauthRedirect) {
+        void this.#fetchList(provider);
+      } else {
+        void this.#handleSubmit(provider, {});
+      }
     }
   }
 
@@ -226,7 +288,12 @@ export class ProviderConnectorControl extends HTMLElement {
     form.connecting = this.#connecting;
     form.connected = connected;
     form.addEventListener("submit", (e) => {
-      void this.#handleSubmit(provider, (e as unknown as CustomEvent<{ values: Record<string, string> }>).detail.values);
+      const values = (e as unknown as CustomEvent<{ values: Record<string, string> }>).detail.values;
+      if (provider.oauthRedirect) {
+        this.#handleOAuthBegin(provider, values);
+        return;
+      }
+      void this.#handleSubmit(provider, values);
     });
     form.addEventListener("disconnect", () => this.#handleDisconnect(provider));
 

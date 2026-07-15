@@ -122,7 +122,7 @@ export class FormView extends HTMLElement {
         ${this.#fields
           .map(
             (field) =>
-              `<input data-field-id="${escapeAttr(field.id)}" type="${escapeAttr(field.type)}" placeholder="${escapeAttr(field.placeholder)}" autocomplete="off" spellcheck="false" />`
+              `<input data-field-id="${escapeAttr(field.id)}" type="${escapeAttr(field.type)}" placeholder="${escapeAttr(field.placeholder)}" value="${escapeAttr(field.defaultValue ?? "")}" autocomplete="off" spellcheck="false" />`
           )
           .join("")}
         <div class="connect-actions">

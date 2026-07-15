@@ -12,6 +12,7 @@ export type {
   ConnectFunction,
   ListFunction,
   DisconnectFunction,
+  OAuthBeginFunction,
   ProviderConnectorControlProps,
 } from "../api/provider_connector_control.js";
 

@@ -233,76 +233,88 @@ assert(
 );
 assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Requirement has no stubs left");
 
+// PM's connector (justjs#125) owns its own Shadow DOM too, same 3-level
+// nesting as SCM's - plus a real Jira OAuth-redirect field (justjs#125's
+// own extension: oauthRedirect/oauthBegin), so pmConnectorShadow's
+// view-form lookups reuse the exact same pattern as SCM's.
+function pmConnectorShadow() {
+  return document.querySelector("control-provider-connector")?.shadowRoot ?? null;
+}
+function pmGridShadow() {
+  return pmConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
+}
 requirementLive[0].click();
 await sleep(20);
-assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Project Management"),
-  "Specs opens a real PM connector grid, not a stub"
-);
-const pmProviderCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
-const pmProviderNames = pmProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(document.getElementById("pm-header").title === "Project Management", "Specs opens a real PM connector grid, not a stub");
+const pmProviderTiles = [...pmGridShadow().querySelectorAll(".tile")];
+const pmProviderNames = pmProviderTiles.map((el) => el.querySelector(".tile-label").textContent);
 assert(
   pmProviderNames.includes("Linear") && pmProviderNames.includes("Asana") && pmProviderNames.includes("Trello") && pmProviderNames.includes("Jira"),
   `Requirement's PM connector opens a real catalog of all 4 actual providers (found ${pmProviderNames.join(", ")})`
 );
-assert(pmProviderCards.every((el) => !el.classList.contains("selected")), "no PM provider shows as Connected before any credential is ever saved");
+assert(pmProviderTiles.every((el) => !el.classList.contains("selected")), "no PM provider shows as Connected before any credential is ever saved");
 
-const linearCard = document.querySelector('[data-pm-provider-id="linear"]');
-linearCard.click();
+pmGridShadow().querySelector('[data-id="linear"]').click();
 await sleep(20);
-assert(document.getElementById("pm-connect-token") !== null, "Linear shows a single token input, same shape as every other bearer-token provider");
-document.getElementById("pm-connect-btn").click();
+const linearForm = pmConnectorShadow().querySelector("view-form");
+assert(linearForm.shadowRoot.querySelector('[data-field-id="token"]') !== null, "Linear shows a single token input, same shape as every other bearer-token provider");
+linearForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("pm-connect-status").textContent.includes("Paste a token first"),
+  pmConnectorShadow().querySelector("view-status-line").text.includes("Paste a token first"),
   "connecting Linear with an empty token shows a real, actionable error, not a silent no-op"
 );
 
-document.getElementById("pm-provider-back-btn").click();
+pmConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const trelloCard = document.querySelector('[data-pm-provider-id="trello"]');
-trelloCard.click();
+pmGridShadow().querySelector('[data-id="trello"]').click();
 await sleep(20);
+const trelloForm = pmConnectorShadow().querySelector("view-form");
 assert(
-  document.getElementById("pm-connect-api-key") !== null && document.getElementById("pm-connect-token") !== null,
+  trelloForm.shadowRoot.querySelector('[data-field-id="apiKey"]') !== null && trelloForm.shadowRoot.querySelector('[data-field-id="token"]') !== null,
   "Trello shows two real fields (API key + token), matching AWS's/Jira's own two-field shape"
 );
-document.getElementById("pm-connect-btn").click();
+trelloForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("pm-connect-status").textContent.includes("Enter both"),
+  pmConnectorShadow().querySelector("view-status-line").text.includes("Enter both"),
   "connecting Trello with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.getElementById("pm-provider-back-btn").click();
+pmConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const jiraCard = document.querySelector('[data-pm-provider-id="jira"]');
-jiraCard.click();
+pmGridShadow().querySelector('[data-id="jira"]').click();
 await sleep(20);
+const jiraForm = pmConnectorShadow().querySelector("view-form");
 assert(
-  document.getElementById("pm-connect-client-id") !== null && document.getElementById("pm-connect-client-secret") !== null,
+  jiraForm.shadowRoot.querySelector('[data-field-id="clientId"]') !== null && jiraForm.shadowRoot.querySelector('[data-field-id="clientSecret"]') !== null,
   "Jira shows two real fields (OAuth app Client ID + Secret), not a single token input"
 );
 assert(
-  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("developer.atlassian.com") &&
-    document.querySelector("#mount-workspace .settings-disclosure").textContent.includes(window.location.origin),
+  pmConnectorShadow().querySelector(".settings-disclosure").textContent.includes("developer.atlassian.com") &&
+    pmConnectorShadow().querySelector(".settings-disclosure").textContent.includes(window.location.origin),
   "Jira's disclosure explains the real bring-your-own-OAuth-app setup, including the real redirect URI to register"
 );
-document.getElementById("pm-connect-btn").click();
+jiraForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("pm-connect-status").textContent.includes("Enter both the Client ID and Client Secret"),
+  pmConnectorShadow().querySelector("view-status-line").text.includes("Enter both the Client ID and Client Secret"),
   "connecting Jira with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.getElementById("pm-connect-client-id").value = "fake-client-id";
-document.getElementById("pm-connect-client-secret").value = "fake-client-secret";
+// The empty-field error above went through #handleOAuthBegin's own
+// catch path, which DOES re-render (unlike the success path) to show
+// the error - re-query view-form fresh rather than reusing the now-
+// stale, detached jiraForm reference from before that re-render.
+const jiraFormAfterError = pmConnectorShadow().querySelector("view-form");
+jiraFormAfterError.shadowRoot.querySelector('[data-field-id="clientId"]').value = "fake-client-id";
+jiraFormAfterError.shadowRoot.querySelector('[data-field-id="clientSecret"]').value = "fake-client-secret";
 let assignedUrl = null;
 const originalLocationAssign = window.location.assign.bind(window.location);
 window.location.assign = (url) => {
   assignedUrl = url;
 };
-document.getElementById("pm-connect-btn").click();
+jiraFormAfterError.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
   typeof assignedUrl === "string" && assignedUrl.startsWith("https://auth.atlassian.com/authorize?"),
@@ -314,9 +326,23 @@ assert(
 );
 window.location.assign = originalLocationAssign;
 
-document.getElementById("pm-provider-back-btn").click();
+// pmScreen (justjs#125) is cached the same way as scmScreen - a real
+// keep-alive router tab switch never touches #mount-workspace's
+// subtree, so Jira's still-open detail screen (with the client ID the
+// user just typed) should survive switching away and back.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
-document.getElementById("pm-back-btn").click();
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+await sleep(20);
+assert(
+  pmConnectorShadow().querySelector("view-form")?.shadowRoot?.querySelector('[data-field-id="clientId"]')?.value === "fake-client-id",
+  "switching away from and back to Workspace preserves Jira's still-open detail screen and the client ID typed into it - the cached control-provider-connector instance survives, not recreated"
+);
+
+pmConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
+await sleep(20);
+document.getElementById("pm-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Specs"),
@@ -334,12 +360,20 @@ assert(
 );
 planningLive[1].click();
 await sleep(20);
-const planningPmProviderNames = [...document.querySelectorAll("#mount-workspace .provider-card .provider-name")].map((el) => el.textContent);
+assert(
+  document.getElementById("pm-header").backLabel === "Planning",
+  "Planning's own entry refreshes the shared header's back label, not stuck on Requirement's from before"
+);
+assert(
+  pmConnectorShadow().querySelector("view-nav-header") === null,
+  "leaving Requirement via the overview and entering PM from Planning really resets to the provider grid, not Jira's still-open detail screen"
+);
+const planningPmProviderNames = [...pmGridShadow().querySelectorAll(".tile .tile-label")].map((el) => el.textContent);
 assert(
   planningPmProviderNames.includes("Linear") && planningPmProviderNames.includes("Jira"),
   "Planning's Project Boards opens the exact same real PM connector - one real capability shared across two stages, same precedent Design's Architecture/Wireframes already established"
 );
-document.getElementById("pm-back-btn").click();
+document.getElementById("pm-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);

@@ -305,6 +305,130 @@ const PM_CONNECTORS: Record<string, (token: string) => Promise<PmResource[]>> = 
   asana: connectAsana,
 };
 
+// <control-provider-connector>'s real oauthRedirect support
+// (justjs#125, @justjs/provider-connect) covers Jira's real OAuth 2.0
+// redirect flow directly - the form still collects Jira's own OAuth app
+// Client ID/Secret (pre-filled via FormField.defaultValue, also
+// justjs#125), but submitting them navigates the real browser to
+// Atlassian's consent screen instead of calling connect().
+function toPmCatalogItem(p: PmProvider): ProviderCatalogItem {
+  if (p.kind === "oauth") {
+    const appCreds = getStoredJiraAppCredentials();
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      logo: p.logo,
+      connected: getStoredJiraSession() !== null,
+      oauthRedirect: true,
+      fields: [
+        { id: "clientId", type: "text", placeholder: "Atlassian OAuth app Client ID", defaultValue: appCreds?.clientId ?? "" },
+        { id: "clientSecret", type: "password", placeholder: "Atlassian OAuth app Client Secret", defaultValue: appCreds?.clientSecret ?? "" },
+      ],
+      disclosure: `Stored only on this device. This app has no server, so Jira's own OAuth 2.0 flow needs your own Atlassian OAuth app - register one at developer.atlassian.com/console/myapps, add scope read:jira-work, and set its callback URL to exactly ${globalThis.location.origin + globalThis.location.pathname}. Paste that app's Client ID and Secret below - both stay local, sent directly to Atlassian, never to a backend (this app has none).`,
+      resourceListLabel: "Issues / Tasks",
+    };
+  }
+  if (p.kind === "keytoken") {
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      logo: p.logo,
+      connected: getStoredTrelloCredentials() !== null,
+      fields: [
+        { id: "apiKey", type: "text", placeholder: "Trello API key" },
+        { id: "token", type: "password", placeholder: "Trello token" },
+      ],
+      disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
+      resourceListLabel: "Boards",
+    };
+  }
+  return {
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    logo: p.logo,
+    connected: getStoredPmToken(p.id).length > 0,
+    fields: [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }],
+    disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
+    resourceListLabel: "Issues / Tasks",
+  };
+}
+
+async function handlePmConnect(providerId: string, values: Readonly<Record<string, string>>): Promise<PmResource[]> {
+  const provider = PM_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  if (provider.kind === "keytoken") {
+    const apiKey = (values["apiKey"] ?? "").trim() || getStoredTrelloCredentials()?.apiKey || "";
+    const token = (values["token"] ?? "").trim() || getStoredTrelloCredentials()?.token || "";
+    if (!apiKey || !token) {
+      throw new Error("Enter both the API key and token.");
+    }
+    const resources = await connectTrello(apiKey, token);
+    setStoredTrelloCredentials({ apiKey, token });
+    return resources;
+  }
+  // "oauth" (Jira) never reaches here - ProviderConnectorControl routes
+  // it to oauthBegin instead, see handlePmOAuthBegin below.
+  const token = (values["token"] ?? "").trim() || getStoredPmToken(providerId);
+  if (!token) {
+    throw new Error("Paste a token first.");
+  }
+  const resources = await PM_CONNECTORS[providerId]!(token);
+  setStoredPmToken(providerId, token);
+  return resources;
+}
+
+// Jira's "Connect"/"Reconnect with Atlassian" submit - reads the user's
+// own OAuth app credentials and navigates the real browser to
+// Atlassian's consent screen (core/pm_connect.ts's beginJiraConnect()).
+// Nothing after a successful call to this ever runs in this page load -
+// the real completion happens in app.ts's main(), on the return trip.
+function handlePmOAuthBegin(providerId: string, values: Readonly<Record<string, string>>): void {
+  if (providerId !== "jira") {
+    throw new Error(`Unknown OAuth provider: ${providerId}`);
+  }
+  const clientId = (values["clientId"] ?? "").trim() || getStoredJiraAppCredentials()?.clientId || "";
+  const clientSecret = (values["clientSecret"] ?? "").trim() || getStoredJiraAppCredentials()?.clientSecret || "";
+  if (!clientId || !clientSecret) {
+    throw new Error("Enter both the Client ID and Client Secret first.");
+  }
+  const redirectUri = globalThis.location.origin + globalThis.location.pathname;
+  beginJiraConnect(clientId, clientSecret, redirectUri);
+}
+
+// Jira's oauthRedirect list() - called two ways: (a) directly by
+// ProviderConnectorControl's own re-verify path when a session already
+// exists (session param is always undefined there, by design - see
+// ProviderCatalogItem.oauthRedirect's own doc), or (b) as the ordinary
+// list() cast for bearer/keytoken providers, whose "session" IS their
+// already-fetched resources (matches socials.ts's/handleScmConnect's
+// own real precedent).
+async function handlePmList(providerId: string, session: unknown): Promise<PmResource[]> {
+  if (providerId === "jira") {
+    const jiraSession = getStoredJiraSession();
+    return jiraSession ? connectJira(jiraSession) : [];
+  }
+  return session as PmResource[];
+}
+
+function handlePmDisconnect(providerId: string): void {
+  const provider = PM_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    return;
+  }
+  if (provider.kind === "keytoken") {
+    setStoredTrelloCredentials(null);
+  } else if (provider.kind === "oauth") {
+    setStoredJiraSession(null);
+  } else {
+    setStoredPmToken(providerId, "");
+  }
+}
+
 function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
   const badge = el as BadgeView | null;
   if (!badge) {
@@ -454,15 +578,16 @@ export class WorkspaceElement extends HTMLElement {
   private showScmConnect = false;
   private scmScreen: HTMLElement | undefined;
 
-  // Requirement's/Planning's project-management connections - the same
-  // shape as Cloud's/SCM's own state above, shared across both stages
-  // since it's one real capability (see PM_PROVIDER_CATALOG), not two
-  // separate ones.
+  // Requirement's/Planning's project-management connections - migrated
+  // onto <control-provider-connector> (justjs#125), same caching/
+  // reset-on-stage-switch reasoning as scmScreen above. pmScreen is
+  // shared across both stages (one real capability, not two separate
+  // ones) - its own back-button label is refreshed on every
+  // renderPmProviders() call since the two entry stages have different
+  // labels ("← Requirement" vs "← Planning"), unlike scmScreen's single
+  // fixed "← Development".
   private showPmConnect = false;
-  private selectedPmProviderId: string | null = null;
-  private pmResources: PmResource[] | null = null;
-  private pmConnectError: string | null = null;
-  private pmConnecting = false;
+  private pmScreen: HTMLElement | undefined;
 
   // Presentation-stage generator - extracted into
   // <control-presentation-generator> (justjs#123), same caching
@@ -535,9 +660,7 @@ export class WorkspaceElement extends HTMLElement {
       // scmResources reset here).
       this.scmScreen = undefined;
       this.showPmConnect = false;
-      this.selectedPmProviderId = null;
-      this.pmResources = null;
-      this.pmConnectError = null;
+      this.pmScreen = undefined;
       this.showPresentationGenerator = false;
       this.showCliTerminal = false;
       this.renderView();
@@ -1064,288 +1187,43 @@ export class WorkspaceElement extends HTMLElement {
   }
 
   // ---- Requirement/Planning: project-management connections (opened
-  // from Specs/User Stories/Project Boards above) ----
-
-  private isPmProviderConnected(p: PmProvider): boolean {
-    if (p.kind === "keytoken") {
-      return getStoredTrelloCredentials() !== null;
-    }
-    if (p.kind === "oauth") {
-      return getStoredJiraSession() !== null;
-    }
-    return getStoredPmToken(p.id).length > 0;
-  }
+  // from Specs/User Stories/Project Boards above) - migrated onto
+  // <control-provider-connector> (justjs#125), including Jira's real
+  // OAuth-redirect flow via oauthRedirect/oauthBegin. ----
 
   private renderPmProviders(container: Element, stage: SdlcStage): void {
-    if (this.selectedPmProviderId) {
-      const provider = PM_PROVIDER_CATALOG.find((p) => p.id === this.selectedPmProviderId);
-      if (provider) {
-        this.renderPmProviderDetail(container, provider);
-        return;
-      }
-      this.selectedPmProviderId = null;
-    }
-
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="pm-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(stage.label)}</button>
-        <h2 class="workspace-stage-title">📋 Project Management</h2>
-      </div>
-      <p class="connect-hint">Tap a provider to connect a real account and see its actual issues/tasks/boards. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <div class="provider-grid">
-        ${PM_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isPmProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-pm-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    `;
-
-    this.querySelector("#pm-back-btn")?.addEventListener("click", () => {
-      this.showPmConnect = false;
-      this.renderView();
-    });
-
-    container.querySelectorAll<HTMLButtonElement>("[data-pm-provider-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.pmProviderId;
-        if (!id) {
-          return;
-        }
-        this.selectedPmProviderId = id;
-        this.pmResources = null;
-        this.pmConnectError = null;
-        this.renderView();
-      });
-    });
-    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
-      const provider = PM_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
-      if (provider) {
-        setBadgeProps(el, provider);
-      }
-    });
-  }
-
-  private renderPmProviderDetail(container: Element, provider: PmProvider): void {
-    const connected = this.isPmProviderConnected(provider);
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="pm-provider-back-btn" class="dash-back-btn" type="button">← Project Management</button>
-        <h2 class="workspace-stage-title"><view-badge id="pm-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
-      ${this.renderPmProviderBody(provider, connected)}
-    `;
-    setBadgeProps(container.querySelector("#pm-header-badge"), provider);
-
-    this.querySelector("#pm-provider-back-btn")?.addEventListener("click", () => {
-      this.selectedPmProviderId = null;
-      this.renderView();
-    });
-
-    if (provider.kind === "oauth") {
-      this.querySelector("#pm-connect-btn")?.addEventListener("click", () => {
-        this.handleJiraOAuthBegin();
-      });
-      this.querySelector("#pm-disconnect-btn")?.addEventListener("click", () => {
-        setStoredJiraSession(null);
-        this.pmResources = null;
-        this.pmConnectError = null;
-        this.renderView();
-      });
-      if (connected && !this.pmResources && !this.pmConnectError && !this.pmConnecting) {
-        void this.handleJiraResourceFetch();
-      }
-      return;
-    }
-
-    this.querySelector("#pm-connect-btn")?.addEventListener("click", () => {
-      void this.handlePmConnect(provider);
-    });
-    this.querySelector("#pm-disconnect-btn")?.addEventListener("click", () => {
-      if (provider.kind === "keytoken") {
-        setStoredTrelloCredentials(null);
-      } else {
-        setStoredPmToken(provider.id, "");
-      }
-      this.pmResources = null;
-      this.pmConnectError = null;
-      this.renderView();
-    });
-
-    // Already connected (a credential was saved in a previous session)
-    // and nothing fetched yet this visit - fetch automatically, same
-    // lazy-validation posture as every other provider's detail screen.
-    if (connected && !this.pmResources && !this.pmConnectError && !this.pmConnecting) {
-      void this.handlePmConnect(provider);
-    }
-  }
-
-  private renderPmProviderBody(provider: PmProvider, connected: boolean): string {
-    if (provider.kind === "oauth") {
-      const appCreds = getStoredJiraAppCredentials();
-      return `
-        <p class="settings-disclosure">Stored only on this device. This app has no server, so Jira's own OAuth 2.0 flow needs your own Atlassian OAuth app - register one at <code>developer.atlassian.com/console/myapps</code>, add scope <code>read:jira-work</code>, and set its callback URL to exactly <code>${escapeHtml(globalThis.location.origin + globalThis.location.pathname)}</code>. Paste that app's Client ID and Secret below - both stay local, sent directly to Atlassian, never to a backend (this app has none).</p>
-        <div class="connect-form">
-          <input id="pm-connect-client-id" type="text" placeholder="Atlassian OAuth app Client ID" autocomplete="off" spellcheck="false" value="${escapeHtml(appCreds?.clientId ?? "")}" />
-          <input id="pm-connect-client-secret" type="password" placeholder="Atlassian OAuth app Client Secret" autocomplete="off" spellcheck="false" value="${escapeHtml(appCreds?.clientSecret ?? "")}" />
-          <div class="connect-actions">
-            <button id="pm-connect-btn" type="button">${connected ? "Reconnect with Atlassian" : "Connect with Atlassian"}</button>
-            ${connected ? `<button id="pm-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-          </div>
-          <p id="pm-connect-status" class="connect-status${this.pmConnectError ? " connect-status-error" : ""}">${this.pmConnecting ? "Connecting…" : this.pmConnectError ? `⚠️ ${escapeHtml(this.pmConnectError)}` : ""}</p>
-        </div>
-        ${this.renderPmResourceList(provider)}
+    container.innerHTML = "";
+    if (!this.pmScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <view-nav-header id="pm-header"></view-nav-header>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual issues/tasks/boards. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+        <control-provider-connector id="pm-connector"></control-provider-connector>
       `;
-    }
-
-    const disclosure = `Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.`;
-    const form =
-      provider.kind === "keytoken"
-        ? `
-          <input id="pm-connect-api-key" type="text" placeholder="Trello API key" autocomplete="off" spellcheck="false" />
-          <input id="pm-connect-token" type="password" placeholder="Trello token" autocomplete="off" spellcheck="false" />
-        `
-        : `<input id="pm-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />`;
-
-    return `
-      <p class="settings-disclosure">${disclosure}</p>
-      <div class="connect-form">
-        ${form}
-        <div class="connect-actions">
-          <button id="pm-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="pm-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="pm-connect-status" class="connect-status${this.pmConnectError ? " connect-status-error" : ""}">${this.pmConnecting ? "Connecting…" : this.pmConnectError ? `⚠️ ${escapeHtml(this.pmConnectError)}` : ""}</p>
-      </div>
-      ${this.renderPmResourceList(provider)}
-    `;
-  }
-
-  private renderPmResourceList(provider: PmProvider): string {
-    if (!this.pmResources) {
-      return "";
-    }
-    const label = provider.id === "trello" ? "Boards" : "Issues / Tasks";
-    const rows =
-      this.pmResources.length === 0
-        ? `<p class="connect-hint">Connected - no results found.</p>`
-        : `<ul class="resource-list">
-            ${this.pmResources
-              .map(
-                (r) => `
-                  <li class="resource-row">
-                    <span class="resource-name">${escapeHtml(r.name)}</span>
-                    <span class="resource-status">${escapeHtml(r.status)}</span>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>`;
-    return `<h3 class="resource-list-label">${label}</h3>${rows}`;
-  }
-
-  private async handlePmConnect(provider: PmProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#pm-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#pm-connect-btn");
-
-    let trelloCreds: { apiKey: string; token: string } | null = null;
-    let token = "";
-    if (provider.kind === "keytoken") {
-      const apiKeyInput = this.querySelector<HTMLInputElement>("#pm-connect-api-key");
-      const tokenInput = this.querySelector<HTMLInputElement>("#pm-connect-token");
-      const apiKey = apiKeyInput?.value.trim() || getStoredTrelloCredentials()?.apiKey || "";
-      const tok = tokenInput?.value.trim() || getStoredTrelloCredentials()?.token || "";
-      if (!apiKey || !tok) {
-        this.pmConnectError = "Enter both the API key and token.";
+      const header = screen.querySelector<NavHeaderView>("#pm-header")!;
+      header.icon = "📋";
+      header.title = "Project Management";
+      header.addEventListener("nav-back", () => {
+        this.showPmConnect = false;
         this.renderView();
-        return;
-      }
-      trelloCreds = { apiKey, token: tok };
-    } else {
-      const tokenInput = this.querySelector<HTMLInputElement>("#pm-connect-token");
-      token = tokenInput?.value.trim() || getStoredPmToken(provider.id);
-      if (!token) {
-        this.pmConnectError = "Paste a token first.";
-        this.renderView();
-        return;
-      }
+      });
+      const connector = screen.querySelector<ProviderConnectorControl>("#pm-connector")!;
+      connector.providers = PM_PROVIDER_CATALOG.map(toPmCatalogItem);
+      connector.connect = handlePmConnect;
+      connector.list = handlePmList;
+      connector.disconnect = handlePmDisconnect;
+      connector.oauthBegin = handlePmOAuthBegin;
+      connector.catalogLabel = "Project Management";
+      this.pmScreen = screen;
     }
-
-    this.pmConnecting = true;
-    this.pmConnectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
-    try {
-      const resources =
-        provider.kind === "keytoken" && trelloCreds
-          ? await connectTrello(trelloCreds.apiKey, trelloCreds.token)
-          : await PM_CONNECTORS[provider.id]!(token);
-      if (provider.kind === "keytoken" && trelloCreds) {
-        setStoredTrelloCredentials(trelloCreds);
-      } else {
-        setStoredPmToken(provider.id, token);
-      }
-      this.pmResources = resources;
-      this.pmConnectError = null;
-    } catch (e) {
-      this.pmConnectError = e instanceof Error ? e.message : String(e);
-      this.pmResources = null;
-    } finally {
-      this.pmConnecting = false;
-      this.renderView();
-    }
-  }
-
-  // Jira's "Connect"/"Reconnect" button - reads the user's own OAuth
-  // app credentials and navigates the real browser to Atlassian's
-  // consent screen (core/pm_connect.ts's beginJiraConnect()). Nothing
-  // after a successful call to this ever runs in this page load - the
-  // real completion happens in app.ts's main(), on the return trip.
-  private handleJiraOAuthBegin(): void {
-    const clientIdInput = this.querySelector<HTMLInputElement>("#pm-connect-client-id");
-    const clientSecretInput = this.querySelector<HTMLInputElement>("#pm-connect-client-secret");
-    const clientId = clientIdInput?.value.trim() || getStoredJiraAppCredentials()?.clientId || "";
-    const clientSecret = clientSecretInput?.value.trim() || getStoredJiraAppCredentials()?.clientSecret || "";
-    if (!clientId || !clientSecret) {
-      this.pmConnectError = "Enter both the Client ID and Client Secret first.";
-      this.renderView();
-      return;
-    }
-    const redirectUri = globalThis.location.origin + globalThis.location.pathname;
-    beginJiraConnect(clientId, clientSecret, redirectUri);
-  }
-
-  // Real re-verification of an already-established Jira session (no
-  // OAuth trip needed) - used both for the lazy auto-fetch when a
-  // session already exists and after app.ts completes a fresh OAuth
-  // round-trip.
-  private async handleJiraResourceFetch(): Promise<void> {
-    const session = getStoredJiraSession();
-    if (!session) {
-      return;
-    }
-    this.pmConnecting = true;
-    this.pmConnectError = null;
-    this.renderView();
-    try {
-      this.pmResources = await connectJira(session);
-      this.pmConnectError = null;
-    } catch (e) {
-      this.pmConnectError = e instanceof Error ? e.message : String(e);
-      this.pmResources = null;
-    } finally {
-      this.pmConnecting = false;
-      this.renderView();
-    }
+    // Requirement's Specs/User Stories and Planning's Project Boards
+    // share this one screen (PM_PROVIDER_CATALOG's own doc comment) but
+    // have different "back" labels - refreshed on every entry since the
+    // cached header would otherwise still say whichever stage first
+    // created it.
+    const header = this.pmScreen.querySelector<NavHeaderView>("#pm-header")!;
+    header.backLabel = stage.label;
+    container.appendChild(this.pmScreen);
   }
 
   // ---- Presentation: AI-generated slide deck (opened from Slides above) ----

@@ -46,6 +46,17 @@ describe("FormView", () => {
     expect(inputs[1]?.type).toBe("password");
   });
 
+  it("pre-fills an input's value from defaultValue when set", () => {
+    const el = mount();
+    el.fields = [
+      { id: "clientId", type: "text", placeholder: "Atlassian OAuth app Client ID", defaultValue: "saved-client-id" },
+      { id: "clientSecret", type: "password", placeholder: "Atlassian OAuth app Client Secret" },
+    ];
+    const inputs = [...(el.shadowRoot?.querySelectorAll<HTMLInputElement>("input") ?? [])];
+    expect(inputs[0]?.value).toBe("saved-client-id");
+    expect(inputs[1]?.value).toBe("");
+  });
+
   it("dispatches submit with values keyed by each field's id", () => {
     const el = mount();
     el.fields = [

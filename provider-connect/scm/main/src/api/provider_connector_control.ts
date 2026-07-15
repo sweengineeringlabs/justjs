@@ -36,6 +36,21 @@ export interface ProviderCatalogItem {
   // exclusions, discovered by migrating a real consumer with a third
   // kind of unsupported case - disclosed here, not silently invented.
   readonly unsupportedMessage?: string;
+  // When set, the form's Connect button calls `oauthBegin` (a
+  // synchronous, real-browser-navigation action) instead of `connect` -
+  // a real, necessary extension beyond ADR-0007's original OAuth
+  // exclusion, discovered migrating Jira (justjs#125): the form still
+  // collects real fields (Jira's own OAuth app Client ID/Secret), but
+  // "submitting" them navigates the browser to the provider's consent
+  // screen rather than resolving in place, so connect()/list()'s normal
+  // async session flow doesn't fit. When a provider is already
+  // connected (a session persisted from a previous visit) and its
+  // resources haven't been fetched yet this visit, the control calls
+  // `list(providerId, undefined)` directly instead of `connect` first -
+  // matching every oauthRedirect provider's own real shape: the caller
+  // re-verifies the persisted session itself, there's nothing for
+  // `connect` to legitimately return as a "session" mid-visit.
+  readonly oauthRedirect?: boolean;
 }
 
 // Caller-supplied network calls - the control never talks to a
@@ -45,12 +60,20 @@ export interface ProviderCatalogItem {
 export type ConnectFunction = (providerId: string, values: Readonly<Record<string, string>>) => Promise<unknown>;
 export type ListFunction = (providerId: string, session: unknown) => Promise<readonly ListItem[]>;
 export type DisconnectFunction = (providerId: string) => void;
+// Real, synchronous browser navigation (e.g. beginJiraConnect's
+// `location.assign(...)`) - never awaited, never expected to "resolve"
+// in any meaningful sense, since the page unloads. Throwing (e.g. "Enter
+// both the Client ID and Client Secret first.") is the real validation
+// path - caught the same way ConnectFunction's own rejection is, shown
+// via the same status line.
+export type OAuthBeginFunction = (providerId: string, values: Readonly<Record<string, string>>) => void;
 
 export interface ProviderConnectorControlProps {
   readonly providers?: readonly ProviderCatalogItem[];
   readonly connect?: ConnectFunction;
   readonly list?: ListFunction;
   readonly disconnect?: DisconnectFunction;
+  readonly oauthBegin?: OAuthBeginFunction;
   // The detail screen's back-button label (composes <view-nav-header>
   // internally - e.g. "Socials" renders "← Socials"), matching every
   // existing screen's own "← <catalog name>" convention.

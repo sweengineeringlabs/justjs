@@ -169,6 +169,116 @@ describe("ProviderConnectorControl", () => {
     expect(el.shadowRoot?.querySelector(".resource-list-label")?.textContent).toBe("Follows");
   });
 
+  it("calls oauthBegin instead of connect when a provider is oauthRedirect", () => {
+    const el = mount();
+    let oauthBeginCalled: { providerId: string; values: Record<string, string> } | undefined;
+    let connectCalled = false;
+    el.oauthBegin = (providerId, values) => {
+      oauthBeginCalled = { providerId, values: { ...values } };
+    };
+    el.connect = async () => {
+      connectCalled = true;
+      return undefined;
+    };
+    el.providers = [
+      {
+        id: "jira",
+        name: "Jira",
+        color: "#0052CC",
+        oauthRedirect: true,
+        fields: [
+          { id: "clientId", type: "text", placeholder: "Client ID" },
+          { id: "clientSecret", type: "password", placeholder: "Client Secret" },
+        ],
+      },
+    ];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "jira" } }));
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(
+      new CustomEvent("submit", { detail: { values: { clientId: "cid", clientSecret: "csecret" } } })
+    );
+
+    expect(oauthBeginCalled).toEqual({ providerId: "jira", values: { clientId: "cid", clientSecret: "csecret" } });
+    expect(connectCalled).toBe(false);
+  });
+
+  it("does not re-render the form after a successful oauthBegin, so the just-typed values survive", () => {
+    // Real bug caught migrating Jira (justjs#125): re-rendering here
+    // rebuilds <view-form> from this render pass's own `providers` -
+    // still the pre-oauthBegin snapshot, since the control has no way
+    // to know the host's catalog changed mid-call. A stale defaultValue
+    // would silently wipe whatever the user just typed and submitted.
+    const el = mount();
+    el.oauthBegin = () => {};
+    el.providers = [
+      {
+        id: "jira",
+        name: "Jira",
+        color: "#0052CC",
+        oauthRedirect: true,
+        fields: [{ id: "clientId", type: "text", placeholder: "Client ID" }],
+      },
+    ];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "jira" } }));
+    const input = el.shadowRoot!.querySelector("view-form")!.shadowRoot!.querySelector<HTMLInputElement>('[data-field-id="clientId"]')!;
+    input.value = "typed-client-id";
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: { clientId: "typed-client-id" } } }));
+
+    const inputAfter = el.shadowRoot?.querySelector("view-form")?.shadowRoot?.querySelector<HTMLInputElement>('[data-field-id="clientId"]');
+    expect(inputAfter?.value).toBe("typed-client-id");
+  });
+
+  it("shows a thrown oauthBegin validation error via the status line, same as a failed connect", () => {
+    const el = mount();
+    el.oauthBegin = () => {
+      throw new Error("Enter both the Client ID and Client Secret first.");
+    };
+    let errorDetail: { providerId: string; message: string } | undefined;
+    el.addEventListener("error", (e) => {
+      errorDetail = (e as CustomEvent).detail;
+    });
+    el.providers = [
+      { id: "jira", name: "Jira", color: "#0052CC", oauthRedirect: true, fields: [{ id: "clientId", type: "text", placeholder: "Client ID" }] },
+    ];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "jira" } }));
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: { clientId: "" } } }));
+
+    expect(errorDetail).toEqual({ providerId: "jira", message: "Enter both the Client ID and Client Secret first." });
+    const status = el.shadowRoot?.querySelector("view-status-line") as { text?: string } | null;
+    expect(status?.text).toBe("⚠️ Enter both the Client ID and Client Secret first.");
+  });
+
+  it("re-verifies an already-connected oauthRedirect provider via list(id, undefined), never calling connect", async () => {
+    const el = mount();
+    let connectCalled = false;
+    let listCall: { providerId: string; session: unknown } | undefined;
+    el.connect = async () => {
+      connectCalled = true;
+      return undefined;
+    };
+    el.list = async (providerId, session) => {
+      listCall = { providerId, session };
+      return [{ id: "issue-1", name: "JIRA-1", status: "Open" }];
+    };
+    el.providers = [
+      { id: "jira", name: "Jira", color: "#0052CC", oauthRedirect: true, connected: true, fields: [] },
+    ];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "jira" } }));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(connectCalled).toBe(false);
+    expect(listCall).toEqual({ providerId: "jira", session: undefined });
+    const list = el.shadowRoot?.querySelector("view-list") as { items?: readonly { name: string }[] } | null;
+    expect(list?.items?.[0]?.name).toBe("JIRA-1");
+  });
+
   it("shows unsupportedMessage instead of a form, and never calls connect for that provider", () => {
     const el = mount();
     let connectCalled = false;
