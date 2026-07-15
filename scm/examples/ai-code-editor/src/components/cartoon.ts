@@ -17,6 +17,7 @@ import {
 import type { GeneratedImage } from "../core/cartoon_connect.js";
 import "@justjs/component-view";
 import type { BadgeView, PromptFieldView } from "@justjs/component-view";
+import { CartoonBase } from "../features/cartoon/cartoon_component.gen.js";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -107,207 +108,296 @@ function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly
 // posture every other provider uses), but generate() is always a real,
 // billed call, gated behind an explicit button click and a visible
 // cost disclosure - never auto-triggered.
-export class CartoonElement extends HTMLElement {
+//
+// Extends CartoonBase (justweb-generated, justjs#121 - the final
+// sub-issue of justjs#113's epic) for real value now. Unlike SCM/PM/
+// Cloud/Communication (justjs#124-#126, #120), this has no resource-
+// list step at all, so no existing (or new) sibling control fits -
+// stays a direct dom.elements spec instead (matching editor/chat/
+// review/scaffold's own shape), see cartoon_component.yaml's own
+// comment. grid-view/detail-view are permanent siblings toggled via
+// `hidden` (justjs#127's own precedent). See justjs#113's shared note
+// for why customElement.tagName is deliberately not set (CartoonBase
+// self-registers under its harmless default js-cartoon; CartoonElement
+// keeps its own explicit x-cartoon registration).
+export class CartoonElement extends CartoonBase {
   private selectedProviderId: string | null = null;
-  private connectStatus: string | null = null;
+  private connectStatusMessage: string | null = null;
   private connectError: string | null = null;
   private connecting = false;
 
-  private generatedImage: GeneratedImage | null = null;
+  private generatedImageData: GeneratedImage | null = null;
   private generateError: string | null = null;
   private generating = false;
 
   connectedCallback(): void {
-    this.renderView();
-  }
-
-  private renderView(): void {
-    if (this.selectedProviderId) {
-      const provider = CARTOON_PROVIDER_CATALOG.find((p) => p.id === this.selectedProviderId);
-      if (provider) {
-        this.renderDetail(provider);
-        return;
-      }
-      this.selectedProviderId = null;
-    }
-    this.renderGrid();
-  }
-
-  private isProviderConnected(p: CartoonProvider): boolean {
-    return getStoredCartoonToken(p.id).length > 0;
-  }
-
-  private renderGrid(): void {
     this.innerHTML = `
-      <div class="dash-subnav">
-        <h2 class="workspace-stage-title">🎨 Cartoon Generator</h2>
+      <div id="cartoon-grid-view" data-part="grid-view">
+        <div class="dash-subnav">
+          <h2 class="workspace-stage-title">🎨 Cartoon Generator</h2>
+        </div>
+        <p class="connect-hint">Tap a provider to connect a real account and generate a real cartoon image from a text prompt. API keys are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). Every generation is a real, billed API call - each provider's own screen shows the real approximate cost before you generate.</p>
+        <div class="provider-grid">
+          ${CARTOON_PROVIDER_CATALOG.map(
+            (p) => `
+              <button type="button" class="provider-card" data-cartoon-provider-id="${p.id}">
+                <view-badge data-badge-for="${p.id}"></view-badge>
+                <span class="provider-name">${escapeHtml(p.name)}</span>
+                <span class="provider-check"></span>
+              </button>
+            `,
+          ).join("")}
+        </div>
       </div>
-      <p class="connect-hint">Tap a provider to connect a real account and generate a real cartoon image from a text prompt. API keys are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). Every generation is a real, billed API call - each provider's own screen shows the real approximate cost before you generate.</p>
-      <div class="provider-grid">
-        ${CARTOON_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-cartoon-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
+      <div id="cartoon-detail-view" data-part="detail-view" hidden>
+        <div class="dash-subnav">
+          <button id="cartoon-back-btn" data-part="back-btn" class="dash-back-btn" type="button">← Cartoon Generator</button>
+          <h2 class="workspace-stage-title"><view-badge id="cartoon-header-badge" data-part="header-badge"></view-badge> <span data-part="header-name"></span></h2>
+        </div>
+        <p class="settings-disclosure" data-part="connect-disclosure"></p>
+        <div class="connect-form">
+          <input id="cartoon-connect-token" data-part="connect-token" type="password" autocomplete="off" spellcheck="false" />
+          <div class="connect-actions">
+            <button id="cartoon-connect-btn" data-part="connect-btn" type="button">Connect</button>
+            <button id="cartoon-disconnect-btn" data-part="disconnect-btn" type="button" class="btn-secondary" hidden>Disconnect</button>
+          </div>
+          <p id="cartoon-connect-status" data-part="connect-status" class="connect-status"></p>
+        </div>
+        <div id="cartoon-generate-section" data-part="generate-section" hidden>
+          <p class="connect-hint" data-part="generate-disclosure"></p>
+          <div class="connect-form">
+            <view-prompt-field id="cartoon-prompt" data-part="prompt"></view-prompt-field>
+            <div class="connect-actions">
+              <button id="cartoon-generate-btn" data-part="generate-btn" type="button">Generate Cartoon</button>
+            </div>
+            <p id="cartoon-generate-status" data-part="generate-status" class="connect-status"></p>
+          </div>
+          <img class="cartoon-generated-image" data-part="generated-image" alt="Generated cartoon" hidden />
+        </div>
       </div>
     `;
+    // Binds this.gridView/detailView/backBtn/headerBadge/headerName/
+    // connectDisclosure/connectToken/connectBtn/disconnectBtn/
+    // connectStatus/generateSection/generateDisclosure/prompt/
+    // generateBtn/generateStatus/generatedImage via real data-part
+    // lookups - must run after the markup above exists, since
+    // CartoonBase's own connectedCallback() calls _bindElements()
+    // synchronously.
+    super.connectedCallback();
 
-    this.querySelectorAll<HTMLButtonElement>("[data-cartoon-provider-id]").forEach((btn) => {
+    // placeholder/rows never vary per provider (unlike the original's
+    // own per-render assignment, an artifact of rebuilding <view-prompt-
+    // field> fresh every visit) - a real simplification enabled by this
+    // now being one persistent, bound-once element instead.
+    (this.prompt as PromptFieldView).placeholder = "Describe what to draw, e.g. a fox riding a skateboard";
+    (this.prompt as PromptFieldView).rows = 3;
+
+    this.gridView.querySelectorAll<HTMLButtonElement>("[data-cartoon-provider-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.cartoonProviderId;
         if (!id) {
           return;
         }
         this.selectedProviderId = id;
-        this.connectStatus = null;
+        this.connectStatusMessage = null;
         this.connectError = null;
-        this.generatedImage = null;
+        this.generatedImageData = null;
         this.generateError = null;
+        // The prompt field and token input are now persistent, shared
+        // elements across every provider (unlike the original's own
+        // fresh-per-visit markup) - cleared explicitly here, at the
+        // same real reset point the original's own full rebuild
+        // implicitly relied on, so switching providers doesn't leak
+        // one provider's in-progress prompt text (or, worse, its
+        // typed-but-not-yet-submitted API key) into another's.
+        (this.prompt as PromptFieldView).value = "";
+        this.connectToken.value = "";
         this.renderView();
       });
     });
-    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
+    this.gridView.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
       const provider = CARTOON_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
       if (provider) {
         setBadgeProps(el, provider);
       }
     });
-  }
 
-  private renderDetail(provider: CartoonProvider): void {
-    const connected = this.isProviderConnected(provider);
-    this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="cartoon-back-btn" class="dash-back-btn" type="button">← Cartoon Generator</button>
-        <h2 class="workspace-stage-title"><view-badge id="cartoon-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
-      <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
-      <div class="connect-form">
-        <input id="cartoon-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} API key" autocomplete="off" spellcheck="false" />
-        <div class="connect-actions">
-          <button id="cartoon-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="cartoon-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="cartoon-connect-status" class="connect-status${this.connectError ? " connect-status-error" : ""}">${this.connecting ? "Connecting…" : this.connectError ? `⚠️ ${escapeHtml(this.connectError)}` : this.connectStatus ? `✓ ${escapeHtml(this.connectStatus)}` : ""}</p>
-      </div>
-      ${this.renderGenerateSection(provider)}
-    `;
-    setBadgeProps(this.querySelector("#cartoon-header-badge"), provider);
-    const promptField = this.querySelector<PromptFieldView>("#cartoon-prompt");
-    if (promptField) {
-      promptField.placeholder = "Describe what to draw, e.g. a fox riding a skateboard";
-      promptField.rows = 3;
-    }
-
-    this.querySelector("#cartoon-back-btn")?.addEventListener("click", () => {
+    this.backBtn.addEventListener("click", () => {
       this.selectedProviderId = null;
       this.renderView();
     });
-    this.querySelector("#cartoon-connect-btn")?.addEventListener("click", () => {
-      void this.handleConnect(provider);
+    this.connectBtn.addEventListener("click", () => {
+      const provider = this.currentProvider();
+      if (provider) {
+        void this.handleConnect(provider);
+      }
     });
-    this.querySelector("#cartoon-disconnect-btn")?.addEventListener("click", () => {
+    this.disconnectBtn.addEventListener("click", () => {
+      const provider = this.currentProvider();
+      if (!provider) {
+        return;
+      }
       setStoredCartoonToken(provider.id, "");
-      this.connectStatus = null;
+      this.connectStatusMessage = null;
       this.connectError = null;
-      this.generatedImage = null;
+      this.generatedImageData = null;
       this.generateError = null;
-      this.renderView();
+      this.renderDetail();
     });
-    this.querySelector("#cartoon-generate-btn")?.addEventListener("click", () => {
-      void this.handleGenerate(provider);
+    this.generateBtn.addEventListener("click", () => {
+      const provider = this.currentProvider();
+      if (provider) {
+        void this.handleGenerate(provider);
+      }
     });
+
+    this.renderView();
+  }
+
+  private currentProvider(): CartoonProvider | undefined {
+    return CARTOON_PROVIDER_CATALOG.find((p) => p.id === this.selectedProviderId);
+  }
+
+  private renderView(): void {
+    if (this.selectedProviderId) {
+      const provider = this.currentProvider();
+      if (provider) {
+        this.renderDetail();
+        return;
+      }
+      this.selectedProviderId = null;
+    }
+    this.renderGridView();
+  }
+
+  private isProviderConnected(p: CartoonProvider): boolean {
+    return getStoredCartoonToken(p.id).length > 0;
+  }
+
+  private renderGridView(): void {
+    this.detailView.hidden = true;
+    this.gridView.hidden = false;
+    this.gridView.querySelectorAll<HTMLButtonElement>("[data-cartoon-provider-id]").forEach((btn) => {
+      const id = btn.dataset.cartoonProviderId;
+      const provider = CARTOON_PROVIDER_CATALOG.find((p) => p.id === id);
+      if (!provider) {
+        return;
+      }
+      const connected = this.isProviderConnected(provider);
+      btn.classList.toggle("selected", connected);
+      const check = btn.querySelector<HTMLElement>(".provider-check");
+      if (check) {
+        check.textContent = connected ? "✓ Connected" : "";
+      }
+    });
+  }
+
+  private renderDetail(): void {
+    const provider = this.currentProvider();
+    if (!provider) {
+      this.renderGridView();
+      return;
+    }
+    this.gridView.hidden = true;
+    this.detailView.hidden = false;
+    const connected = this.isProviderConnected(provider);
+
+    setBadgeProps(this.headerBadge, provider);
+    this.headerName.textContent = provider.name;
+    this.connectDisclosure.textContent = `Stored only on this device. Sent directly to ${provider.name} when you connect.`;
+    this.connectBtn.textContent = connected ? "Reconnect" : "Connect";
+    this.disconnectBtn.hidden = !connected;
+    this.connectStatus.textContent = this.connecting
+      ? "Connecting…"
+      : this.connectError
+        ? `⚠️ ${this.connectError}`
+        : this.connectStatusMessage
+          ? `✓ ${this.connectStatusMessage}`
+          : "";
+    this.connectStatus.classList.toggle("connect-status-error", !!this.connectError);
+
+    this.generateSection.hidden = !connected;
+    if (connected) {
+      this.generateDisclosure.textContent = provider.disclosure;
+      this.generateBtn.textContent = this.generating ? "Generating…" : "Generate Cartoon";
+      this.generateStatus.textContent = this.generating
+        ? "Generating - this is a real, billed API call…"
+        : this.generateError
+          ? `⚠️ ${this.generateError}`
+          : "";
+      this.generateStatus.classList.toggle("connect-status-error", !!this.generateError);
+      if (this.generatedImageData) {
+        (this.generatedImage as HTMLImageElement).src = buildImageDataUrl(this.generatedImageData);
+        this.generatedImage.hidden = false;
+      } else {
+        this.generatedImage.hidden = true;
+      }
+    }
 
     // connect() is a real, free key-check (never billed) - safe to
     // auto-fire on revisit, same lazy-validation posture every other
     // provider in this app uses. generate() never auto-fires - it's a
     // real, billed call, always gated behind an explicit click.
-    if (connected && !this.connectStatus && !this.connectError && !this.connecting) {
+    if (connected && !this.connectStatusMessage && !this.connectError && !this.connecting) {
       void this.handleConnect(provider);
     }
   }
 
-  private renderGenerateSection(provider: CartoonProvider): string {
-    const connected = this.isProviderConnected(provider);
-    if (!connected) {
-      return "";
-    }
-    const imageHtml = this.generatedImage
-      ? `<img class="cartoon-generated-image" src="${escapeHtml(buildImageDataUrl(this.generatedImage))}" alt="Generated cartoon" />`
-      : "";
-    return `
-      <p class="connect-hint">${escapeHtml(provider.disclosure)}</p>
-      <div class="connect-form">
-        <view-prompt-field id="cartoon-prompt"></view-prompt-field>
-        <div class="connect-actions">
-          <button id="cartoon-generate-btn" type="button">${this.generating ? "Generating…" : "Generate Cartoon"}</button>
-        </div>
-        <p id="cartoon-generate-status" class="connect-status${this.generateError ? " connect-status-error" : ""}">${this.generating ? "Generating - this is a real, billed API call…" : this.generateError ? `⚠️ ${escapeHtml(this.generateError)}` : ""}</p>
-      </div>
-      ${imageHtml}
-    `;
-  }
-
   private async handleConnect(provider: CartoonProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#cartoon-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#cartoon-connect-btn");
-    const tokenInput = this.querySelector<HTMLInputElement>("#cartoon-connect-token");
-    const token = tokenInput?.value.trim() || getStoredCartoonToken(provider.id);
+    const token = this.connectToken.value.trim() || getStoredCartoonToken(provider.id);
     if (!token) {
       this.connectError = "Paste an API key first.";
-      this.renderView();
+      this.renderDetail();
       return;
     }
+    // The token input is now a persistent, shared element (unlike the
+    // original's own fresh-per-render markup, which cleared it as a
+    // byproduct of a full rebuild on every connect attempt, success or
+    // failure) - cleared explicitly here to match that same real
+    // behavior, and every already-shipped *-connect control in this
+    // epic (justjs#120/#124-#126) still does the same thing internally.
+    this.connectToken.value = "";
 
     this.connecting = true;
     this.connectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
+    this.connectBtn.disabled = true;
+    this.connectStatus.textContent = "Connecting…";
     try {
       const status = await CARTOON_CONNECTORS[provider.id]!(token);
       setStoredCartoonToken(provider.id, token);
-      this.connectStatus = status;
+      this.connectStatusMessage = status;
       this.connectError = null;
     } catch (e) {
       this.connectError = e instanceof Error ? e.message : String(e);
-      this.connectStatus = null;
+      this.connectStatusMessage = null;
     } finally {
       this.connecting = false;
-      this.renderView();
+      this.connectBtn.disabled = false;
+      this.renderDetail();
     }
   }
 
   private async handleGenerate(provider: CartoonProvider): Promise<void> {
-    const promptInput = this.querySelector<PromptFieldView>("#cartoon-prompt");
-    const prompt = promptInput?.value.trim() ?? "";
+    const prompt = (this.prompt as PromptFieldView).value.trim();
     if (!prompt) {
       this.generateError = "Describe what to draw first.";
-      this.renderView();
+      this.renderDetail();
       return;
     }
 
     const token = getStoredCartoonToken(provider.id);
     this.generating = true;
     this.generateError = null;
-    this.renderView();
+    this.renderDetail();
     try {
-      this.generatedImage = await CARTOON_GENERATORS[provider.id]!(token, prompt);
+      this.generatedImageData = await CARTOON_GENERATORS[provider.id]!(token, prompt);
       this.generateError = null;
     } catch (e) {
       this.generateError = e instanceof Error ? e.message : String(e);
-      this.generatedImage = null;
+      this.generatedImageData = null;
     } finally {
       this.generating = false;
-      this.renderView();
+      this.renderDetail();
     }
   }
 }

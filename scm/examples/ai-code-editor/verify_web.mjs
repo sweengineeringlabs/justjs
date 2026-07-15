@@ -1609,7 +1609,7 @@ assert(
   document.getElementById("cartoon-connect-status").textContent.includes("Paste an API key first"),
   "connecting OpenAI with an empty key shows a real, actionable error, not a silent no-op"
 );
-assert(document.querySelector("#mount-cartoon .cartoon-generated-image") === null, "no generate button/image renders before a real successful connect");
+assert(document.getElementById("cartoon-generate-section").hidden, "no generate button/image renders before a real successful connect");
 
 document.getElementById("cartoon-back-btn").click();
 await sleep(20);
@@ -1658,7 +1658,7 @@ assert(
   "a real successful connect shows Stability's own real credit balance, not just a bare 'connected' label"
 );
 assert(
-  document.querySelector("#mount-cartoon .connect-hint")?.textContent.includes("style_preset"),
+  document.querySelector("#cartoon-generate-section .connect-hint")?.textContent.includes("style_preset"),
   "Stability's screen discloses its real, structured style_preset field before generating"
 );
 
@@ -1684,9 +1684,28 @@ assert(capturedFormData instanceof FormData, "Generate really sends a multipart/
 assert(capturedFormData.get("prompt") === "a fox riding a skateboard", "the real form data carries the prompt the user actually typed");
 assert(capturedFormData.get("style_preset") === "comic-book", "the real form data carries Stability's own real cartoon style_preset value");
 const generatedImg = document.querySelector("#mount-cartoon .cartoon-generated-image");
-assert(generatedImg !== null, "a real successful generate renders the real returned image");
+assert(generatedImg !== null && !generatedImg.hidden, "a real successful generate renders the real returned image");
 assert(generatedImg.src.startsWith("data:image/png;base64,ZmFrZS1wbmctYnl0ZXM="), "the rendered image's real data URL carries the exact base64 bytes the mocked API returned");
 globalThis.fetch = stabilityOriginalFetch;
+
+// CartoonElement now extends CartoonBase (justjs#121, the final
+// sub-issue of justjs#113's epic) - a real keep-alive router tab
+// switch should preserve the just-generated image and connect status,
+// same proof pattern every other migrated tab in this epic already
+// established.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Cartoon Generator to Editor");
+document.querySelector('.nav-btn[data-route="/cartoon"]').click();
+await sleep(20);
+assert(
+  !document.querySelector("#mount-cartoon .cartoon-generated-image").hidden,
+  "switching back to Cartoon Generator still shows the just-generated image, not reset - real keep-alive router proof, not just asserted"
+);
+assert(
+  document.getElementById("cartoon-connect-status").textContent.includes("24.5 credits available"),
+  "Stability's detail screen (with its real connect status) also survives the tab switch"
+);
 
 document.getElementById("cartoon-back-btn").click();
 await sleep(20);

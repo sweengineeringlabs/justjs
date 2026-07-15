@@ -3,10 +3,66 @@
 // Regenerate with: justw generate app
 
 export interface CartoonSampleData {
+  backBtn: string;
+  connectBtn: string;
+  connectDisclosure: string;
+  connectStatus: string;
+  connectToken: string;
+  detailView: string;
+  disconnectBtn: string;
+  generateBtn: string;
+  generateDisclosure: string;
+  generateSection: string;
+  generateStatus: string;
+  generatedImage: string;
+  gridView: string;
+  headerBadge: string;
+  headerName: string;
+  prompt: string;
 }
 
 export const sampleData: CartoonSampleData = {
+  backBtn: "Submit",
+  connectBtn: "Submit",
+  connectDisclosure: "Sample connect-disclosure",
+  connectStatus: "active",
+  connectToken: "Sample connect-token",
+  detailView: "Sample detail-view",
+  disconnectBtn: "Submit",
+  generateBtn: "Submit",
+  generateDisclosure: "Sample generate-disclosure",
+  generateSection: "Sample generate-section",
+  generateStatus: "active",
+  generatedImage: "Sample generated-image",
+  gridView: "ID-001",
+  headerBadge: "Sample header-badge",
+  headerName: "Sipho Mthembu",
+  prompt: "Sample prompt",
 };
 
 export function populateCartoon(root: HTMLElement): void {
+  const connectDisclosure = root.querySelector("[data-part='connect-disclosure']") as HTMLElement;
+  if (connectDisclosure) connectDisclosure.textContent = String(sampleData.connectDisclosure);
+  const connectStatus = root.querySelector("[data-part='connect-status']") as HTMLElement;
+  if (connectStatus) connectStatus.textContent = String(sampleData.connectStatus);
+  const connectToken = root.querySelector("[data-part='connect-token']") as HTMLInputElement;
+  if (connectToken) connectToken.value = String(sampleData.connectToken);
+  const detailView = root.querySelector("[data-part='detail-view']") as HTMLElement;
+  if (detailView) detailView.textContent = String(sampleData.detailView);
+  const generateDisclosure = root.querySelector("[data-part='generate-disclosure']") as HTMLElement;
+  if (generateDisclosure) generateDisclosure.textContent = String(sampleData.generateDisclosure);
+  const generateSection = root.querySelector("[data-part='generate-section']") as HTMLElement;
+  if (generateSection) generateSection.textContent = String(sampleData.generateSection);
+  const generateStatus = root.querySelector("[data-part='generate-status']") as HTMLElement;
+  if (generateStatus) generateStatus.textContent = String(sampleData.generateStatus);
+  const generatedImage = root.querySelector("[data-part='generated-image']") as HTMLElement;
+  if (generatedImage) generatedImage.textContent = String(sampleData.generatedImage);
+  const gridView = root.querySelector("[data-part='grid-view']") as HTMLElement;
+  if (gridView) gridView.textContent = String(sampleData.gridView);
+  const headerBadge = root.querySelector("[data-part='header-badge']") as HTMLElement;
+  if (headerBadge) headerBadge.textContent = String(sampleData.headerBadge);
+  const headerName = root.querySelector("[data-part='header-name']") as HTMLElement;
+  if (headerName) headerName.textContent = String(sampleData.headerName);
+  const prompt = root.querySelector("[data-part='prompt']") as HTMLElement;
+  if (prompt) prompt.textContent = String(sampleData.prompt);
 }

@@ -2,3 +2,70 @@ name: cartoon
 version: 1
 dom:
   tag: x-cartoon
+  builtinStates: false
+  # No customElement.tagName override - see justjs#113's shared note
+  # (CartoonBase self-registers under its harmless default js-cartoon;
+  # CartoonElement keeps its own explicit x-cartoon registration).
+  #
+  # Architecturally different from SCM/PM/Cloud/Communication (justjs#124-
+  # #126, #120): the real capability is "generate" (@justjs/image-connect),
+  # not "connect and list resources" - no resource-list step at all, so
+  # ProviderConnectorControl/CloudConnectorControl/CommsConnectorControl
+  # were never built for this shape either. Only 3 known providers, no
+  # multi-level drill-down, no reusable pattern any other real consumer
+  # in this app needs - unlike those, this stays a direct dom.elements
+  # spec (matching editor/chat/review/scaffold's own shape) rather than
+  # a new sibling control. grid-view/detail-view are permanent siblings
+  # toggled via `hidden` (justjs#127's own precedent); the 3 provider
+  # cards inside grid-view are static, hardcoded markup (never a
+  # variable-count list), addressed via plain querySelectorAll scoped to
+  # the bound grid-view container, not individually declared here.
+  elements:
+    grid-view:
+      tag: div
+      address: true
+    detail-view:
+      tag: div
+      address: true
+    back-btn:
+      tag: button
+      address: true
+    header-badge:
+      tag: view-badge
+      address: true
+    header-name:
+      tag: span
+      address: true
+    connect-disclosure:
+      tag: p
+      address: true
+    connect-token:
+      tag: input
+      address: true
+    connect-btn:
+      tag: button
+      address: true
+    disconnect-btn:
+      tag: button
+      address: true
+    connect-status:
+      tag: p
+      address: true
+    generate-section:
+      tag: div
+      address: true
+    generate-disclosure:
+      tag: p
+      address: true
+    prompt:
+      tag: view-prompt-field
+      address: true
+    generate-btn:
+      tag: button
+      address: true
+    generate-status:
+      tag: p
+      address: true
+    generated-image:
+      tag: img
+      address: true
