@@ -16,7 +16,7 @@ import {
 } from "../core/cartoon_connect.js";
 import type { GeneratedImage } from "../core/cartoon_connect.js";
 import "@justjs/component-view";
-import type { BadgeView } from "@justjs/component-view";
+import type { BadgeView, PromptFieldView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -198,6 +198,11 @@ export class CartoonElement extends HTMLElement {
       ${this.renderGenerateSection(provider)}
     `;
     setBadgeProps(this.querySelector("#cartoon-header-badge"), provider);
+    const promptField = this.querySelector<PromptFieldView>("#cartoon-prompt");
+    if (promptField) {
+      promptField.placeholder = "Describe what to draw, e.g. a fox riding a skateboard";
+      promptField.rows = 3;
+    }
 
     this.querySelector("#cartoon-back-btn")?.addEventListener("click", () => {
       this.selectedProviderId = null;
@@ -238,7 +243,7 @@ export class CartoonElement extends HTMLElement {
     return `
       <p class="connect-hint">${escapeHtml(provider.disclosure)}</p>
       <div class="connect-form">
-        <textarea id="cartoon-prompt" rows="3" placeholder="Describe what to draw, e.g. a fox riding a skateboard"></textarea>
+        <view-prompt-field id="cartoon-prompt"></view-prompt-field>
         <div class="connect-actions">
           <button id="cartoon-generate-btn" type="button">${this.generating ? "Generating…" : "Generate Cartoon"}</button>
         </div>
@@ -282,7 +287,7 @@ export class CartoonElement extends HTMLElement {
   }
 
   private async handleGenerate(provider: CartoonProvider): Promise<void> {
-    const promptInput = this.querySelector<HTMLTextAreaElement>("#cartoon-prompt");
+    const promptInput = this.querySelector<PromptFieldView>("#cartoon-prompt");
     const prompt = promptInput?.value.trim() ?? "";
     if (!prompt) {
       this.generateError = "Describe what to draw first.";
