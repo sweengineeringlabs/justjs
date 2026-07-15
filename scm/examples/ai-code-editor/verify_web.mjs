@@ -1807,6 +1807,24 @@ await sleep(30);
 assert(document.querySelector("#review-status").textContent.includes("Add an Anthropic API key"), "Review with an attached screenshot still hits the no-key error path");
 assert(!reviewImagePreviewVisible(), "Review's attachment also clears after running, regardless of outcome");
 
+// justjs#117 (ReviewElement now extends the justweb-generated
+// ReviewBase) - real proof the keep-alive router (justjs#94) still
+// preserves the review status message (local-only DOM state, never
+// stored in FeatureStore - a stronger discriminator than the
+// store-backed state justjs#115/#116's own keep-alive checks used,
+// since a genuine remount-on-switch would reset this specifically)
+// across a tab switch away from and back to Review.
+const reviewStatusBeforeSwitch = document.querySelector("#review-status").textContent;
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Review to Editor");
+document.querySelector('.nav-btn[data-route="/review"]').click();
+await sleep(20);
+assert(
+  document.querySelector("#review-status").textContent === reviewStatusBeforeSwitch,
+  "switching back to Review still shows the same status message, not reset - real keep-alive router proof, not just asserted"
+);
+
 document.querySelector('.nav-btn[data-route="/scaffold"]').click();
 clickScaffoldModeButton("project");
 await attachFakeImage("#scaffold-project-image-input", "fake-webp-bytes", "mockup.webp", "image/webp");

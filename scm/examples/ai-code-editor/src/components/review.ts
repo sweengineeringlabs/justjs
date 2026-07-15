@@ -6,6 +6,7 @@ import { navigateTo, jumpToLine } from "../core/navigation.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
 import "@justjs/component-view";
 import type { ImageAttachView, ImagePickerView } from "@justjs/component-view";
+import { ReviewBase } from "../features/review/review_component.gen.js";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -21,7 +22,13 @@ function escapeHtml(text: string): string {
 // An optionally attached screenshot (e.g. "here's the error this throws")
 // is real vision input to review() - one-shot, cleared after each run,
 // never persisted.
-export class ReviewElement extends HTMLElement {
+//
+// Extends ReviewBase (justweb-generated, justjs#117, part of justjs#113's
+// epic) - see justjs#113's shared note for why customElement.tagName is
+// deliberately not set (ReviewBase self-registers under its harmless
+// default js-review; ReviewElement keeps its own explicit x-review
+// registration).
+export class ReviewElement extends ReviewBase {
   private unsubscribe?: () => void;
   private store?: FeatureStore<AppState, AppAction>;
   private pendingImage: ImageAttachment | null = null;
@@ -37,22 +44,27 @@ export class ReviewElement extends HTMLElement {
   connectedCallback(): void {
     this.innerHTML = `
       <div class="review-toolbar">
-        <button id="review-run-btn" type="button">🔍 Run review</button>
-        <view-image-attach id="review-image-attach"></view-image-attach>
+        <button id="review-run-btn" data-part="run-btn" type="button">🔍 Run review</button>
+        <view-image-attach id="review-image-attach" data-part="image-attach"></view-image-attach>
       </div>
-      <view-image-picker id="review-image-picker"></view-image-picker>
-      <p id="review-reviewed-label" class="review-reviewed-label" hidden></p>
-      <p id="review-status" class="editor-status" hidden></p>
-      <div id="review-findings"></div>
+      <view-image-picker id="review-image-picker" data-part="image-picker"></view-image-picker>
+      <p id="review-reviewed-label" class="review-reviewed-label" data-part="reviewed-label" hidden></p>
+      <p id="review-status" class="editor-status" data-part="status" hidden></p>
+      <div id="review-findings" data-part="findings"></div>
     `;
-    this.querySelector("#review-run-btn")?.addEventListener("click", () => void this.handleRun());
+    // Binds this.runBtn/this.imageAttach/etc via real data-part lookups
+    // - must run after the markup above exists, since ReviewBase's own
+    // connectedCallback() calls _bindElements() synchronously.
+    super.connectedCallback();
 
-    const imageAttach = this.querySelector<ImageAttachView>("#review-image-attach")!;
+    this.runBtn.addEventListener("click", () => void this.handleRun());
+
+    const imageAttach = this.imageAttach as ImageAttachView;
     imageAttach.label = "📷 Attach screenshot";
     imageAttach.addEventListener("files-select", (e) => {
       void this.handleImageSelected((e as CustomEvent<{ files: FileList }>).detail.files[0]);
     });
-    this.querySelector<ImagePickerView>("#review-image-picker")?.addEventListener("clear", () => this.clearPendingImage());
+    (this.imagePicker as ImagePickerView).addEventListener("clear", () => this.clearPendingImage());
 
     this.renderFindings();
   }
@@ -65,61 +77,49 @@ export class ReviewElement extends HTMLElement {
     if (!file) {
       return;
     }
-    const imageAttach = this.querySelector<ImageAttachView>("#review-image-attach");
+    const imageAttach = this.imageAttach as ImageAttachView;
     if (!isSupportedImageType(file.type)) {
       this.showImageError("Unsupported image type - use PNG, JPEG, WebP, or GIF.");
-      imageAttach?.reset();
+      imageAttach.reset();
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
       this.showImageError(`Image too large (max ${MAX_IMAGE_MB}MB).`);
-      imageAttach?.reset();
+      imageAttach.reset();
       return;
     }
     const dataUrl = await readImageFileAsDataUrl(file);
     const parsed = parseDataUrl(dataUrl);
     if (!parsed) {
       this.showImageError("Couldn't read that image - try a different file.");
-      imageAttach?.reset();
+      imageAttach.reset();
       return;
     }
     this.hideImageError();
     this.pendingImage = parsed;
-    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
-    if (imagePicker) {
-      imagePicker.dataUrl = dataUrl;
-    }
+    (this.imagePicker as ImagePickerView).dataUrl = dataUrl;
   }
 
   private clearPendingImage(): void {
     this.pendingImage = null;
-    this.querySelector<ImageAttachView>("#review-image-attach")?.reset();
-    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
-    if (imagePicker) {
-      imagePicker.dataUrl = "";
-    }
+    (this.imageAttach as ImageAttachView).reset();
+    (this.imagePicker as ImagePickerView).dataUrl = "";
     this.hideImageError();
   }
 
   private showImageError(text: string): void {
-    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
-    if (imagePicker) {
-      imagePicker.error = text;
-    }
+    (this.imagePicker as ImagePickerView).error = text;
   }
 
   private hideImageError(): void {
-    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
-    if (imagePicker) {
-      imagePicker.error = "";
-    }
+    (this.imagePicker as ImagePickerView).error = "";
   }
 
   private async handleRun(): Promise<void> {
-    const runBtn = this.querySelector<HTMLButtonElement>("#review-run-btn");
-    if (!runBtn || !this.store) {
+    if (!this.store) {
       return;
     }
+    const runBtn = this.runBtn;
     const state = this.store.state.value;
     const activeFilePath = state.activeFilePath;
     const activeFile = activeFilePath ? state.files[activeFilePath] : undefined;
@@ -152,11 +152,15 @@ export class ReviewElement extends HTMLElement {
   }
 
   private renderFindings(): void {
-    const container = this.querySelector("#review-findings");
-    const label = this.querySelector<HTMLElement>("#review-reviewed-label");
-    if (!container || !label) {
+    // dataContext (ADR-0004) can be set on a freshly-constructed element
+    // before it's ever appended to the DOM (justjs#115's real bug,
+    // guarding proactively here) - meaning this can run before
+    // connectedCallback() ever binds this.findings/etc.
+    if (!this.findings) {
       return;
     }
+    const container = this.findings;
+    const label = this.reviewedLabel;
     const state = this.store?.state.value;
     const findings = state?.reviewFindings ?? [];
     const reviewedFilePath = state?.reviewedFilePath ?? null;
@@ -199,20 +203,12 @@ export class ReviewElement extends HTMLElement {
   }
 
   private showStatus(text: string): void {
-    const status = this.querySelector<HTMLElement>("#review-status");
-    if (!status) {
-      return;
-    }
-    status.hidden = false;
-    status.textContent = text;
+    this.status.hidden = false;
+    this.status.textContent = text;
   }
 
   private hideStatus(): void {
-    const status = this.querySelector<HTMLElement>("#review-status");
-    if (!status) {
-      return;
-    }
-    status.hidden = true;
+    this.status.hidden = true;
   }
 }
 

@@ -1,25 +1,20 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom review_component.yaml
 // Source: review_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class ReviewBase extends HTMLElement {
   static readonly tagName = 'js-review';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected findings!: HTMLDivElement;
+  protected imageAttach!: HTMLElement;
+  protected imagePicker!: HTMLElement;
+  protected reviewedLabel!: HTMLParagraphElement;
+  protected runBtn!: HTMLButtonElement;
+  protected status!: HTMLParagraphElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +36,6 @@ export class ReviewBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +52,52 @@ export class ReviewBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.findings) {
+      const __el = this.querySelector('[data-part="findings"]') as HTMLDivElement | null;
+      if (__el) {
+        this.findings = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:findings');
+      }
+    }
+    if (!this.imageAttach) {
+      const __el = this.querySelector('[data-part="image-attach"]') as HTMLElement | null;
+      if (__el) {
+        this.imageAttach = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:image-attach');
+      }
+    }
+    if (!this.imagePicker) {
+      const __el = this.querySelector('[data-part="image-picker"]') as HTMLElement | null;
+      if (__el) {
+        this.imagePicker = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:image-picker');
+      }
+    }
+    if (!this.reviewedLabel) {
+      const __el = this.querySelector('[data-part="reviewed-label"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.reviewedLabel = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:reviewed-label');
+      }
+    }
+    if (!this.runBtn) {
+      const __el = this.querySelector('[data-part="run-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.runBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:run-btn');
+      }
+    }
+    if (!this.status) {
+      const __el = this.querySelector('[data-part="status"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.status = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:review:review:status');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.findings && !!this.imageAttach && !!this.imagePicker && !!this.reviewedLabel && !!this.runBtn && !!this.status;
   }
 }
 

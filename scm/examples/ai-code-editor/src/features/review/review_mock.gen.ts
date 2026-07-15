@@ -3,10 +3,32 @@
 // Regenerate with: justw generate app
 
 export interface ReviewSampleData {
+  findings: string;
+  imageAttach: string;
+  imagePicker: string;
+  reviewedLabel: string;
+  runBtn: string;
+  status: string;
 }
 
 export const sampleData: ReviewSampleData = {
+  findings: "Sample findings",
+  imageAttach: "Sample image-attach",
+  imagePicker: "Sample image-picker",
+  reviewedLabel: "Sample reviewed-label",
+  runBtn: "Submit",
+  status: "active",
 };
 
 export function populateReview(root: HTMLElement): void {
+  const findings = root.querySelector("[data-part='findings']") as HTMLElement;
+  if (findings) findings.textContent = String(sampleData.findings);
+  const imageAttach = root.querySelector("[data-part='image-attach']") as HTMLElement;
+  if (imageAttach) imageAttach.textContent = String(sampleData.imageAttach);
+  const imagePicker = root.querySelector("[data-part='image-picker']") as HTMLElement;
+  if (imagePicker) imagePicker.textContent = String(sampleData.imagePicker);
+  const reviewedLabel = root.querySelector("[data-part='reviewed-label']") as HTMLElement;
+  if (reviewedLabel) reviewedLabel.textContent = String(sampleData.reviewedLabel);
+  const status = root.querySelector("[data-part='status']") as HTMLElement;
+  if (status) status.textContent = String(sampleData.status);
 }

@@ -2,3 +2,26 @@ name: review
 version: 1
 dom:
   tag: x-review
+  builtinStates: false
+  # No customElement.tagName override - see justjs#113's shared note
+  # (ReviewBase self-registers under its harmless default js-review;
+  # ReviewElement keeps its own explicit x-review registration).
+  elements:
+    run-btn:
+      tag: button
+      address: true
+    image-attach:
+      tag: view-image-attach
+      address: true
+    image-picker:
+      tag: view-image-picker
+      address: true
+    reviewed-label:
+      tag: p
+      address: true
+    status:
+      tag: p
+      address: true
+    findings:
+      tag: div
+      address: true
