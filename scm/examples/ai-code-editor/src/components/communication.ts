@@ -11,22 +11,17 @@ import {
   connectSlack,
   connectDiscord,
   connectTeams,
-  listSlackMessages,
   markSlackRead,
   listDiscordChannels,
   listDiscordMessages,
   listTeamsChannels,
   listTeamsMessages,
+  listSlackMessages,
 } from "../core/comms_connect.js";
 import type { CommsResource, CommsMessage } from "../core/comms_connect.js";
-import "@justjs/component-view";
-import type { BadgeView } from "@justjs/component-view";
-
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
+import "./comms_connector.js";
+import type { CommsCatalogItem, CommsConnectorControl } from "./comms_connector.js";
+import { CommunicationBase } from "../features/communication/communication_component.gen.js";
 
 interface CommsProvider {
   readonly id: string;
@@ -88,523 +83,197 @@ const COMMS_MESSAGE_LISTERS: Record<string, (token: string, channelId: string, p
   teams: (token, channelId, parentId) => listTeamsMessages(token, channelId, parentId),
 };
 
-function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
-  const badge = el as BadgeView | null;
-  if (!badge) {
-    return;
-  }
-  badge.color = p.color;
-  if (p.icon !== undefined) {
-    badge.icon = p.icon;
-  }
-  if (p.logo !== undefined) {
-    badge.logo = p.logo;
-  }
+// <control-comms-connector> (justjs#120, app-local sibling to
+// control-provider-connector/control-cloud-connector) covers the real
+// connect/channel/message drill-down. CommsResource{id,name,status,
+// archived?} already fits ListItem's shape structurally; CommsMessage
+// {id,author,text,timestamp} genuinely doesn't (a chat-message shape,
+// not name/status) - mapped explicitly below, same "author: text" in
+// name / timestamp in status layout the original's own hand-rolled
+// rows already used (checked directly, not assumed).
+function toCommsCatalogItem(p: CommsProvider): CommsCatalogItem {
+  return {
+    id: p.id,
+    name: p.name,
+    icon: p.icon,
+    color: p.color,
+    ...(p.logo !== undefined ? { logo: p.logo } : {}),
+    connected: getStoredCommsToken(p.id).length > 0,
+    fields: [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }],
+    disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
+    ...(p.tokenHint !== undefined ? { tokenHint: p.tokenHint } : {}),
+    resourceListLabel: p.kind === "channels" ? "Channels" : "Teams / Servers",
+    ...(p.kind === "guildsOrTeams" ? { hasChannelList: true } : {}),
+  };
 }
 
-const AUTO_REFRESH_OPTIONS: readonly { readonly seconds: number; readonly label: string }[] = [
-  { seconds: 0, label: "Off" },
-  { seconds: 30, label: "Every 30s" },
-  { seconds: 60, label: "Every 60s" },
-  { seconds: 120, label: "Every 2 min" },
-];
+function applyCommsArchivedFilter(list: readonly CommsResource[], hideArchived: boolean): readonly CommsResource[] {
+  return hideArchived ? list.filter((r) => !r.archived) : list;
+}
+
+async function handleCommsConnect(providerId: string, values: Readonly<Record<string, string>>): Promise<CommsResource[]> {
+  const provider = COMMS_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  const token = (values["token"] ?? "").trim() || getStoredCommsToken(providerId);
+  if (!token) {
+    throw new Error("Paste a token first.");
+  }
+  const resources = await COMMS_CONNECTORS[providerId]!(token);
+  setStoredCommsToken(providerId, token);
+  return resources;
+}
+
+function handleCommsDisconnect(providerId: string): void {
+  setStoredCommsToken(providerId, "");
+}
 
 // Communication - the 6th top-level tab. Real connect screens for
-// Slack/Discord/Microsoft Teams (reusing the same generic
-// .provider-*/.connect-*/.resource-* CSS classes workspace.ts's Cloud/
-// Repository sections already established), a real per-channel message
-// thread (Slack: channel -> messages directly; Discord/Teams: guild/
-// team -> channel list -> messages, since their own connect() only
-// returns the top-level guild/team), and a real Settings screen (gear
-// icon on the provider grid) - auto-read (Slack only, a real
-// conversations.mark call), hide-archived (Slack/Teams' own real
-// archived fields), an auto-refresh interval, and a default provider on
-// open. All 4 settings are real and self-contained in this component -
-// none of them fake a capability a provider doesn't really have.
-export class CommunicationElement extends HTMLElement {
-  private selectedProviderId: string | null = null;
-  // Discord/Teams only - the real guild/team id selected at level 1,
-  // used to fetch level 2's channel list (and, for Teams, passed again
-  // into listMessages as the required parent team id).
-  private selectedParentId: string | null = null;
-  private selectedChannelId: string | null = null;
-
-  private resources: CommsResource[] | null = null;
-  private connectError: string | null = null;
-  private connecting = false;
-
-  private channels: CommsResource[] | null = null;
-  private channelsError: string | null = null;
-  private channelsLoading = false;
-
-  private messages: CommsMessage[] | null = null;
-  private messagesError: string | null = null;
-  private messagesLoading = false;
-
-  private showSettings = false;
+// Slack/Discord/Microsoft Teams, a real per-channel message thread, and
+// a real Settings screen (gear icon on the provider grid) - auto-read
+// (Slack only, a real conversations.mark call), hide-archived (Slack/
+// Teams' own real archived fields), an auto-refresh interval, and a
+// default provider on open. All 4 settings are real and self-contained
+// in this component - none of them fake a capability a provider
+// doesn't really have.
+//
+// Extends CommunicationBase (justweb-generated, justjs#120) for real
+// value now that the actual connect/channel/message drill-down is
+// entirely owned by <control-comms-connector>, composed as one static,
+// bind-once element - same "control owns every subsequent internal
+// transition" shape socials.ts's own real migration established.
+// Settings is the one other top-level state, a permanent sibling
+// toggled via `hidden` (justjs#127's own precedent) rather than a
+// third custom-element mount, since it's a real, genuinely static form
+// (both <select>'s options are compile-time-known catalogs, hardcoded
+// directly). See justjs#113's shared note for why customElement.tagName
+// is deliberately not set (CommunicationBase self-registers under its
+// harmless default js-communication; CommunicationElement keeps its
+// own explicit x-communication registration).
+export class CommunicationElement extends CommunicationBase {
   private settings: CommsSettings = getStoredCommsSettings();
-  private refreshTimerId: ReturnType<typeof setInterval> | null = null;
 
   connectedCallback(): void {
-    if (this.settings.defaultProviderId) {
-      this.selectedProviderId = this.settings.defaultProviderId;
-    }
-    this.renderView();
-  }
-
-  disconnectedCallback(): void {
-    this.clearAutoRefresh();
-  }
-
-  private clearAutoRefresh(): void {
-    if (this.refreshTimerId !== null) {
-      clearInterval(this.refreshTimerId);
-      this.refreshTimerId = null;
-    }
-  }
-
-  // Real, bounded periodic re-fetch of whichever list is currently
-  // showing - always cleared first (never stacks timers), and only
-  // armed at all when the user has a real interval configured.
-  private scheduleAutoRefresh(refetch: () => void): void {
-    this.clearAutoRefresh();
-    if (this.settings.refreshIntervalSeconds > 0) {
-      this.refreshTimerId = setInterval(refetch, this.settings.refreshIntervalSeconds * 1000);
-    }
-  }
-
-  private renderView(): void {
-    if (this.showSettings) {
-      this.renderSettings();
-      return;
-    }
-    if (this.selectedProviderId) {
-      const provider = COMMS_PROVIDER_CATALOG.find((p) => p.id === this.selectedProviderId);
-      if (provider) {
-        if (this.selectedChannelId) {
-          this.renderMessageThread(provider);
-          return;
-        }
-        if (provider.kind === "guildsOrTeams" && this.selectedParentId) {
-          this.renderChannelList(provider);
-          return;
-        }
-        this.renderDetail(provider);
-        return;
-      }
-      this.selectedProviderId = null;
-    }
-    this.renderGrid();
-  }
-
-  private isProviderConnected(p: CommsProvider): boolean {
-    return getStoredCommsToken(p.id).length > 0;
-  }
-
-  private renderGrid(): void {
-    this.clearAutoRefresh();
     this.innerHTML = `
-      <div class="dash-subnav">
-        <h2 class="workspace-stage-title">📣 Communication</h2>
-        <button id="comms-settings-btn" class="dash-back-btn" type="button" aria-label="Communication settings">⚙️ Settings</button>
+      <div id="comms-main-view" data-part="main-view">
+        <div class="dash-subnav">
+          <h2 class="workspace-stage-title">📣 Communication</h2>
+          <button id="comms-settings-btn" data-part="settings-btn" class="dash-back-btn" type="button" aria-label="Communication settings">⚙️ Settings</button>
+        </div>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual channels/teams. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+        <control-comms-connector id="comms-connector" data-part="connector"></control-comms-connector>
       </div>
-      <p class="connect-hint">Tap a provider to connect a real account and see its actual channels/teams. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <div class="provider-grid">
-        ${COMMS_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-comms-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
+      <div id="comms-settings-view" data-part="settings-view" hidden>
+        <div class="dash-subnav">
+          <button id="comms-settings-back-btn" data-part="settings-back-btn" class="dash-back-btn" type="button">← Communication</button>
+          <h2 class="workspace-stage-title">⚙️ Settings</h2>
+        </div>
+        <div class="connect-form">
+          <label class="field">
+            <input id="comms-setting-auto-read" data-part="setting-auto-read" type="checkbox" />
+            <span class="field-label">Slack: automatically mark a channel read when you open it</span>
+          </label>
+          <p class="connect-hint">Calls Slack's real conversations.mark - moves the bot's own read cursor for the channel, not a human user's (this app connects as a bot, which has no way to mark read-state on a person's behalf). Has no effect for Discord/Teams - neither has any real read-state a bot/app token can see or set.</p>
+
+          <label class="field">
+            <input id="comms-setting-hide-archived" data-part="setting-hide-archived" type="checkbox" />
+            <span class="field-label">Slack &amp; Teams: hide archived channels</span>
+          </label>
+          <p class="connect-hint">Filters out channels Slack's/Teams' own API reports as archived. Has no effect for Discord - it has no real archived concept for a bot token.</p>
+
+          <label class="field">
+            <span class="field-label">Auto-refresh</span>
+            <select id="comms-setting-refresh-interval" data-part="setting-refresh-interval">
+              <option value="0">Off</option>
+              <option value="30">Every 30s</option>
+              <option value="60">Every 60s</option>
+              <option value="120">Every 2 min</option>
+            </select>
+          </label>
+          <p class="connect-hint">Periodically re-fetches whichever list is on screen (channels or messages) - stops as soon as you leave that screen.</p>
+
+          <label class="field">
+            <span class="field-label">Default provider on open</span>
+            <select id="comms-setting-default-provider" data-part="setting-default-provider">
+              <option value="">None - always show the provider grid</option>
+              <option value="slack">Slack</option>
+              <option value="discord">Discord</option>
+              <option value="teams">Microsoft Teams</option>
+            </select>
+          </label>
+        </div>
       </div>
     `;
+    // Binds this.mainView/settingsBtn/connector/settingsView/
+    // settingsBackBtn/settingAutoRead/settingHideArchived/
+    // settingRefreshInterval/settingDefaultProvider via real data-part
+    // lookups - must run after the markup above exists, since
+    // CommunicationBase's own connectedCallback() calls
+    // _bindElements() synchronously.
+    super.connectedCallback();
 
-    this.querySelector("#comms-settings-btn")?.addEventListener("click", () => {
-      this.showSettings = true;
-      this.renderView();
+    this.settingAutoRead.checked = this.settings.autoRead;
+    this.settingHideArchived.checked = this.settings.hideArchived;
+    this.settingRefreshInterval.value = String(this.settings.refreshIntervalSeconds);
+    this.settingDefaultProvider.value = this.settings.defaultProviderId;
+
+    this.settingsBtn.addEventListener("click", () => {
+      this.mainView.hidden = true;
+      this.settingsView.hidden = false;
     });
-    this.querySelectorAll<HTMLButtonElement>("[data-comms-provider-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.commsProviderId;
-        if (!id) {
-          return;
-        }
-        this.selectedProviderId = id;
-        this.selectedParentId = null;
-        this.selectedChannelId = null;
-        this.resources = null;
-        this.connectError = null;
-        this.channels = null;
-        this.channelsError = null;
-        this.messages = null;
-        this.messagesError = null;
-        this.renderView();
-      });
-    });
-    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
-      const provider = COMMS_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
-      if (provider) {
-        setBadgeProps(el, provider);
-      }
-    });
-  }
-
-  // ---- Settings (gear icon on the grid) ----
-
-  private renderSettings(): void {
-    this.clearAutoRefresh();
-    this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="comms-settings-back-btn" class="dash-back-btn" type="button">← Communication</button>
-        <h2 class="workspace-stage-title">⚙️ Settings</h2>
-      </div>
-      <div class="connect-form">
-        <label class="field">
-          <input id="comms-setting-auto-read" type="checkbox" ${this.settings.autoRead ? "checked" : ""} />
-          <span class="field-label">Slack: automatically mark a channel read when you open it</span>
-        </label>
-        <p class="connect-hint">Calls Slack's real conversations.mark - moves the bot's own read cursor for the channel, not a human user's (this app connects as a bot, which has no way to mark read-state on a person's behalf). Has no effect for Discord/Teams - neither has any real read-state a bot/app token can see or set.</p>
-
-        <label class="field">
-          <input id="comms-setting-hide-archived" type="checkbox" ${this.settings.hideArchived ? "checked" : ""} />
-          <span class="field-label">Slack &amp; Teams: hide archived channels</span>
-        </label>
-        <p class="connect-hint">Filters out channels Slack's/Teams' own API reports as archived. Has no effect for Discord - it has no real archived concept for a bot token.</p>
-
-        <label class="field">
-          <span class="field-label">Auto-refresh</span>
-          <select id="comms-setting-refresh-interval">
-            ${AUTO_REFRESH_OPTIONS.map((o) => `<option value="${o.seconds}" ${o.seconds === this.settings.refreshIntervalSeconds ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
-          </select>
-        </label>
-        <p class="connect-hint">Periodically re-fetches whichever list is on screen (channels or messages) - stops as soon as you leave that screen.</p>
-
-        <label class="field">
-          <span class="field-label">Default provider on open</span>
-          <select id="comms-setting-default-provider">
-            <option value="" ${this.settings.defaultProviderId === "" ? "selected" : ""}>None - always show the provider grid</option>
-            ${COMMS_PROVIDER_CATALOG.map((p) => `<option value="${p.id}" ${p.id === this.settings.defaultProviderId ? "selected" : ""}>${escapeHtml(p.name)}</option>`).join("")}
-          </select>
-        </label>
-      </div>
-    `;
-
-    this.querySelector("#comms-settings-back-btn")?.addEventListener("click", () => {
-      this.showSettings = false;
-      this.renderView();
+    this.settingsBackBtn.addEventListener("click", () => {
+      this.settingsView.hidden = true;
+      this.mainView.hidden = false;
     });
 
-    const persist = (partial: Partial<CommsSettings>) => {
+    const persist = (partial: Partial<CommsSettings>): void => {
       this.settings = { ...this.settings, ...partial };
       setStoredCommsSettings(this.settings);
     };
-    this.querySelector<HTMLInputElement>("#comms-setting-auto-read")?.addEventListener("change", (e) => {
-      persist({ autoRead: (e.target as HTMLInputElement).checked });
+    this.settingAutoRead.addEventListener("change", () => persist({ autoRead: this.settingAutoRead.checked }));
+    this.settingHideArchived.addEventListener("change", () => persist({ hideArchived: this.settingHideArchived.checked }));
+    this.settingRefreshInterval.addEventListener("change", () => {
+      const seconds = Number(this.settingRefreshInterval.value);
+      persist({ refreshIntervalSeconds: seconds });
+      (this.connector as CommsConnectorControl).refreshIntervalSeconds = seconds;
     });
-    this.querySelector<HTMLInputElement>("#comms-setting-hide-archived")?.addEventListener("change", (e) => {
-      persist({ hideArchived: (e.target as HTMLInputElement).checked });
-    });
-    this.querySelector<HTMLSelectElement>("#comms-setting-refresh-interval")?.addEventListener("change", (e) => {
-      persist({ refreshIntervalSeconds: Number((e.target as HTMLSelectElement).value) });
-    });
-    this.querySelector<HTMLSelectElement>("#comms-setting-default-provider")?.addEventListener("change", (e) => {
-      persist({ defaultProviderId: (e.target as HTMLSelectElement).value });
-    });
-  }
+    this.settingDefaultProvider.addEventListener("change", () => persist({ defaultProviderId: this.settingDefaultProvider.value }));
 
-  // ---- Level 1: provider connect screen (real channels for Slack,
-  // real guilds/teams for Discord/Teams) ----
-
-  private renderDetail(provider: CommsProvider): void {
-    const connected = this.isProviderConnected(provider);
-    const tokenHint = provider.tokenHint
-      ? `<p class="connect-hint">Get a real token: <code>${escapeHtml(provider.tokenHint.command)}</code> - expires in ${escapeHtml(provider.tokenHint.expiry)}, re-run and reconnect once it does.</p>`
-      : "";
-
-    this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="comms-back-btn" class="dash-back-btn" type="button">← Communication</button>
-        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
-      <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
-      ${tokenHint}
-      <div class="connect-form">
-        <input id="comms-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />
-        <div class="connect-actions">
-          <button id="comms-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="comms-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="comms-connect-status" class="connect-status${this.connectError ? " connect-status-error" : ""}">${this.connecting ? "Connecting…" : this.connectError ? `⚠️ ${escapeHtml(this.connectError)}` : ""}</p>
-      </div>
-      ${this.renderResourceList(provider)}
-    `;
-    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
-
-    this.querySelector("#comms-back-btn")?.addEventListener("click", () => {
-      this.selectedProviderId = null;
-      this.renderView();
-    });
-    this.querySelector("#comms-connect-btn")?.addEventListener("click", () => {
-      void this.handleConnect(provider);
-    });
-    this.querySelector("#comms-disconnect-btn")?.addEventListener("click", () => {
-      setStoredCommsToken(provider.id, "");
-      this.resources = null;
-      this.connectError = null;
-      this.renderView();
-    });
-    this.querySelectorAll<HTMLButtonElement>("[data-resource-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.resourceId;
-        if (!id) {
-          return;
-        }
-        if (provider.kind === "channels") {
-          this.selectedChannelId = id;
-        } else {
-          this.selectedParentId = id;
-        }
-        this.renderView();
-      });
-    });
-
-    // Already connected (a token was saved in a previous session) and
-    // nothing fetched yet this visit - fetch automatically, same
-    // lazy-validation posture as workspace.ts's Cloud/Repository screens.
-    if (connected && !this.resources && !this.connectError && !this.connecting) {
-      void this.handleConnect(provider);
-    } else if (this.resources) {
-      this.scheduleAutoRefresh(() => void this.handleConnect(provider));
-    }
-  }
-
-  private applyArchivedFilter(list: readonly CommsResource[]): readonly CommsResource[] {
-    return this.settings.hideArchived ? list.filter((r) => !r.archived) : list;
-  }
-
-  private renderResourceList(provider: CommsProvider): string {
-    if (!this.resources) {
-      return "";
-    }
-    const visible = this.applyArchivedFilter(this.resources);
-    const label = provider.kind === "channels" ? "Channels" : "Teams / Servers";
-    const rows =
-      visible.length === 0
-        ? `<p class="connect-hint">Connected - no results found${this.settings.hideArchived ? " (archived channels are hidden - see Settings)" : ""}.</p>`
-        : `<ul class="resource-list">
-            ${visible
-              .map(
-                (r) => `
-                  <li class="resource-row">
-                    <button type="button" class="resource-open-btn" data-resource-id="${r.id}">
-                      <span class="resource-name">${escapeHtml(r.name)}</span>
-                      <span class="resource-status">${escapeHtml(r.status)}</span>
-                    </button>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>`;
-    return `<h3 class="resource-list-label">${label}</h3>${rows}`;
-  }
-
-  private async handleConnect(provider: CommsProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#comms-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#comms-connect-btn");
-    const tokenInput = this.querySelector<HTMLInputElement>("#comms-connect-token");
-    const token = tokenInput?.value.trim() || getStoredCommsToken(provider.id);
-    if (!token) {
-      this.connectError = "Paste a token first.";
-      this.renderView();
-      return;
-    }
-
-    this.connecting = true;
-    this.connectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
-    try {
-      const resources = await COMMS_CONNECTORS[provider.id]!(token);
-      setStoredCommsToken(provider.id, token);
-      this.resources = resources;
-      this.connectError = null;
-    } catch (e) {
-      this.connectError = e instanceof Error ? e.message : String(e);
-      this.resources = null;
-    } finally {
-      this.connecting = false;
-      this.renderView();
-    }
-  }
-
-  // ---- Level 2 (Discord/Teams only): real channel list within the
-  // selected guild/team ----
-
-  private renderChannelList(provider: CommsProvider): void {
-    this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="comms-channels-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(provider.name)}</button>
-        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> Channels</h2>
-      </div>
-      <p id="comms-channels-status" class="connect-status${this.channelsError ? " connect-status-error" : ""}">${this.channelsLoading ? "Loading…" : this.channelsError ? `⚠️ ${escapeHtml(this.channelsError)}` : ""}</p>
-      ${this.renderChannelRows()}
-    `;
-    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
-
-    this.querySelector("#comms-channels-back-btn")?.addEventListener("click", () => {
-      this.selectedParentId = null;
-      this.channels = null;
-      this.channelsError = null;
-      this.renderView();
-    });
-    this.querySelectorAll<HTMLButtonElement>("[data-channel-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.channelId;
-        if (id) {
-          this.selectedChannelId = id;
-          this.renderView();
-        }
-      });
-    });
-
-    if (!this.channels && !this.channelsError && !this.channelsLoading) {
-      void this.handleListChannels(provider);
-    } else if (this.channels) {
-      this.scheduleAutoRefresh(() => void this.handleListChannels(provider));
-    }
-  }
-
-  private renderChannelRows(): string {
-    if (!this.channels) {
-      return "";
-    }
-    const visible = this.applyArchivedFilter(this.channels);
-    if (visible.length === 0) {
-      return `<p class="connect-hint">No channels found${this.settings.hideArchived ? " (archived channels are hidden - see Settings)" : ""}.</p>`;
-    }
-    return `<ul class="resource-list">
-      ${visible
-        .map(
-          (c) => `
-            <li class="resource-row">
-              <button type="button" class="resource-open-btn" data-channel-id="${c.id}">
-                <span class="resource-name">${escapeHtml(c.name)}</span>
-                <span class="resource-status">${escapeHtml(c.status)}</span>
-              </button>
-            </li>
-          `,
-        )
-        .join("")}
-    </ul>`;
-  }
-
-  private async handleListChannels(provider: CommsProvider): Promise<void> {
-    if (!this.selectedParentId) {
-      return;
-    }
-    const token = getStoredCommsToken(provider.id);
-    this.channelsLoading = true;
-    this.channelsError = null;
-    this.renderView();
-    try {
-      this.channels = await COMMS_CHANNEL_LISTERS[provider.id]!(token, this.selectedParentId);
-      this.channelsError = null;
-    } catch (e) {
-      this.channelsError = e instanceof Error ? e.message : String(e);
-      this.channels = null;
-    } finally {
-      this.channelsLoading = false;
-      this.renderView();
-    }
-  }
-
-  // ---- Level 3 (all providers): real per-channel message thread ----
-
-  private renderMessageThread(provider: CommsProvider): void {
-    const backTarget = provider.kind === "guildsOrTeams" ? "Channels" : provider.name;
-    this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="comms-messages-back-btn" class="dash-back-btn" type="button">← ${escapeHtml(backTarget)}</button>
-        <h2 class="workspace-stage-title"><view-badge id="comms-header-badge"></view-badge> Messages</h2>
-      </div>
-      <p id="comms-messages-status" class="connect-status${this.messagesError ? " connect-status-error" : ""}">${this.messagesLoading ? "Loading…" : this.messagesError ? `⚠️ ${escapeHtml(this.messagesError)}` : ""}</p>
-      ${this.renderMessageRows()}
-    `;
-    setBadgeProps(this.querySelector("#comms-header-badge"), provider);
-
-    this.querySelector("#comms-messages-back-btn")?.addEventListener("click", () => {
-      this.selectedChannelId = null;
-      this.messages = null;
-      this.messagesError = null;
-      this.renderView();
-    });
-
-    if (!this.messages && !this.messagesError && !this.messagesLoading) {
-      void this.handleListMessages(provider);
-    } else if (this.messages) {
-      this.scheduleAutoRefresh(() => void this.handleListMessages(provider));
-    }
-  }
-
-  private renderMessageRows(): string {
-    if (!this.messages) {
-      return "";
-    }
-    if (this.messages.length === 0) {
-      return `<p class="connect-hint">No messages found.</p>`;
-    }
-    return `<ul class="resource-list">
-      ${this.messages
-        .map(
-          (m) => `
-            <li class="resource-row">
-              <span class="resource-name">${escapeHtml(m.author)}: ${escapeHtml(m.text)}</span>
-              <span class="resource-status">${escapeHtml(m.timestamp)}</span>
-            </li>
-          `,
-        )
-        .join("")}
-    </ul>`;
-  }
-
-  private async handleListMessages(provider: CommsProvider): Promise<void> {
-    if (!this.selectedChannelId) {
-      return;
-    }
-    const token = getStoredCommsToken(provider.id);
-    this.messagesLoading = true;
-    this.messagesError = null;
-    this.renderView();
-    try {
-      const messages = await COMMS_MESSAGE_LISTERS[provider.id]!(token, this.selectedChannelId, this.selectedParentId ?? "");
-      this.messages = messages;
-      this.messagesError = null;
+    const connector = this.connector as CommsConnectorControl;
+    connector.providers = COMMS_PROVIDER_CATALOG.map(toCommsCatalogItem);
+    connector.connect = handleCommsConnect;
+    connector.list = async (_providerId, session) => applyCommsArchivedFilter(session as CommsResource[], this.settings.hideArchived);
+    connector.disconnect = handleCommsDisconnect;
+    connector.listChannels = async (providerId, parentId) => {
+      const token = getStoredCommsToken(providerId);
+      const channels = await COMMS_CHANNEL_LISTERS[providerId]!(token, parentId);
+      return applyCommsArchivedFilter(channels, this.settings.hideArchived);
+    };
+    connector.listMessages = async (providerId, channelId, parentId) => {
+      const token = getStoredCommsToken(providerId);
+      const messages = await COMMS_MESSAGE_LISTERS[providerId]!(token, channelId, parentId);
       // Real, Slack-only auto-read (see Settings) - marks the bot's own
       // read cursor up to the newest message (Slack's conversations.history
       // returns newest-first by default, matching Discord's own
       // confirmed convention).
-      if (provider.id === "slack" && this.settings.autoRead && messages.length > 0) {
+      if (providerId === "slack" && this.settings.autoRead && messages.length > 0) {
         try {
-          await markSlackRead(token, this.selectedChannelId, messages[0]!.timestamp);
+          await markSlackRead(token, channelId, messages[0]!.timestamp);
         } catch {
           // Real, best-effort only - a failed auto-read call shouldn't
           // block or error out an otherwise-successful message fetch.
         }
       }
-    } catch (e) {
-      this.messagesError = e instanceof Error ? e.message : String(e);
-      this.messages = null;
-    } finally {
-      this.messagesLoading = false;
-      this.renderView();
+      return messages.map((m) => ({ id: m.id, name: `${m.author}: ${m.text}`, status: m.timestamp }));
+    };
+    connector.catalogLabel = "Communication";
+    connector.refreshIntervalSeconds = this.settings.refreshIntervalSeconds;
+
+    // Real "default provider on open" - jumps straight to that
+    // provider's own connect screen instead of the grid.
+    if (this.settings.defaultProviderId) {
+      connector.openProvider(this.settings.defaultProviderId);
     }
   }
 }

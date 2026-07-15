@@ -3,10 +3,42 @@
 // Regenerate with: justw generate app
 
 export interface CommunicationSampleData {
+  connector: string;
+  mainView: string;
+  settingAutoRead: string;
+  settingDefaultProvider: string;
+  settingHideArchived: string;
+  settingRefreshInterval: string;
+  settingsBackBtn: string;
+  settingsBtn: string;
+  settingsView: string;
 }
 
 export const sampleData: CommunicationSampleData = {
+  connector: "Sample connector",
+  mainView: "Sample main-view",
+  settingAutoRead: "Sample setting-auto-read",
+  settingDefaultProvider: "option-1",
+  settingHideArchived: "ID-001",
+  settingRefreshInterval: "option-1",
+  settingsBackBtn: "Submit",
+  settingsBtn: "Submit",
+  settingsView: "Sample settings-view",
 };
 
 export function populateCommunication(root: HTMLElement): void {
+  const connector = root.querySelector("[data-part='connector']") as HTMLElement;
+  if (connector) connector.textContent = String(sampleData.connector);
+  const mainView = root.querySelector("[data-part='main-view']") as HTMLElement;
+  if (mainView) mainView.textContent = String(sampleData.mainView);
+  const settingAutoRead = root.querySelector("[data-part='setting-auto-read']") as HTMLInputElement;
+  if (settingAutoRead) settingAutoRead.value = String(sampleData.settingAutoRead);
+  const settingDefaultProvider = root.querySelector("[data-part='setting-default-provider']") as HTMLSelectElement;
+  if (settingDefaultProvider) settingDefaultProvider.value = String(sampleData.settingDefaultProvider);
+  const settingHideArchived = root.querySelector("[data-part='setting-hide-archived']") as HTMLInputElement;
+  if (settingHideArchived) settingHideArchived.value = String(sampleData.settingHideArchived);
+  const settingRefreshInterval = root.querySelector("[data-part='setting-refresh-interval']") as HTMLSelectElement;
+  if (settingRefreshInterval) settingRefreshInterval.value = String(sampleData.settingRefreshInterval);
+  const settingsView = root.querySelector("[data-part='settings-view']") as HTMLElement;
+  if (settingsView) settingsView.textContent = String(sampleData.settingsView);
 }

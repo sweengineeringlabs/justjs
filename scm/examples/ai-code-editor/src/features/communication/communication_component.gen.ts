@@ -1,25 +1,23 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom communication_component.yaml
 // Source: communication_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class CommunicationBase extends HTMLElement {
   static readonly tagName = 'js-communication';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected connector!: HTMLElement;
+  protected mainView!: HTMLDivElement;
+  protected settingAutoRead!: HTMLInputElement;
+  protected settingDefaultProvider!: HTMLSelectElement;
+  protected settingHideArchived!: HTMLInputElement;
+  protected settingRefreshInterval!: HTMLSelectElement;
+  protected settingsBackBtn!: HTMLButtonElement;
+  protected settingsBtn!: HTMLButtonElement;
+  protected settingsView!: HTMLDivElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +39,6 @@ export class CommunicationBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +55,73 @@ export class CommunicationBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.connector) {
+      const __el = this.querySelector('[data-part="connector"]') as HTMLElement | null;
+      if (__el) {
+        this.connector = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:connector');
+      }
+    }
+    if (!this.mainView) {
+      const __el = this.querySelector('[data-part="main-view"]') as HTMLDivElement | null;
+      if (__el) {
+        this.mainView = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:main-view');
+      }
+    }
+    if (!this.settingAutoRead) {
+      const __el = this.querySelector('[data-part="setting-auto-read"]') as HTMLInputElement | null;
+      if (__el) {
+        this.settingAutoRead = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:setting-auto-read');
+      }
+    }
+    if (!this.settingDefaultProvider) {
+      const __el = this.querySelector('[data-part="setting-default-provider"]') as HTMLSelectElement | null;
+      if (__el) {
+        this.settingDefaultProvider = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:setting-default-provider');
+      }
+    }
+    if (!this.settingHideArchived) {
+      const __el = this.querySelector('[data-part="setting-hide-archived"]') as HTMLInputElement | null;
+      if (__el) {
+        this.settingHideArchived = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:setting-hide-archived');
+      }
+    }
+    if (!this.settingRefreshInterval) {
+      const __el = this.querySelector('[data-part="setting-refresh-interval"]') as HTMLSelectElement | null;
+      if (__el) {
+        this.settingRefreshInterval = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:setting-refresh-interval');
+      }
+    }
+    if (!this.settingsBackBtn) {
+      const __el = this.querySelector('[data-part="settings-back-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.settingsBackBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:settings-back-btn');
+      }
+    }
+    if (!this.settingsBtn) {
+      const __el = this.querySelector('[data-part="settings-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.settingsBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:settings-btn');
+      }
+    }
+    if (!this.settingsView) {
+      const __el = this.querySelector('[data-part="settings-view"]') as HTMLDivElement | null;
+      if (__el) {
+        this.settingsView = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:communication:communication:settings-view');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.connector && !!this.mainView && !!this.settingAutoRead && !!this.settingDefaultProvider && !!this.settingHideArchived && !!this.settingRefreshInterval && !!this.settingsBackBtn && !!this.settingsBtn && !!this.settingsView;
   }
 }
 

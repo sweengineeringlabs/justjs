@@ -2,3 +2,48 @@ name: communication
 version: 1
 dom:
   tag: x-communication
+  builtinStates: false
+  # No customElement.tagName override - see justjs#113's shared note
+  # (CommunicationBase self-registers under its harmless default
+  # js-communication; CommunicationElement keeps its own explicit
+  # x-communication registration).
+  #
+  # The real connect/channel/message drill-down (grid -> detail ->
+  # [channels] -> messages) is entirely owned by <control-comms-connector>
+  # (justjs#120, app-local sibling to control-provider-connector/
+  # control-cloud-connector), composed here as one static, bind-once
+  # element - same "control owns every subsequent internal transition"
+  # shape socials.ts's own real migration already established. Settings
+  # (gear icon) is the one other top-level state, a real static form
+  # (both <select>'s options are compile-time-known catalogs, hardcoded
+  # directly rather than rendered per-visit) - main-view/settings-view
+  # are permanent siblings toggled via `hidden`, matching workspace.ts's
+  # own overview/function-list/subscreen-view pattern (justjs#127).
+  elements:
+    main-view:
+      tag: div
+      address: true
+    settings-btn:
+      tag: button
+      address: true
+    connector:
+      tag: control-comms-connector
+      address: true
+    settings-view:
+      tag: div
+      address: true
+    settings-back-btn:
+      tag: button
+      address: true
+    setting-auto-read:
+      tag: input
+      address: true
+    setting-hide-archived:
+      tag: input
+      address: true
+    setting-refresh-interval:
+      tag: select
+      address: true
+    setting-default-provider:
+      tag: select
+      address: true

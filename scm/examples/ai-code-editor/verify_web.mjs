@@ -1169,42 +1169,65 @@ await sleep(20);
 // via @justjs/comms-connect this time. No token is set anywhere in
 // this run, so this proves the real "paste a token first" error path,
 // not a live external network call.
+// control-comms-connector (justjs#120) owns its own Shadow DOM - every
+// lookup below traverses into it (and, for the provider grid/resource
+// rows, further-nested view-grid's/view-list's own shadow roots - a
+// real 3-level nesting: #mount-communication (light) ->
+// control-comms-connector (shadow) -> view-grid/view-list (each with
+// its own further-nested shadow root), same pattern SCM/PM/Cloud/
+// Socials already established. Settings stays light-DOM, now a real
+// static sibling (justjs#127's own precedent) instead of torn down and
+// rebuilt - every #comms-setting-*/#comms-settings-* id below is
+// unchanged from before this migration.
+function commsConnectorShadow() {
+  return document.querySelector("#mount-communication control-comms-connector")?.shadowRoot ?? null;
+}
+function commsGridShadow() {
+  return commsConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
+}
+function commsListShadow() {
+  return commsConnectorShadow()?.querySelector("view-list")?.shadowRoot ?? null;
+}
+function clickCommsBackButton() {
+  commsConnectorShadow()?.querySelector("view-nav-header")?.shadowRoot?.querySelector(".back-btn")?.click();
+}
+
 document.querySelector('.nav-btn[data-route="/communication"]').click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/communication"]').classList.contains("active"), "tapping the Comms tab navigates to the real Communication route");
 assert(document.getElementById("mount-communication").classList.contains("active"), "the Communication mount is now the active page");
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Communication"),
+  document.querySelector("#comms-main-view .workspace-stage-title").textContent.includes("Communication"),
   "Communication renders its own real provider grid directly, not a stub"
 );
-const commsProviderCards = [...document.querySelectorAll("#mount-communication .provider-card")];
-const commsProviderNames = commsProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+const commsProviderTiles = [...commsGridShadow().querySelectorAll(".tile")];
+const commsProviderNames = commsProviderTiles.map((el) => el.querySelector(".tile-label").textContent);
 assert(
   commsProviderNames.includes("Slack") && commsProviderNames.includes("Discord") && commsProviderNames.includes("Microsoft Teams"),
   `Communication opens a real catalog of actual communication providers (found ${commsProviderNames.join(", ")})`
 );
-assert(commsProviderCards.every((el) => !el.classList.contains("selected")), "no communication provider shows as Connected before any token is ever saved");
+assert(commsProviderTiles.every((el) => !el.classList.contains("selected")), "no communication provider shows as Connected before any token is ever saved");
 
-const slackCard = document.querySelector('[data-comms-provider-id="slack"]');
-slackCard.click();
+commsGridShadow().querySelector('[data-id="slack"]').click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Slack"),
+  commsConnectorShadow().querySelector("view-nav-header").textContent.includes("Slack"),
   "tapping a provider card opens that provider's own connect screen"
 );
-assert(document.getElementById("comms-connect-token") !== null, "Slack shows a single token input, same shape as a bearer-token cloud/SCM provider");
-document.getElementById("comms-connect-btn").click();
+let commsForm = commsConnectorShadow().querySelector("view-form");
+assert(commsForm.shadowRoot.querySelector('[data-field-id="token"]') !== null, "Slack shows a single token input, same shape as a bearer-token cloud/SCM provider");
+commsForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("comms-connect-status").textContent.includes("Paste a token first"),
+  commsConnectorShadow().querySelector("view-status-line").text.includes("Paste a token first"),
   "connecting with an empty token shows a real, actionable error, not a silent no-op"
 );
-assert(document.querySelector("#mount-communication .resource-list") === null, "no channel/team list renders without a real successful connect");
+assert(commsConnectorShadow().querySelector("view-list") === null, "no channel/team list renders without a real successful connect");
 
-document.getElementById("comms-back-btn").click();
+clickCommsBackButton();
 await sleep(20);
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Communication"),
+  commsConnectorShadow().querySelector("view-nav-header") === null,
   "a provider's own back button returns to the Communication grid"
 );
 
@@ -1217,7 +1240,7 @@ assert(
 document.getElementById("comms-settings-btn").click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Settings"),
+  document.querySelector("#comms-settings-view .workspace-stage-title").textContent.includes("Settings"),
   "the gear icon opens a real Settings screen, not a stub"
 );
 assert(
@@ -1269,28 +1292,29 @@ globalThis.fetch = async (input, init) => {
   throw new Error(`verify_web.mjs: unexpected fetch in the Slack messages mock: ${url}`);
 };
 
-document.querySelector('[data-comms-provider-id="slack"]').click();
+commsGridShadow().querySelector('[data-id="slack"]').click();
 await sleep(20);
-document.getElementById("comms-connect-token").value = "fake-slack-token";
-document.getElementById("comms-connect-btn").click();
+commsForm = commsConnectorShadow().querySelector("view-form");
+commsForm.shadowRoot.querySelector('[data-field-id="token"]').value = "fake-slack-token";
+commsForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(30);
-assert(document.querySelector("#mount-communication .resource-open-btn") !== null, "a real successful connect shows the real channel list as drillable rows");
-document.querySelector("#mount-communication .resource-open-btn").click();
+assert(commsListShadow().querySelector(".resource-open-btn") !== null, "a real successful connect shows the real channel list as drillable rows");
+commsListShadow().querySelector(".resource-open-btn").click();
 await sleep(30);
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Messages"),
+  commsConnectorShadow().querySelector("view-nav-header").textContent.includes("Messages"),
   "tapping a Slack channel opens its own real message thread directly - no intermediate channel-list level, unlike Discord/Teams"
 );
 assert(
-  document.querySelector("#mount-communication .resource-name")?.textContent.includes("hello there"),
+  commsListShadow().querySelector(".resource-name")?.textContent.includes("hello there"),
   "the real message list renders the mocked API's actual message content"
 );
 assert(slackMarkCalls.length === 1 && slackMarkCalls[0].channel === "C1" && slackMarkCalls[0].ts === "111.222", "auto-read (enabled in Settings above) really called Slack's own conversations.mark with the real channel and latest message timestamp");
 globalThis.fetch = slackOriginalFetch;
 
-document.getElementById("comms-messages-back-btn").click();
+clickCommsBackButton();
 await sleep(20);
-document.getElementById("comms-back-btn").click();
+clickCommsBackButton();
 await sleep(20);
 
 // Real end-to-end mocked-fetch Discord proof - unlike Slack, Discord's
@@ -1312,31 +1336,56 @@ globalThis.fetch = async (input) => {
   throw new Error(`verify_web.mjs: unexpected fetch in the Discord messages mock: ${url}`);
 };
 
-document.querySelector('[data-comms-provider-id="discord"]').click();
+commsGridShadow().querySelector('[data-id="discord"]').click();
 await sleep(20);
-document.getElementById("comms-connect-token").value = "fake-discord-token";
-document.getElementById("comms-connect-btn").click();
+commsForm = commsConnectorShadow().querySelector("view-form");
+commsForm.shadowRoot.querySelector('[data-field-id="token"]').value = "fake-discord-token";
+commsForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(30);
-document.querySelector("#mount-communication .resource-open-btn").click();
+commsListShadow().querySelector(".resource-open-btn").click();
 await sleep(30);
 assert(
-  document.querySelector("#mount-communication .workspace-stage-title").textContent.includes("Channels"),
+  commsConnectorShadow().querySelector("view-nav-header").textContent.includes("Channels"),
   "tapping a Discord guild opens a real intermediate channel-list level, not straight to messages like Slack"
 );
-assert(document.querySelector("#mount-communication .resource-open-btn")?.textContent.includes("general"), "the real channel list shows the mocked API's actual channel");
-document.querySelector("#mount-communication .resource-open-btn").click();
+assert(commsListShadow().querySelector(".resource-open-btn")?.textContent.includes("general"), "the real channel list shows the mocked API's actual channel");
+commsListShadow().querySelector(".resource-open-btn").click();
 await sleep(30);
 assert(
-  document.querySelector("#mount-communication .resource-name")?.textContent.includes("hey"),
+  commsListShadow().querySelector(".resource-name")?.textContent.includes("hey"),
   "tapping a Discord channel shows its own real message list"
 );
 globalThis.fetch = discordOriginalFetch;
 
-document.getElementById("comms-messages-back-btn").click();
+clickCommsBackButton();
 await sleep(20);
-document.getElementById("comms-channels-back-btn").click();
+clickCommsBackButton();
 await sleep(20);
-document.getElementById("comms-back-btn").click();
+clickCommsBackButton();
+await sleep(20);
+
+// control-comms-connector (justjs#120) is a real, static, bind-once
+// element (not cached/recreated like workspace.ts's own sub-screens
+// had to be) - a real keep-alive router tab switch should trivially
+// preserve its internal state, same proof pattern as Socials' own
+// keep-alive test right below.
+commsGridShadow().querySelector('[data-id="slack"]').click();
+await sleep(20);
+assert(commsConnectorShadow().querySelector("view-nav-header").textContent.includes("Slack"), "selecting Slack (already connected above) before switching away leaves its detail screen showing");
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Communication to Editor");
+document.querySelector('.nav-btn[data-route="/communication"]').click();
+await sleep(20);
+assert(
+  commsConnectorShadow().querySelector("view-nav-header").textContent.includes("Slack"),
+  "switching back to Communication still shows Slack's detail screen, not reset to the grid - real keep-alive router proof, not just asserted"
+);
+clickCommsBackButton();
+await sleep(20);
+assert(commsConnectorShadow().querySelector("view-nav-header") === null, "back button still returns to the grid after the tab-switch round trip");
+
+document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
 
 // 1f. Socials proof - the 7th top-level tab (not nested inside
