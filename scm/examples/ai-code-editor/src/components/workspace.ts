@@ -65,7 +65,9 @@ import {
 import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConnect } from "../core/pm_connect.js";
 import type { PmResource } from "../core/pm_connect.js";
 import "@justjs/component-view";
-import type { BadgeView, GridView } from "@justjs/component-view";
+import type { BadgeView, GridView, NavHeaderView } from "@justjs/component-view";
+import "@justjs/provider-connect";
+import type { ProviderCatalogItem, ProviderConnectorControl } from "@justjs/provider-connect";
 import "./cli_terminal.js";
 import type { CliTerminalControl } from "./cli_terminal.js";
 import "./doc_generator_control.js";
@@ -228,6 +230,44 @@ const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> 
   gitlab: connectGitlab,
   bitbucket: connectBitbucket,
 };
+
+// <control-provider-connector> (@justjs/provider-connect, justjs#97)
+// covers this exact "provider grid -> single bearer-token form ->
+// resource list" shape with zero extension needed - confirmed during
+// justjs#124's real migration, not assumed. ScmResource{id,name,status}
+// already matches ListItem's shape exactly (deliberately, see
+// scm-connect's own provider.ts comment), so list() below is a pure
+// cast, same as socials.ts's own real usage.
+function toScmCatalogItem(p: ScmProvider): ProviderCatalogItem {
+  return {
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    logo: p.logo,
+    connected: getStoredScmToken(p.id).length > 0,
+    fields: [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }],
+    disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
+    resourceListLabel: "Repositories",
+  };
+}
+
+async function handleScmConnect(providerId: string, values: Readonly<Record<string, string>>): Promise<ScmResource[]> {
+  const provider = SCM_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  const token = (values["token"] ?? "").trim() || getStoredScmToken(providerId);
+  if (!token) {
+    throw new Error("Paste a token first.");
+  }
+  const resources = await SCM_CONNECTORS[providerId]!(token);
+  setStoredScmToken(providerId, token);
+  return resources;
+}
+
+function handleScmDisconnect(providerId: string): void {
+  setStoredScmToken(providerId, "");
+}
 
 interface PmProvider {
   readonly id: string;
@@ -401,15 +441,18 @@ export class WorkspaceElement extends HTMLElement {
   private cloudDeployError: string | null = null;
   private cloudDeploying = false;
 
-  // Development's Repository - the source-control equivalent of the
-  // Cloud state above (see SCM_PROVIDER_CATALOG), same shape minus
-  // AWS's two-field/signing special case - all 3 SCM providers are
-  // single-bearer-token.
+  // Development's Repository - migrated onto <control-provider-connector>
+  // (justjs#124), which owns which-provider-is-selected/fetched-resources
+  // state internally. scmScreen caches the whole composed wrapper (header
+  // + hint + connector) so that state (and grid<->detail position)
+  // survives leaving and re-entering Repository within Development, and
+  // across tab switches - but the control has no public reset API, so
+  // renderOverview's item-select handler below discards this reference
+  // entirely (forcing a fresh instance next visit) to preserve the
+  // original's own reset-on-stage-switch behavior for
+  // selectedScmProviderId/scmResources.
   private showScmConnect = false;
-  private selectedScmProviderId: string | null = null;
-  private scmResources: ScmResource[] | null = null;
-  private scmConnectError: string | null = null;
-  private scmConnecting = false;
+  private scmScreen: HTMLElement | undefined;
 
   // Requirement's/Planning's project-management connections - the same
   // shape as Cloud's/SCM's own state above, shared across both stages
@@ -486,9 +529,11 @@ export class WorkspaceElement extends HTMLElement {
       this.cloudDeployResult = null;
       this.cloudDeployError = null;
       this.showScmConnect = false;
-      this.selectedScmProviderId = null;
-      this.scmResources = null;
-      this.scmConnectError = null;
+      // No public reset API on ProviderConnectorControl - discarding the
+      // cached wrapper is the only way to force a fresh grid view
+      // (matches the original's own explicit selectedScmProviderId/
+      // scmResources reset here).
+      this.scmScreen = undefined;
       this.showPmConnect = false;
       this.selectedPmProviderId = null;
       this.pmResources = null;
@@ -980,165 +1025,42 @@ export class WorkspaceElement extends HTMLElement {
     }
   }
 
-  // ---- Development: source-control connections (opened from Repository above) ----
-  // Same real-connect shape as Deployment's Cloud above, minus AWS's
-  // two-field/signing special case - all 3 SCM providers are
-  // single-bearer-token, so there's no "kind" branching needed here.
-
-  private isScmProviderConnected(p: ScmProvider): boolean {
-    return getStoredScmToken(p.id).length > 0;
-  }
+  // ---- Development: source-control connections (opened from Repository
+  // above) - migrated onto <control-provider-connector> (justjs#124):
+  // single bearer-token field, no extra actions beyond connect/list/
+  // disconnect, a clean fit with zero package extension. ----
 
   private renderScmProviders(container: Element): void {
-    if (this.selectedScmProviderId) {
-      const provider = SCM_PROVIDER_CATALOG.find((p) => p.id === this.selectedScmProviderId);
-      if (provider) {
-        this.renderScmProviderDetail(container, provider);
-        return;
-      }
-      this.selectedScmProviderId = null;
-    }
-
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="scm-back-btn" class="dash-back-btn" type="button">← Development</button>
-        <h2 class="workspace-stage-title">📦 Repository</h2>
-      </div>
-      <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <div class="provider-grid">
-        ${SCM_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isScmProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-scm-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    `;
-
-    this.querySelector("#scm-back-btn")?.addEventListener("click", () => {
-      this.showScmConnect = false;
-      this.renderView();
-    });
-
-    container.querySelectorAll<HTMLButtonElement>("[data-scm-provider-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.scmProviderId;
-        if (!id) {
-          return;
-        }
-        this.selectedScmProviderId = id;
-        this.scmResources = null;
-        this.scmConnectError = null;
+    container.innerHTML = "";
+    if (!this.scmScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <view-nav-header id="scm-header"></view-nav-header>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+        <control-provider-connector id="scm-connector"></control-provider-connector>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#scm-header")!;
+      // icon/title are private-field-backed accessors on NavHeaderView,
+      // not reflected HTML attributes - must be set via JS property
+      // assignment, not inline in the template string above (real bug
+      // caught while writing this migration, fixed in cli_terminal.ts/
+      // doc_generator_control.ts too).
+      header.icon = "📦";
+      header.title = "Repository";
+      header.backLabel = "Development";
+      header.addEventListener("nav-back", () => {
+        this.showScmConnect = false;
         this.renderView();
       });
-    });
-    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
-      const provider = SCM_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
-      if (provider) {
-        setBadgeProps(el, provider);
-      }
-    });
-  }
-
-  private renderScmProviderDetail(container: Element, provider: ScmProvider): void {
-    const connected = this.isScmProviderConnected(provider);
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="scm-provider-back-btn" class="dash-back-btn" type="button">← Repository</button>
-        <h2 class="workspace-stage-title"><view-badge id="scm-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
-      <p class="settings-disclosure">Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.</p>
-      <div class="connect-form">
-        <input id="scm-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />
-        <div class="connect-actions">
-          <button id="scm-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="scm-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="scm-connect-status" class="connect-status${this.scmConnectError ? " connect-status-error" : ""}">${this.scmConnecting ? "Connecting…" : this.scmConnectError ? `⚠️ ${escapeHtml(this.scmConnectError)}` : ""}</p>
-      </div>
-      ${this.renderScmResourceList()}
-    `;
-    setBadgeProps(container.querySelector("#scm-header-badge"), provider);
-
-    this.querySelector("#scm-provider-back-btn")?.addEventListener("click", () => {
-      this.selectedScmProviderId = null;
-      this.renderView();
-    });
-    this.querySelector("#scm-connect-btn")?.addEventListener("click", () => {
-      void this.handleScmConnect(provider);
-    });
-    this.querySelector("#scm-disconnect-btn")?.addEventListener("click", () => {
-      setStoredScmToken(provider.id, "");
-      this.scmResources = null;
-      this.scmConnectError = null;
-      this.renderView();
-    });
-
-    // Already connected (a token was saved in a previous session) and
-    // nothing fetched yet this visit - fetch automatically, same
-    // lazy-validation posture as renderCloudProviderDetail() above.
-    if (connected && !this.scmResources && !this.scmConnectError && !this.scmConnecting) {
-      void this.handleScmConnect(provider);
+      const connector = screen.querySelector<ProviderConnectorControl>("#scm-connector")!;
+      connector.providers = SCM_PROVIDER_CATALOG.map(toScmCatalogItem);
+      connector.connect = handleScmConnect;
+      connector.list = async (_providerId, session) => session as ScmResource[];
+      connector.disconnect = handleScmDisconnect;
+      connector.catalogLabel = "Repository";
+      this.scmScreen = screen;
     }
-  }
-
-  private renderScmResourceList(): string {
-    if (!this.scmResources) {
-      return "";
-    }
-    const rows =
-      this.scmResources.length === 0
-        ? `<p class="connect-hint">Connected - no repositories found on this account.</p>`
-        : `<ul class="resource-list">
-            ${this.scmResources
-              .map(
-                (r) => `
-                  <li class="resource-row">
-                    <span class="resource-name">${escapeHtml(r.name)}</span>
-                    <span class="resource-status">${escapeHtml(r.status)}</span>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>`;
-    return `<h3 class="resource-list-label">Repositories</h3>${rows}`;
-  }
-
-  private async handleScmConnect(provider: ScmProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#scm-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#scm-connect-btn");
-    const tokenInput = this.querySelector<HTMLInputElement>("#scm-connect-token");
-    const token = tokenInput?.value.trim() || getStoredScmToken(provider.id);
-    if (!token) {
-      this.scmConnectError = "Paste a token first.";
-      this.renderView();
-      return;
-    }
-
-    this.scmConnecting = true;
-    this.scmConnectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
-    try {
-      const resources = await SCM_CONNECTORS[provider.id]!(token);
-      setStoredScmToken(provider.id, token);
-      this.scmResources = resources;
-      this.scmConnectError = null;
-    } catch (e) {
-      this.scmConnectError = e instanceof Error ? e.message : String(e);
-      this.scmResources = null;
-    } finally {
-      this.scmConnecting = false;
-      this.renderView();
-    }
+    container.appendChild(this.scmScreen);
   }
 
   // ---- Requirement/Planning: project-management connections (opened

@@ -1011,57 +1011,101 @@ const developmentLiveAfterCliSwitch = [...document.querySelectorAll("#mount-work
 assert(developmentLiveAfterCliSwitch.length === 3, "Development's function list is real again after the keep-alive check");
 
 // Repository: a real, recognizable catalog (GitHub/GitLab/Bitbucket via
-// @justjs/scm-connect) - same real-connect shape Deployment's Cloud
-// already proved, minus AWS's two-field/signing special case. No token
-// is set anywhere in this run, so this proves the real "paste a token
-// first" error path, not a live external network call.
+// @justjs/scm-connect) - migrated onto <control-provider-connector>
+// (justjs#124), so every lookup below traverses into its own Shadow
+// DOM (and, for the provider grid, the further-nested <view-grid>'s
+// own shadow root - a real 3-level nesting: workspace's light DOM ->
+// control-provider-connector's shadow -> view-grid's shadow). Same
+// real-connect shape Deployment's Cloud already proved, minus AWS's
+// two-field/signing special case. No token is set anywhere in this
+// run, so this proves the real "paste a token first" error path, not
+// a live external network call.
+function scmConnectorShadow() {
+  return document.querySelector("control-provider-connector")?.shadowRoot ?? null;
+}
+function scmGridShadow() {
+  return scmConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
+}
 developmentLiveAfterCliSwitch[2].click();
 await sleep(20);
-assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Repository"),
-  "Repository opens a real provider grid, not a stub"
-);
-const scmProviderCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
-const scmProviderNames = scmProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(document.getElementById("scm-header").title === "Repository", "Repository opens a real provider grid, not a stub");
+const scmProviderTiles = [...scmGridShadow().querySelectorAll(".tile")];
+const scmProviderNames = scmProviderTiles.map((el) => el.querySelector(".tile-label").textContent);
 assert(
   scmProviderNames.includes("GitHub") && scmProviderNames.includes("GitLab") && scmProviderNames.includes("Bitbucket"),
   `Repository opens a real catalog of actual source-control providers (found ${scmProviderNames.join(", ")})`
 );
-assert(scmProviderCards.every((el) => !el.classList.contains("selected")), "no SCM provider shows as Connected before any token is ever saved");
+assert(scmProviderTiles.every((el) => !el.classList.contains("selected")), "no SCM provider shows as Connected before any token is ever saved");
 
-const githubCard = document.querySelector('[data-scm-provider-id="github"]');
-githubCard.click();
+const githubTile = scmGridShadow().querySelector('[data-id="github"]');
+githubTile.click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("GitHub"),
+  scmConnectorShadow().querySelector("view-nav-header").textContent.includes("GitHub"),
   "tapping a provider card opens that provider's own connect screen"
 );
-assert(document.getElementById("scm-connect-token") !== null, "GitHub shows a single token input, same shape as a bearer-token cloud provider");
+const scmForm = scmConnectorShadow().querySelector("view-form");
+assert(scmForm.shadowRoot.querySelector('[data-field-id="token"]') !== null, "GitHub shows a single token input, same shape as a bearer-token cloud provider");
 assert(
-  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("Stored only on this device"),
+  scmConnectorShadow().querySelector(".settings-disclosure").textContent.includes("Stored only on this device"),
   "the connect screen discloses where the token is stored/sent, same tone as the Anthropic key's settings sheet"
 );
-document.getElementById("scm-connect-btn").click();
+scmForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("scm-connect-status").textContent.includes("Paste a token first"),
+  scmConnectorShadow().querySelector("view-status-line").text.includes("Paste a token first"),
   "connecting with an empty token shows a real, actionable error, not a silent no-op"
 );
-assert(document.querySelector("#mount-workspace .resource-list") === null, "no repository list renders without a real successful connect");
+assert(scmConnectorShadow().querySelector("view-list") === null, "no repository list renders without a real successful connect");
 
-document.getElementById("scm-provider-back-btn").click();
+// scmScreen (justjs#124) is cached the same way as the other extracted
+// controls - a real keep-alive router tab switch never touches
+// #mount-workspace's subtree, so GitHub's detail screen (still showing
+// the error above) should survive switching away and back, unlike a
+// full stage switch via the overview grid (which explicitly discards
+// the cached wrapper - proven separately below).
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Repository"),
+  scmConnectorShadow().querySelector("view-nav-header")?.textContent.includes("GitHub"),
+  "switching away from and back to Workspace preserves the Repository provider detail screen - the cached control-provider-connector instance survives, not recreated"
+);
+
+scmConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
+await sleep(20);
+assert(
+  scmConnectorShadow().querySelector("view-nav-header") === null,
   "a provider's own back button returns to the Repository grid, not all the way to Development"
 );
-document.getElementById("scm-back-btn").click();
+document.getElementById("scm-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
   [...document.querySelectorAll("#mount-workspace .workspace-function-live")][2].textContent.includes("Repository"),
   "the grid's own back button returns to Development's function list, not the Workspace overview"
 );
 
+document.querySelector("#workspace-back-btn").click();
+await sleep(20);
+
+// Real reset proof, not just asserted: leaving Development entirely via
+// the overview grid (unlike the tab-switch above) discards the cached
+// scmScreen wrapper (renderOverview's item-select handler, justjs#124)
+// since ProviderConnectorControl has no public reset API - re-entering
+// Repository should land back on the grid, not GitHub's still-open
+// detail screen from before.
+clickWorkspaceOverviewTile("development");
+await sleep(20);
+[...document.querySelectorAll("#mount-workspace .workspace-function-live")][2].click();
+await sleep(20);
+assert(
+  scmConnectorShadow().querySelector("view-nav-header") === null,
+  "leaving Development via the overview and coming back to Repository really resets to the provider grid, not GitHub's still-open detail screen"
+);
+document.getElementById("scm-header").shadowRoot.querySelector(".back-btn").click();
+await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 

@@ -184,7 +184,7 @@ export class DocGeneratorControl extends HTMLElement {
         #create-btn { flex: 0 0 auto; align-self: auto; }
         .create-error { margin: 0 0 8px; font-size: 12px; color: var(--danger); }
       </style>
-      <view-nav-header id="header" icon="${escapeHtml(this.config.icon)}" title="${escapeHtml(this.config.heading)}"></view-nav-header>
+      <view-nav-header id="header"></view-nav-header>
       <div class="design-form">
         <label class="field">
           <span class="field-label">${escapeHtml(this.config.descriptionLabel)}</span>
@@ -212,6 +212,12 @@ export class DocGeneratorControl extends HTMLElement {
     `;
 
     const header = this.root.querySelector<NavHeaderView>("#header")!;
+    // icon/title are private-field-backed accessors on NavHeaderView, not
+    // reflected HTML attributes - must be set via JS property assignment,
+    // not inline in the template string above (real bug caught while
+    // migrating justjs#124, fixed here and in CliTerminalControl).
+    header.icon = this.config.icon;
+    header.title = this.config.heading;
     header.backLabel = this.config.backLabel;
     header.addEventListener("nav-back", () => {
       this.dispatchEvent(new CustomEvent("back", { bubbles: true, composed: true }));

@@ -136,7 +136,7 @@ export class CliTerminalControl extends HTMLElement {
           box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
         }
       </style>
-      <view-nav-header id="header" icon="💻" title="CLI"></view-nav-header>
+      <view-nav-header id="header"></view-nav-header>
       <div id="transcript" class="cli-transcript"></div>
       <div class="cli-input-row">
         <span id="prompt" class="cli-prompt"></span>
@@ -146,6 +146,14 @@ export class CliTerminalControl extends HTMLElement {
     `;
 
     const header = this.#root.querySelector<NavHeaderView>("#header")!;
+    // icon/title are private-field-backed accessors on NavHeaderView, not
+    // reflected HTML attributes - must be set via JS property assignment,
+    // not inline in the template string above (a real bug caught while
+    // migrating justjs#124: the same inline-attribute mistake here left
+    // this header's icon+title silently empty, undetected because no
+    // test asserted the rendered text until #124 added one).
+    header.icon = "💻";
+    header.title = "CLI";
     header.backLabel = "Development";
     header.addEventListener("nav-back", () => {
       this.dispatchEvent(new CustomEvent("back", { bubbles: true, composed: true }));
