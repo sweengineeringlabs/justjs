@@ -3,10 +3,50 @@
 // Regenerate with: justw generate app
 
 export interface EditorSampleData {
+  gutter: string;
+  highlight: string;
+  highlightCode: string;
+  languageSelect: string;
+  reviewBtn: string;
+  sidebarError: string;
+  sidebarTree: string;
+  status: string;
+  suggestBtn: string;
+  surface: string;
+  textarea: string;
 }
 
 export const sampleData: EditorSampleData = {
+  gutter: "Sample gutter",
+  highlight: "Sample highlight",
+  highlightCode: "Sample highlight-code",
+  languageSelect: "option-1",
+  reviewBtn: "Submit",
+  sidebarError: "ID-001",
+  sidebarTree: "ID-001",
+  status: "active",
+  suggestBtn: "Submit",
+  surface: "Sample surface",
+  textarea: "Sample textarea",
 };
 
 export function populateEditor(root: HTMLElement): void {
+  const gutter = root.querySelector("[data-part='gutter']") as HTMLElement;
+  if (gutter) gutter.textContent = String(sampleData.gutter);
+  const highlight = root.querySelector("[data-part='highlight']") as HTMLElement;
+  if (highlight) highlight.textContent = String(sampleData.highlight);
+  const highlightCode = root.querySelector("[data-part='highlight-code']") as HTMLElement;
+  if (highlightCode) highlightCode.textContent = String(sampleData.highlightCode);
+  const languageSelect = root.querySelector("[data-part='language-select']") as HTMLSelectElement;
+  if (languageSelect) languageSelect.value = String(sampleData.languageSelect);
+  const sidebarError = root.querySelector("[data-part='sidebar-error']") as HTMLElement;
+  if (sidebarError) sidebarError.textContent = String(sampleData.sidebarError);
+  const sidebarTree = root.querySelector("[data-part='sidebar-tree']") as HTMLElement;
+  if (sidebarTree) sidebarTree.textContent = String(sampleData.sidebarTree);
+  const status = root.querySelector("[data-part='status']") as HTMLElement;
+  if (status) status.textContent = String(sampleData.status);
+  const surface = root.querySelector("[data-part='surface']") as HTMLElement;
+  if (surface) surface.textContent = String(sampleData.surface);
+  const textarea = root.querySelector("[data-part='textarea']") as HTMLElement;
+  if (textarea) textarea.textContent = String(sampleData.textarea);
 }

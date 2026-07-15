@@ -1594,6 +1594,23 @@ assert(treeRow("src/main.js").classList.contains("active"), "the tree's active-f
 const jumpedLine = jumpedTextarea.value.slice(jumpedTextarea.selectionStart, jumpedTextarea.selectionEnd);
 assert(jumpedLine === 'console.log(greet("world"));', `the correct line (3) is selected after the cross-file jump (selected: "${jumpedLine}")`);
 
+// justjs#115 (EditorElement now extends the justweb-generated
+// EditorBase) - real proof the keep-alive router (justjs#94) still
+// preserves the editor's own in-progress state (active file, cursor
+// position) across a tab switch, not just within the Editor tab
+// itself. Real DOM verification (happy-dom), same method this whole
+// file already uses everywhere else.
+document.querySelector('.nav-btn[data-route="/chat"]').click();
+await sleep(20);
+assert(document.getElementById("mount-chat").classList.contains("active"), "switched away from Editor to Chat");
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+const afterSwitchTextarea = document.querySelector("#editor-textarea");
+assert(
+  afterSwitchTextarea.value.includes('import { greet }') && treeRow("src/main.js").classList.contains("active"),
+  "switching back to Editor still shows src/main.js as the active file, not reset - real keep-alive router proof, not just asserted"
+);
+
 // 12. Settings / API key proof (unchanged behavior from the single-file
 // version of this app)
 document.querySelector("#settings-btn").click();

@@ -2,3 +2,42 @@ name: editor
 version: 1
 dom:
   tag: x-editor
+  builtinStates: false
+  elements:
+    # Only the elements genuinely re-queried across multiple methods
+    # (not the sidebar's 3 one-shot toolbar buttons, each wired once in
+    # connectedCallback and never read again) - real, counted redundant
+    # querySelector call sites, not a blanket declare-everything sweep.
+    surface:
+      tag: div
+      address: true
+    language-select:
+      tag: select
+      address: true
+    suggest-btn:
+      tag: button
+      address: true
+    review-btn:
+      tag: button
+      address: true
+    sidebar-tree:
+      tag: div
+      address: true
+    sidebar-error:
+      tag: p
+      address: true
+    gutter:
+      tag: div
+      address: true
+    highlight:
+      tag: pre
+      address: true
+    highlight-code:
+      tag: code
+      address: true
+    textarea:
+      tag: textarea
+      address: true
+    status:
+      tag: view-status-line
+      address: true

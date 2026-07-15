@@ -1,25 +1,25 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom editor_component.yaml
 // Source: editor_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class EditorBase extends HTMLElement {
   static readonly tagName = 'js-editor';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected gutter!: HTMLDivElement;
+  protected highlight!: HTMLPreElement;
+  protected highlightCode!: HTMLElement;
+  protected languageSelect!: HTMLSelectElement;
+  protected reviewBtn!: HTMLButtonElement;
+  protected sidebarError!: HTMLParagraphElement;
+  protected sidebarTree!: HTMLDivElement;
+  protected status!: HTMLElement;
+  protected suggestBtn!: HTMLButtonElement;
+  protected surface!: HTMLDivElement;
+  protected textarea!: HTMLTextAreaElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +41,6 @@ export class EditorBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +57,87 @@ export class EditorBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.gutter) {
+      const __el = this.querySelector('[data-part="gutter"]') as HTMLDivElement | null;
+      if (__el) {
+        this.gutter = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:gutter');
+      }
+    }
+    if (!this.highlight) {
+      const __el = this.querySelector('[data-part="highlight"]') as HTMLPreElement | null;
+      if (__el) {
+        this.highlight = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:highlight');
+      }
+    }
+    if (!this.highlightCode) {
+      const __el = this.querySelector('[data-part="highlight-code"]') as HTMLElement | null;
+      if (__el) {
+        this.highlightCode = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:highlight-code');
+      }
+    }
+    if (!this.languageSelect) {
+      const __el = this.querySelector('[data-part="language-select"]') as HTMLSelectElement | null;
+      if (__el) {
+        this.languageSelect = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:language-select');
+      }
+    }
+    if (!this.reviewBtn) {
+      const __el = this.querySelector('[data-part="review-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.reviewBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:review-btn');
+      }
+    }
+    if (!this.sidebarError) {
+      const __el = this.querySelector('[data-part="sidebar-error"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.sidebarError = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:sidebar-error');
+      }
+    }
+    if (!this.sidebarTree) {
+      const __el = this.querySelector('[data-part="sidebar-tree"]') as HTMLDivElement | null;
+      if (__el) {
+        this.sidebarTree = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:sidebar-tree');
+      }
+    }
+    if (!this.status) {
+      const __el = this.querySelector('[data-part="status"]') as HTMLElement | null;
+      if (__el) {
+        this.status = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:status');
+      }
+    }
+    if (!this.suggestBtn) {
+      const __el = this.querySelector('[data-part="suggest-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.suggestBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:suggest-btn');
+      }
+    }
+    if (!this.surface) {
+      const __el = this.querySelector('[data-part="surface"]') as HTMLDivElement | null;
+      if (__el) {
+        this.surface = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:surface');
+      }
+    }
+    if (!this.textarea) {
+      const __el = this.querySelector('[data-part="textarea"]') as HTMLTextAreaElement | null;
+      if (__el) {
+        this.textarea = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:editor:editor:textarea');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.gutter && !!this.highlight && !!this.highlightCode && !!this.languageSelect && !!this.reviewBtn && !!this.sidebarError && !!this.sidebarTree && !!this.status && !!this.suggestBtn && !!this.surface && !!this.textarea;
   }
 }
 

@@ -17,6 +17,7 @@ import {
 import type { TreeNode } from "../core/fs.js";
 import "@justjs/component-view";
 import type { StatusLineView } from "@justjs/component-view";
+import { EditorBase } from "../features/editor/editor_component.gen.js";
 
 const LANGUAGES = [
   { value: "javascript", label: "JavaScript" },
@@ -66,7 +67,20 @@ interface PendingInputState {
 // live-as-you-type ghost text - @justjs/network's FetchAdapter has no
 // streaming support anywhere in this codebase, so live-as-you-type would
 // mean a blocking API call on every pause in typing.
-export class EditorElement extends HTMLElement {
+//
+// Extends EditorBase (justweb-generated, justjs#115, part of justjs#113's
+// epic) - the 11 elements genuinely re-queried across multiple methods
+// (not the 3 one-shot sidebar toolbar buttons, each wired once and never
+// read again) are real, generated, typed bindings now
+// (this.textarea/this.languageSelect/etc, most auto-typed to their real
+// native element type - HTMLTextAreaElement, HTMLSelectElement,
+// HTMLButtonElement, etc, better than the hand-written
+// querySelector<T>() casts they replace) instead of ~15 separate
+// re-query call sites across syncFromStore/renderOverlay/syncScroll/
+// scrollToLine/handleSuggest/handleReview/showStatus/hideStatus. Every
+// element keeps its original id/class too (app.css and verify_web.mjs
+// both depend on them) - data-part is additive, not a replacement.
+export class EditorElement extends EditorBase {
   private unsubscribe?: () => void;
   private store?: FeatureStore<AppState, AppAction>;
 
@@ -99,45 +113,48 @@ export class EditorElement extends HTMLElement {
     this.innerHTML = `
       <div class="editor-toolbar">
         <button id="sidebar-toggle-btn" type="button" title="Toggle file explorer">☰</button>
-        <select id="editor-language"></select>
-        <button id="editor-suggest-btn" type="button">✨ Suggest</button>
-        <button id="editor-review-btn" type="button">🔍 Review</button>
+        <select id="editor-language" data-part="language-select"></select>
+        <button id="editor-suggest-btn" data-part="suggest-btn" type="button">✨ Suggest</button>
+        <button id="editor-review-btn" data-part="review-btn" type="button">🔍 Review</button>
       </div>
-      <div class="editor-surface">
+      <div class="editor-surface" data-part="surface">
         <div class="editor-sidebar">
           <div class="sidebar-toolbar">
             <span class="sidebar-title">Files</span>
             <button id="sidebar-new-file-btn" type="button" title="New file">📄+</button>
             <button id="sidebar-new-folder-btn" type="button" title="New folder">📁+</button>
           </div>
-          <div id="sidebar-tree" class="sidebar-tree"></div>
-          <p id="sidebar-error" class="sidebar-error" hidden></p>
+          <div id="sidebar-tree" class="sidebar-tree" data-part="sidebar-tree"></div>
+          <p id="sidebar-error" class="sidebar-error" data-part="sidebar-error" hidden></p>
         </div>
-        <div id="editor-gutter" class="editor-gutter"></div>
+        <div id="editor-gutter" class="editor-gutter" data-part="gutter"></div>
         <div class="editor-code-wrap">
-          <pre id="editor-highlight" class="editor-highlight" aria-hidden="true"><code></code></pre>
-          <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+          <pre id="editor-highlight" class="editor-highlight" data-part="highlight" aria-hidden="true"><code data-part="highlight-code"></code></pre>
+          <textarea id="editor-textarea" class="editor-textarea" data-part="textarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
         </div>
       </div>
-      <view-status-line id="editor-status"></view-status-line>
+      <view-status-line id="editor-status" data-part="status"></view-status-line>
     `;
+    // Binds this.languageSelect/this.textarea/etc via real data-part
+    // lookups - must run after the markup above exists, since
+    // EditorBase's own connectedCallback() calls _bindElements()
+    // synchronously.
+    super.connectedCallback();
 
-    const languageSelect = this.querySelector<HTMLSelectElement>("#editor-language")!;
-    languageSelect.innerHTML = LANGUAGES.map((l) => `<option value="${l.value}">${l.label}</option>`).join("");
-    languageSelect.addEventListener("change", () => {
-      this.store?.dispatch({ type: "SET_ACTIVE_FILE_LANGUAGE", language: languageSelect.value });
+    this.languageSelect.innerHTML = LANGUAGES.map((l) => `<option value="${l.value}">${l.label}</option>`).join("");
+    this.languageSelect.addEventListener("change", () => {
+      this.store?.dispatch({ type: "SET_ACTIVE_FILE_LANGUAGE", language: this.languageSelect.value });
     });
 
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea")!;
-    textarea.addEventListener("input", () => {
-      this.store?.dispatch({ type: "SET_ACTIVE_FILE_CONTENT", content: textarea.value });
+    this.textarea.addEventListener("input", () => {
+      this.store?.dispatch({ type: "SET_ACTIVE_FILE_CONTENT", content: this.textarea.value });
       this.renderOverlay();
     });
-    textarea.addEventListener("scroll", () => this.syncScroll());
-    textarea.addEventListener("keydown", (e) => this.handleKeydown(e));
+    this.textarea.addEventListener("scroll", () => this.syncScroll());
+    this.textarea.addEventListener("keydown", (e) => this.handleKeydown(e));
 
-    this.querySelector("#editor-suggest-btn")?.addEventListener("click", () => void this.handleSuggest());
-    this.querySelector("#editor-review-btn")?.addEventListener("click", () => void this.handleReview());
+    this.suggestBtn.addEventListener("click", () => void this.handleSuggest());
+    this.reviewBtn.addEventListener("click", () => void this.handleReview());
     this.querySelector("#sidebar-toggle-btn")?.addEventListener("click", () => {
       this.sidebarOpen = !this.sidebarOpen;
       this.applySidebarOpenState();
@@ -157,7 +174,7 @@ export class EditorElement extends HTMLElement {
   }
 
   private applySidebarOpenState(): void {
-    this.querySelector(".editor-surface")?.classList.toggle("sidebar-collapsed", !this.sidebarOpen);
+    this.surface.classList.toggle("sidebar-collapsed", !this.sidebarOpen);
   }
 
   // A plain <textarea> moves focus on Tab by default, which makes
@@ -179,19 +196,22 @@ export class EditorElement extends HTMLElement {
   }
 
   private syncFromStore(): void {
-    if (!this.store) {
+    // dataContext (ADR-0004) can be set on a freshly-constructed element
+    // before it's ever appended to the DOM (@justjs/application's own
+    // render adapter assigns it ahead of container.replaceChildren() -
+    // component_registry_adapter.ts) - meaning this can run before
+    // connectedCallback() ever binds this.textarea/etc. EditorBase's own
+    // `!` definite-assignment types don't reflect that at compile time;
+    // this runtime check does. connectedCallback() calls this again once
+    // real, so no-oping here isn't a missed update, matching the
+    // original hand-written querySelector-and-null-check pattern every
+    // other tab's own not-yet-migrated dataContext setter still uses.
+    if (!this.store || !this.textarea) {
       return;
     }
     this.renderSidebar();
 
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea");
-    const languageSelect = this.querySelector<HTMLSelectElement>("#editor-language");
-    const suggestBtn = this.querySelector<HTMLButtonElement>("#editor-suggest-btn");
-    const reviewBtn = this.querySelector<HTMLButtonElement>("#editor-review-btn");
-    if (!textarea || !languageSelect || !suggestBtn || !reviewBtn) {
-      return;
-    }
-
+    const { textarea, languageSelect, suggestBtn, reviewBtn } = this;
     const state = this.store.state.value;
     const activeFile = state.activeFilePath ? state.files[state.activeFilePath] : undefined;
     const hasActiveFile = activeFile !== undefined;
@@ -226,43 +246,28 @@ export class EditorElement extends HTMLElement {
   }
 
   private renderOverlay(): void {
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea");
-    const codeEl = this.querySelector("#editor-highlight code");
-    const gutter = this.querySelector("#editor-gutter");
-    if (!textarea || !codeEl || !gutter) {
-      return;
-    }
     // A trailing newline keeps the highlight <pre> and the textarea the
     // same height when the buffer ends in \n - without it the <pre>'s
     // last (empty) line collapses and the two surfaces drift out of
     // scroll-sync by one line.
-    codeEl.innerHTML = `${highlight(textarea.value)}\n`;
-    const lineCount = textarea.value.split("\n").length;
+    this.highlightCode.innerHTML = `${highlight(this.textarea.value)}\n`;
+    const lineCount = this.textarea.value.split("\n").length;
     const lineNumbers: string[] = [];
     for (let i = 1; i <= lineCount; i++) {
       lineNumbers.push(String(i));
     }
-    gutter.innerHTML = lineNumbers.map((n) => `<div class="editor-gutter-line">${n}</div>`).join("");
+    this.gutter.innerHTML = lineNumbers.map((n) => `<div class="editor-gutter-line">${n}</div>`).join("");
     this.syncScroll();
   }
 
   private syncScroll(): void {
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea");
-    const highlightEl = this.querySelector<HTMLElement>("#editor-highlight");
-    const gutter = this.querySelector<HTMLElement>("#editor-gutter");
-    if (!textarea || !highlightEl || !gutter) {
-      return;
-    }
-    highlightEl.scrollTop = textarea.scrollTop;
-    highlightEl.scrollLeft = textarea.scrollLeft;
-    gutter.scrollTop = textarea.scrollTop;
+    this.highlight.scrollTop = this.textarea.scrollTop;
+    this.highlight.scrollLeft = this.textarea.scrollLeft;
+    this.gutter.scrollTop = this.textarea.scrollTop;
   }
 
   private scrollToLine(line: number): void {
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea");
-    if (!textarea) {
-      return;
-    }
+    const textarea = this.textarea;
     const lines = textarea.value.split("\n");
     const clampedLine = Math.min(Math.max(line, 1), lines.length);
     const lineIndex = clampedLine - 1;
@@ -285,11 +290,10 @@ export class EditorElement extends HTMLElement {
   }
 
   private async handleSuggest(): Promise<void> {
-    const textarea = this.querySelector<HTMLTextAreaElement>("#editor-textarea");
-    const suggestBtn = this.querySelector<HTMLButtonElement>("#editor-suggest-btn");
-    if (!textarea || !suggestBtn || !this.store) {
+    if (!this.store) {
       return;
     }
+    const { textarea, suggestBtn } = this;
     const state = this.store.state.value;
     const activeFilePath = state.activeFilePath;
     const activeFile = activeFilePath ? state.files[activeFilePath] : undefined;
@@ -331,10 +335,10 @@ export class EditorElement extends HTMLElement {
   }
 
   private async handleReview(): Promise<void> {
-    const reviewBtn = this.querySelector<HTMLButtonElement>("#editor-review-btn");
-    if (!reviewBtn || !this.store) {
+    if (!this.store) {
       return;
     }
+    const reviewBtn = this.reviewBtn;
     const state = this.store.state.value;
     const activeFilePath = state.activeFilePath;
     const activeFile = activeFilePath ? state.files[activeFilePath] : undefined;
@@ -361,19 +365,11 @@ export class EditorElement extends HTMLElement {
   }
 
   private showStatus(text: string): void {
-    const status = this.querySelector<StatusLineView>("#editor-status");
-    if (!status) {
-      return;
-    }
-    status.text = text;
+    (this.status as StatusLineView).text = text;
   }
 
   private hideStatus(): void {
-    const status = this.querySelector<StatusLineView>("#editor-status");
-    if (!status) {
-      return;
-    }
-    status.text = "";
+    (this.status as StatusLineView).text = "";
   }
 
   // ---- File explorer sidebar ----
@@ -391,10 +387,10 @@ export class EditorElement extends HTMLElement {
   // and restored after the rebuild so an in-progress create/rename
   // survives an unrelated store update.
   private renderSidebar(): void {
-    const container = this.querySelector<HTMLElement>("#sidebar-tree");
-    if (!container || !this.store) {
+    if (!this.store) {
       return;
     }
+    const container = this.sidebarTree;
     const preserved = this.capturePendingInputState(container);
     const state = this.store.state.value;
     // Reveals the active file in the tree rather than leaving it hidden
@@ -748,20 +744,12 @@ export class EditorElement extends HTMLElement {
   }
 
   private showSidebarError(message: string): void {
-    const el = this.querySelector<HTMLElement>("#sidebar-error");
-    if (!el) {
-      return;
-    }
-    el.hidden = false;
-    el.textContent = message;
+    this.sidebarError.hidden = false;
+    this.sidebarError.textContent = message;
   }
 
   private clearSidebarError(): void {
-    const el = this.querySelector<HTMLElement>("#sidebar-error");
-    if (!el) {
-      return;
-    }
-    el.hidden = true;
+    this.sidebarError.hidden = true;
   }
 }
 
