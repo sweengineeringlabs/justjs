@@ -2,3 +2,37 @@ name: chat
 version: 1
 dom:
   tag: x-chat
+  builtinStates: false
+  # No customElement.tagName override - see justjs#113's shared note
+  # (ChatBase self-registers under its harmless default js-chat;
+  # ChatElement keeps its own explicit x-chat registration).
+  #
+  # #chat-mic-btn is deliberately NOT declared here - it's conditionally
+  # rendered (`${voiceSupported ? ... : ""}`), so on a voice-unsupported
+  # device it would never exist and _hasAllElements() would never
+  # return true, leaving a permanent, pointless MutationObserver
+  # running. It stays a plain querySelector call, matching the original
+  # code's own already-conditional handling (only ever queried inside
+  # `if (voiceSupported)`).
+  elements:
+    messages:
+      tag: div
+      address: true
+    context-label:
+      tag: p
+      address: true
+    image-preview:
+      tag: div
+      address: true
+    image-thumb:
+      tag: img
+      address: true
+    image-error:
+      tag: p
+      address: true
+    message-input:
+      tag: input
+      address: true
+    image-input:
+      tag: input
+      address: true

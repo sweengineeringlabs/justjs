@@ -3,10 +3,38 @@
 // Regenerate with: justw generate app
 
 export interface ChatSampleData {
+  contextLabel: string;
+  imageError: string;
+  imageInput: string;
+  imagePreview: string;
+  imageThumb: string;
+  messageInput: string;
+  messages: string;
 }
 
 export const sampleData: ChatSampleData = {
+  contextLabel: "Sample context-label",
+  imageError: "Sample image-error",
+  imageInput: "Sample image-input",
+  imagePreview: "Sample image-preview",
+  imageThumb: "Sample image-thumb",
+  messageInput: "Sample message-input",
+  messages: "Sample messages",
 };
 
 export function populateChat(root: HTMLElement): void {
+  const contextLabel = root.querySelector("[data-part='context-label']") as HTMLElement;
+  if (contextLabel) contextLabel.textContent = String(sampleData.contextLabel);
+  const imageError = root.querySelector("[data-part='image-error']") as HTMLElement;
+  if (imageError) imageError.textContent = String(sampleData.imageError);
+  const imageInput = root.querySelector("[data-part='image-input']") as HTMLInputElement;
+  if (imageInput) imageInput.value = String(sampleData.imageInput);
+  const imagePreview = root.querySelector("[data-part='image-preview']") as HTMLElement;
+  if (imagePreview) imagePreview.textContent = String(sampleData.imagePreview);
+  const imageThumb = root.querySelector("[data-part='image-thumb']") as HTMLElement;
+  if (imageThumb) imageThumb.textContent = String(sampleData.imageThumb);
+  const messageInput = root.querySelector("[data-part='message-input']") as HTMLInputElement;
+  if (messageInput) messageInput.value = String(sampleData.messageInput);
+  const messages = root.querySelector("[data-part='messages']") as HTMLElement;
+  if (messages) messages.textContent = String(sampleData.messages);
 }

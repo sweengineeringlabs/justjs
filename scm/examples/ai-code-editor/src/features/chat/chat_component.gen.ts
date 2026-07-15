@@ -1,25 +1,21 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom chat_component.yaml
 // Source: chat_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class ChatBase extends HTMLElement {
   static readonly tagName = 'js-chat';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected contextLabel!: HTMLParagraphElement;
+  protected imageError!: HTMLParagraphElement;
+  protected imageInput!: HTMLInputElement;
+  protected imagePreview!: HTMLDivElement;
+  protected imageThumb!: HTMLImageElement;
+  protected messageInput!: HTMLInputElement;
+  protected messages!: HTMLDivElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +37,6 @@ export class ChatBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +53,59 @@ export class ChatBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.contextLabel) {
+      const __el = this.querySelector('[data-part="context-label"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.contextLabel = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:context-label');
+      }
+    }
+    if (!this.imageError) {
+      const __el = this.querySelector('[data-part="image-error"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.imageError = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:image-error');
+      }
+    }
+    if (!this.imageInput) {
+      const __el = this.querySelector('[data-part="image-input"]') as HTMLInputElement | null;
+      if (__el) {
+        this.imageInput = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:image-input');
+      }
+    }
+    if (!this.imagePreview) {
+      const __el = this.querySelector('[data-part="image-preview"]') as HTMLDivElement | null;
+      if (__el) {
+        this.imagePreview = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:image-preview');
+      }
+    }
+    if (!this.imageThumb) {
+      const __el = this.querySelector('[data-part="image-thumb"]') as HTMLImageElement | null;
+      if (__el) {
+        this.imageThumb = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:image-thumb');
+      }
+    }
+    if (!this.messageInput) {
+      const __el = this.querySelector('[data-part="message-input"]') as HTMLInputElement | null;
+      if (__el) {
+        this.messageInput = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:message-input');
+      }
+    }
+    if (!this.messages) {
+      const __el = this.querySelector('[data-part="messages"]') as HTMLDivElement | null;
+      if (__el) {
+        this.messages = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:messages');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.contextLabel && !!this.imageError && !!this.imageInput && !!this.imagePreview && !!this.imageThumb && !!this.messageInput && !!this.messages;
   }
 }
 

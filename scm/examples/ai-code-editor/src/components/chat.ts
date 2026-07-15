@@ -5,6 +5,7 @@ import { getAiAssistProvider } from "../core/ai_assist.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
 import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
 import type { VoicePromptHandle } from "../core/speech.js";
+import { ChatBase } from "../features/chat/chat_component.gen.js";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -21,7 +22,16 @@ function escapeHtml(text: string): string {
 // Generate) and a real vision attachment (Claude actually sees the
 // screenshot, not just local display) are both new on top of the
 // original text-only version of this component.
-export class ChatElement extends HTMLElement {
+//
+// Extends ChatBase (justweb-generated, justjs#116, part of justjs#113's
+// epic) - see justjs#113's shared note for why customElement.tagName is
+// deliberately not set (ChatBase self-registers under its harmless
+// default js-chat; ChatElement keeps its own explicit x-chat
+// registration). #chat-mic-btn stays a plain querySelector call -
+// conditionally rendered (voiceSupported), so it can't be a declared
+// dom.elements entry without permanently breaking _hasAllElements() on
+// a voice-unsupported device.
+export class ChatElement extends ChatBase {
   private unsubscribe?: () => void;
   private store?: FeatureStore<AppState, AppAction>;
   private voiceHandle: VoicePromptHandle | null = null;
@@ -39,30 +49,35 @@ export class ChatElement extends HTMLElement {
   connectedCallback(): void {
     const voiceSupported = isVoicePromptSupported();
     this.innerHTML = `
-      <div id="chat-messages"></div>
-      <p id="chat-context-label" class="chat-context-label"></p>
-      <div id="chat-image-preview" class="attach-image-preview" hidden>
-        <img id="chat-image-thumb" alt="Attached screenshot" />
+      <div id="chat-messages" data-part="messages"></div>
+      <p id="chat-context-label" class="chat-context-label" data-part="context-label"></p>
+      <div id="chat-image-preview" class="attach-image-preview" data-part="image-preview" hidden>
+        <img id="chat-image-thumb" data-part="image-thumb" alt="Attached screenshot" />
         <span class="attach-image-label">Screenshot attached</span>
         <button id="chat-image-remove" type="button" class="btn-secondary">Remove</button>
       </div>
-      <p id="chat-image-error" class="attach-image-error" hidden></p>
+      <p id="chat-image-error" class="attach-image-error" data-part="image-error" hidden></p>
       <form id="chat-form">
-        <input id="chat-input" type="text" placeholder="Ask about your code..." autocomplete="off" />
-        <input id="chat-image-input" type="file" accept="image/*" hidden />
+        <input id="chat-input" type="text" data-part="message-input" placeholder="Ask about your code..." autocomplete="off" />
+        <input id="chat-image-input" type="file" data-part="image-input" accept="image/*" hidden />
         <button id="chat-image-btn" type="button" aria-label="Attach screenshot">📷</button>
         ${voiceSupported ? `<button id="chat-mic-btn" type="button" aria-label="Hold to speak">🎤</button>` : ""}
         <button type="submit">Send</button>
       </form>
     `;
+    // Binds this.messages/this.messageInput/etc via real data-part
+    // lookups - must run after the markup above exists, since
+    // ChatBase's own connectedCallback() calls _bindElements()
+    // synchronously.
+    super.connectedCallback();
+
     this.querySelector("#chat-form")?.addEventListener("submit", (e) => {
       e.preventDefault();
       void this.handleSubmit();
     });
 
-    const imageInput = this.querySelector<HTMLInputElement>("#chat-image-input")!;
-    this.querySelector("#chat-image-btn")?.addEventListener("click", () => imageInput.click());
-    imageInput.addEventListener("change", () => void this.handleImageSelected(imageInput));
+    this.querySelector("#chat-image-btn")?.addEventListener("click", () => this.imageInput.click());
+    this.imageInput.addEventListener("change", () => void this.handleImageSelected(this.imageInput));
     this.querySelector("#chat-image-remove")?.addEventListener("click", () => this.clearPendingImage());
 
     if (voiceSupported) {
@@ -96,7 +111,7 @@ export class ChatElement extends HTMLElement {
     if (this.voiceHandle) {
       return;
     }
-    const input = this.querySelector<HTMLInputElement>("#chat-input")!;
+    const input = this.messageInput;
     const micBtn = this.querySelector<HTMLButtonElement>("#chat-mic-btn")!;
     input.value = "";
     micBtn.classList.add("listening");
@@ -158,66 +173,53 @@ export class ChatElement extends HTMLElement {
     this.hideImageError();
     this.pendingImage = parsed;
     this.pendingImageDataUrl = dataUrl;
-    const thumb = this.querySelector<HTMLImageElement>("#chat-image-thumb");
-    if (thumb) {
-      thumb.src = dataUrl;
-    }
-    const preview = this.querySelector<HTMLElement>("#chat-image-preview");
-    if (preview) {
-      preview.hidden = false;
-    }
+    this.imageThumb.src = dataUrl;
+    this.imagePreview.hidden = false;
   }
 
   private clearPendingImage(): void {
     this.pendingImage = null;
     this.pendingImageDataUrl = null;
-    const input = this.querySelector<HTMLInputElement>("#chat-image-input");
-    if (input) {
-      input.value = "";
-    }
-    const preview = this.querySelector<HTMLElement>("#chat-image-preview");
-    if (preview) {
-      preview.hidden = true;
-    }
+    this.imageInput.value = "";
+    this.imagePreview.hidden = true;
     this.hideImageError();
   }
 
   private showImageError(text: string): void {
-    const el = this.querySelector<HTMLElement>("#chat-image-error");
-    if (!el) {
-      return;
-    }
-    el.hidden = false;
-    el.textContent = text;
+    this.imageError.hidden = false;
+    this.imageError.textContent = text;
   }
 
   private hideImageError(): void {
-    const el = this.querySelector<HTMLElement>("#chat-image-error");
-    if (el) {
-      el.hidden = true;
-    }
+    this.imageError.hidden = true;
   }
 
   private renderMessages(): void {
-    const container = this.querySelector("#chat-messages");
-    const contextLabel = this.querySelector("#chat-context-label");
-    if (!container || !contextLabel) {
+    // dataContext (ADR-0004) can be set on a freshly-constructed element
+    // before it's ever appended to the DOM (@justjs/application's own
+    // render adapter assigns it ahead of container.replaceChildren() -
+    // component_registry_adapter.ts) - meaning this can run before
+    // connectedCallback() ever binds this.messages/etc (real bug found
+    // and fixed in justjs#115's editor.ts migration; guarding
+    // proactively here). connectedCallback() calls this again once
+    // real, so no-oping here isn't a missed update.
+    if (!this.messages) {
       return;
     }
     const state = this.store?.state.value;
     const messages = state?.chatMessages ?? [];
-    container.innerHTML = messages
+    this.messages.innerHTML = messages
       .map((m) => {
         const thumb = m.imageDataUrl ? `<img class="chat-message-image" src="${m.imageDataUrl}" alt="Attached screenshot" />` : "";
         return `<div class="chat-message ${m.role}">${thumb}${escapeHtml(m.text)}</div>`;
       })
       .join("");
-    container.scrollTop = container.scrollHeight;
-    contextLabel.textContent = state?.activeFilePath ? `Context: ${state.activeFilePath}` : "Context: no file open";
+    this.messages.scrollTop = this.messages.scrollHeight;
+    this.contextLabel.textContent = state?.activeFilePath ? `Context: ${state.activeFilePath}` : "Context: no file open";
   }
 
   private async handleSubmit(): Promise<void> {
-    const input = this.querySelector<HTMLInputElement>("#chat-input")!;
+    const input = this.messageInput;
     const text = input.value.trim();
     if (!text || !this.store) {
       return;

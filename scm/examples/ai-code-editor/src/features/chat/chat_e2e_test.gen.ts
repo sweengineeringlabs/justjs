@@ -28,6 +28,34 @@ page.waitForSelector('x-chat');
 const root = page.querySelector('x-chat');
 assert(root !== null, 'Chat root <x-chat> must exist in DOM');
 
+console.log('2. Chat element context-label is reachable');
+const el_context_label = page.querySelector('[data-addr="context-label"]');
+assert(el_context_label !== null, 'context-label must have DOM address [[data-addr="context-label"]]');
+
+console.log('3. Chat element image-error is reachable');
+const el_image_error = page.querySelector('[data-addr="image-error"]');
+assert(el_image_error !== null, 'image-error must have DOM address [[data-addr="image-error"]]');
+
+console.log('4. Chat element image-input is reachable');
+const el_image_input = page.querySelector('[data-addr="image-input"]');
+assert(el_image_input !== null, 'image-input must have DOM address [[data-addr="image-input"]]');
+
+console.log('5. Chat element image-preview is reachable');
+const el_image_preview = page.querySelector('[data-addr="image-preview"]');
+assert(el_image_preview !== null, 'image-preview must have DOM address [[data-addr="image-preview"]]');
+
+console.log('6. Chat element image-thumb is reachable');
+const el_image_thumb = page.querySelector('[data-addr="image-thumb"]');
+assert(el_image_thumb !== null, 'image-thumb must have DOM address [[data-addr="image-thumb"]]');
+
+console.log('7. Chat element message-input is reachable');
+const el_message_input = page.querySelector('[data-addr="message-input"]');
+assert(el_message_input !== null, 'message-input must have DOM address [[data-addr="message-input"]]');
+
+console.log('8. Chat element messages is reachable');
+const el_messages = page.querySelector('[data-addr="messages"]');
+assert(el_messages !== null, 'messages must have DOM address [[data-addr="messages"]]');
+
 } catch (e: unknown) {
   __err = String(e);
 }

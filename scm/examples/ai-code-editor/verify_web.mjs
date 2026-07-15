@@ -1663,6 +1663,19 @@ assert(
   "Chat with no key replies with the same actionable error as an assistant message, not a thrown exception"
 );
 
+// justjs#116 (ChatElement now extends the justweb-generated ChatBase) -
+// real proof the keep-alive router (justjs#94) still preserves the
+// chat transcript across a tab switch away from and back to Chat.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Chat to Editor");
+document.querySelector('.nav-btn[data-route="/chat"]').click();
+await sleep(20);
+assert(
+  [...document.querySelectorAll(".chat-message")].length === chatMessages.length,
+  "switching back to Chat still shows the same transcript, not reset - real keep-alive router proof, not just asserted"
+);
+
 document.querySelector('.nav-btn[data-route="/scaffold"]').click();
 document.querySelector("#scaffold-description").value = "a debounce function";
 document.querySelector("#scaffold-file-path").value = "src/debounce.js";
