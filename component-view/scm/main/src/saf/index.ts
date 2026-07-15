@@ -7,6 +7,7 @@ export type { PromptFieldViewProps } from "../api/prompt_field_view.js";
 export type { ToggleViewProps, ToggleOption } from "../api/toggle_view.js";
 export type { GridViewProps, GridItem } from "../api/grid_view.js";
 export type { FormViewProps, FormField } from "../api/form_view.js";
+export type { ListViewProps, ListItem } from "../api/list_view.js";
 
 // Type-only export, for callers to type a `document.createElement("view-badge")`/
 // `querySelector` result (e.g. `el as BadgeView`) - the same idiomatic
@@ -24,15 +25,17 @@ export type { PromptFieldView } from "../core/prompt_field_view.js";
 export type { ToggleView } from "../core/toggle_view.js";
 export type { GridView } from "../core/grid_view.js";
 export type { FormView } from "../core/form_view.js";
+export type { ListView } from "../core/list_view.js";
 
 // customElements.define("view-badge"/"view-nav-header"/
 // "view-status-line"/"view-image-attach"/"view-image-picker"/
-// "view-prompt-field"/"view-toggle"/"view-grid"/"view-form", ...) are
-// real module-load side effects inside core/*.ts - importing them here
-// is what self-registers each tag when a host does
-// `import "@justjs/component-view"`. Not re-exported as concrete class
-// names (core_not_exported_directly, ADR-0001's own rule) - a caller
-// reaches them only via the tag name / DOM API, never a class import.
+// "view-prompt-field"/"view-toggle"/"view-grid"/"view-form"/
+// "view-list", ...) are real module-load side effects inside core/*.ts
+// - importing them here is what self-registers each tag when a host
+// does `import "@justjs/component-view"`. Not re-exported as concrete
+// class names (core_not_exported_directly, ADR-0001's own rule) - a
+// caller reaches them only via the tag name / DOM API, never a class
+// import.
 import "../core/badge_view.js";
 import "../core/nav_header_view.js";
 import "../core/status_line_view.js";
@@ -42,3 +45,4 @@ import "../core/prompt_field_view.js";
 import "../core/toggle_view.js";
 import "../core/grid_view.js";
 import "../core/form_view.js";
+import "../core/list_view.js";
