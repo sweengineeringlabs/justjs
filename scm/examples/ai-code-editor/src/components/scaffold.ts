@@ -8,6 +8,8 @@ import type { FileMap } from "../core/fs.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
 import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
 import type { VoicePromptHandle } from "../core/speech.js";
+import "@justjs/component-view";
+import type { ToggleView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -45,10 +47,7 @@ export class ScaffoldElement extends HTMLElement {
     const micButton = (id: string) =>
       voiceSupported ? `<button id="${id}" type="button" class="field-mic-btn" aria-label="Hold to speak">🎤</button>` : "";
     this.innerHTML = `
-      <div class="scaffold-mode-toggle">
-        <button id="scaffold-mode-file-btn" type="button" class="scaffold-mode-btn active">New File</button>
-        <button id="scaffold-mode-project-btn" type="button" class="scaffold-mode-btn">New Project</button>
-      </div>
+      <view-toggle id="scaffold-mode-toggle"></view-toggle>
 
       <div id="scaffold-file-mode" class="scaffold-form">
         <label class="field">
@@ -106,8 +105,15 @@ export class ScaffoldElement extends HTMLElement {
       </div>
     `;
 
-    this.querySelector("#scaffold-mode-file-btn")?.addEventListener("click", () => this.setMode("file"));
-    this.querySelector("#scaffold-mode-project-btn")?.addEventListener("click", () => this.setMode("project"));
+    const modeToggle = this.querySelector<ToggleView>("#scaffold-mode-toggle")!;
+    modeToggle.options = [
+      { value: "file", label: "New File" },
+      { value: "project", label: "New Project" },
+    ];
+    modeToggle.activeValue = "file";
+    modeToggle.addEventListener("change", (e) => {
+      this.setMode((e as CustomEvent<{ value: ScaffoldMode }>).detail.value);
+    });
     this.querySelector("#scaffold-generate-btn")?.addEventListener("click", () => void this.handleGenerateFile());
     this.querySelector("#scaffold-insert-btn")?.addEventListener("click", () => this.handleCreateFile());
     this.querySelector("#scaffold-generate-project-btn")?.addEventListener("click", () => void this.handleGenerateProject());
@@ -245,8 +251,10 @@ export class ScaffoldElement extends HTMLElement {
   }
 
   private setMode(mode: ScaffoldMode): void {
-    this.querySelector("#scaffold-mode-file-btn")?.classList.toggle("active", mode === "file");
-    this.querySelector("#scaffold-mode-project-btn")?.classList.toggle("active", mode === "project");
+    const modeToggle = this.querySelector<ToggleView>("#scaffold-mode-toggle");
+    if (modeToggle) {
+      modeToggle.activeValue = mode;
+    }
     const fileModeEl = this.querySelector<HTMLElement>("#scaffold-file-mode");
     const projectModeEl = this.querySelector<HTMLElement>("#scaffold-project-mode");
     if (fileModeEl) {

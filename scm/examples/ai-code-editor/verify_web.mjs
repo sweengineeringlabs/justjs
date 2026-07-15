@@ -1602,7 +1602,18 @@ await sleep(20);
 assert(document.querySelector("#scaffold-status").textContent.includes("Add an Anthropic API key"), "Scaffold New File with no key shows the same actionable error");
 assert(document.querySelector("#scaffold-result").hidden, "no result panel is shown when generation never ran");
 
-document.querySelector("#scaffold-mode-project-btn").click();
+// scaffold.ts's New File/New Project toggle is migrated onto
+// <view-toggle> (justjs#107) - the two buttons now live inside its
+// shadow root as data-value-tagged buttons, not light-DOM
+// #scaffold-mode-file-btn/#scaffold-mode-project-btn ids.
+function clickScaffoldModeButton(value) {
+  document
+    .querySelector("#scaffold-mode-toggle")
+    ?.shadowRoot?.querySelector(`.toggle-btn[data-value="${value}"]`)
+    ?.click();
+}
+
+clickScaffoldModeButton("project");
 assert(document.getElementById("scaffold-project-mode").hidden === false, "switching to New Project mode shows the project form");
 assert(document.getElementById("scaffold-file-mode").hidden === true, "and hides the New File form");
 document.querySelector("#scaffold-project-description").value = "a tiny CLI";
@@ -1619,9 +1630,9 @@ assert(document.querySelector("#scaffold-project-result").hidden, "no project pr
 // gate this app's design relies on for real browsers that also lack it.
 assert(document.querySelector("#chat-mic-btn") === null, "no SpeechRecognition in this test env - the chat mic button correctly doesn't render");
 document.querySelector('.nav-btn[data-route="/scaffold"]').click();
-document.querySelector("#scaffold-mode-file-btn").click();
+clickScaffoldModeButton("file");
 assert(document.querySelector("#scaffold-description-mic-btn") === null, "Scaffold New File's mic button correctly doesn't render either");
-document.querySelector("#scaffold-mode-project-btn").click();
+clickScaffoldModeButton("project");
 assert(document.querySelector("#scaffold-project-description-mic-btn") === null, "Scaffold New Project's mic button correctly doesn't render either");
 assert(
   document.querySelector('#scaffold-file-mode input[type="file"]') === null,
@@ -1715,7 +1726,7 @@ assert(document.querySelector("#review-status").textContent.includes("Add an Ant
 assert(!reviewImagePreviewVisible(), "Review's attachment also clears after running, regardless of outcome");
 
 document.querySelector('.nav-btn[data-route="/scaffold"]').click();
-document.querySelector("#scaffold-mode-project-btn").click();
+clickScaffoldModeButton("project");
 await attachFakeImage("#scaffold-project-image-input", "fake-webp-bytes", "mockup.webp", "image/webp");
 assert(!document.getElementById("scaffold-project-image-preview").hidden, "Scaffold New Project's attach-screenshot control shows a live preview too");
 document.querySelector("#scaffold-project-description").value = "build this UI";

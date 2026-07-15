@@ -1081,25 +1081,9 @@ textarea:focus {
 }
 
 /* Scaffold */
-.scaffold-mode-toggle {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.scaffold-mode-btn {
-  flex: 1;
-  padding: 8px;
-  font-size: 12px;
-  background: var(--surface-alt);
-  color: var(--text-muted);
-}
-
-.scaffold-mode-btn.active {
-  background: var(--accent);
-  color: var(--accent-text);
-}
+/* .scaffold-mode-toggle/.scaffold-mode-btn moved into <view-toggle>'s
+   own Shadow DOM (@justjs/component-view) - no longer a global class
+   here. */
 
 .scaffold-form {
   flex: 0 0 auto;
