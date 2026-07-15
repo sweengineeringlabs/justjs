@@ -1561,14 +1561,26 @@ assert(document.getElementById("settings-panel").hidden, "close button hides the
 // 13. No-API-key error states - every AI action must fail loudly and
 // specifically (pointing at Settings), never silently no-op. No real
 // network call happens anywhere in this section.
+//
+// editor.ts is migrated onto <view-status-line> (justjs#104) - its
+// text/hidden state now lives inside that element's Shadow DOM, not as
+// a light-DOM #editor-status[hidden] element like the 4 other still-
+// unmigrated copies (scaffold.ts, workspace.ts x2, review.ts).
+function editorStatusText() {
+  return document.querySelector("#editor-status")?.shadowRoot?.querySelector("p")?.textContent ?? "";
+}
+function editorStatusHidden() {
+  return document.querySelector("#editor-status")?.shadowRoot?.querySelector("p")?.hidden ?? true;
+}
+
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 document.querySelector("#editor-suggest-btn").click();
 await sleep(20);
-assert(document.querySelector("#editor-status").textContent.includes("Add an Anthropic API key"), "Suggest with no key shows a real, actionable error");
+assert(editorStatusText().includes("Add an Anthropic API key"), "Suggest with no key shows a real, actionable error");
 
 document.querySelector("#editor-review-btn").click();
 await sleep(20);
-assert(document.querySelector("#editor-status").textContent.includes("Add an Anthropic API key"), "Review with no key shows the same actionable error");
+assert(editorStatusText().includes("Add an Anthropic API key"), "Review with no key shows the same actionable error");
 
 document.querySelector('.nav-btn[data-route="/chat"]').click();
 assert(document.querySelector("#chat-context-label").textContent.startsWith("Context: "), "the chat tab labels which file is being sent as context");
@@ -1725,7 +1737,7 @@ if (process.env.AI_CODE_EDITOR_LIVE_TEST === "1" && process.env.ANTHROPIC_API_KE
     liveTextarea.value.length > "function add(a, b) {\n  return a ".length,
     `a real Suggest call appended real completion text (buffer: "${liveTextarea.value}")`
   );
-  assert(document.querySelector("#editor-status").hidden, "a successful real call clears the status line");
+  assert(editorStatusHidden(), "a successful real call clears the status line");
 } else {
   console.log(
     "skipping live Anthropic call proof (set AI_CODE_EDITOR_LIVE_TEST=1 and ANTHROPIC_API_KEY to run it - costs a real, billed API call)"

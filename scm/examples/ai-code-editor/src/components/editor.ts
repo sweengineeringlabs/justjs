@@ -15,6 +15,8 @@ import {
   renamedPath,
 } from "../core/fs.js";
 import type { TreeNode } from "../core/fs.js";
+import "@justjs/component-view";
+import type { StatusLineView } from "@justjs/component-view";
 
 const LANGUAGES = [
   { value: "javascript", label: "JavaScript" },
@@ -117,7 +119,7 @@ export class EditorElement extends HTMLElement {
           <textarea id="editor-textarea" class="editor-textarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
         </div>
       </div>
-      <p id="editor-status" class="editor-status" hidden></p>
+      <view-status-line id="editor-status"></view-status-line>
     `;
 
     const languageSelect = this.querySelector<HTMLSelectElement>("#editor-language")!;
@@ -359,20 +361,19 @@ export class EditorElement extends HTMLElement {
   }
 
   private showStatus(text: string): void {
-    const status = this.querySelector<HTMLElement>("#editor-status");
+    const status = this.querySelector<StatusLineView>("#editor-status");
     if (!status) {
       return;
     }
-    status.hidden = false;
-    status.textContent = text;
+    status.text = text;
   }
 
   private hideStatus(): void {
-    const status = this.querySelector<HTMLElement>("#editor-status");
+    const status = this.querySelector<StatusLineView>("#editor-status");
     if (!status) {
       return;
     }
-    status.hidden = true;
+    status.text = "";
   }
 
   // ---- File explorer sidebar ----
