@@ -4,6 +4,8 @@ import type { AppState, AppAction } from "../core/state.js";
 import { getAiAssistProvider } from "../core/ai_assist.js";
 import { navigateTo, jumpToLine } from "../core/navigation.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
+import "@justjs/component-view";
+import type { ImageAttachView, ImagePickerView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -36,25 +38,21 @@ export class ReviewElement extends HTMLElement {
     this.innerHTML = `
       <div class="review-toolbar">
         <button id="review-run-btn" type="button">🔍 Run review</button>
-        <input id="review-image-input" type="file" accept="image/*" hidden />
-        <button id="review-image-btn" type="button">📷 Attach screenshot</button>
+        <view-image-attach id="review-image-attach"></view-image-attach>
       </div>
-      <div id="review-image-preview" class="attach-image-preview" hidden>
-        <img id="review-image-thumb" alt="Attached screenshot" />
-        <span class="attach-image-label">Screenshot attached</span>
-        <button id="review-image-remove" type="button" class="btn-secondary">Remove</button>
-      </div>
-      <p id="review-image-error" class="attach-image-error" hidden></p>
+      <view-image-picker id="review-image-picker"></view-image-picker>
       <p id="review-reviewed-label" class="review-reviewed-label" hidden></p>
       <p id="review-status" class="editor-status" hidden></p>
       <div id="review-findings"></div>
     `;
     this.querySelector("#review-run-btn")?.addEventListener("click", () => void this.handleRun());
 
-    const imageInput = this.querySelector<HTMLInputElement>("#review-image-input")!;
-    this.querySelector("#review-image-btn")?.addEventListener("click", () => imageInput.click());
-    imageInput.addEventListener("change", () => void this.handleImageSelected(imageInput));
-    this.querySelector("#review-image-remove")?.addEventListener("click", () => this.clearPendingImage());
+    const imageAttach = this.querySelector<ImageAttachView>("#review-image-attach")!;
+    imageAttach.label = "📷 Attach screenshot";
+    imageAttach.addEventListener("files-select", (e) => {
+      void this.handleImageSelected((e as CustomEvent<{ files: FileList }>).detail.files[0]);
+    });
+    this.querySelector<ImagePickerView>("#review-image-picker")?.addEventListener("clear", () => this.clearPendingImage());
 
     this.renderFindings();
   }
@@ -63,66 +61,57 @@ export class ReviewElement extends HTMLElement {
     this.unsubscribe?.();
   }
 
-  private async handleImageSelected(input: HTMLInputElement): Promise<void> {
-    const file = input.files?.[0];
+  private async handleImageSelected(file: File | undefined): Promise<void> {
     if (!file) {
       return;
     }
+    const imageAttach = this.querySelector<ImageAttachView>("#review-image-attach");
     if (!isSupportedImageType(file.type)) {
       this.showImageError("Unsupported image type - use PNG, JPEG, WebP, or GIF.");
-      input.value = "";
+      imageAttach?.reset();
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
       this.showImageError(`Image too large (max ${MAX_IMAGE_MB}MB).`);
-      input.value = "";
+      imageAttach?.reset();
       return;
     }
     const dataUrl = await readImageFileAsDataUrl(file);
     const parsed = parseDataUrl(dataUrl);
     if (!parsed) {
       this.showImageError("Couldn't read that image - try a different file.");
-      input.value = "";
+      imageAttach?.reset();
       return;
     }
     this.hideImageError();
     this.pendingImage = parsed;
-    const thumb = this.querySelector<HTMLImageElement>("#review-image-thumb");
-    if (thumb) {
-      thumb.src = dataUrl;
-    }
-    const preview = this.querySelector<HTMLElement>("#review-image-preview");
-    if (preview) {
-      preview.hidden = false;
+    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
+    if (imagePicker) {
+      imagePicker.dataUrl = dataUrl;
     }
   }
 
   private clearPendingImage(): void {
     this.pendingImage = null;
-    const input = this.querySelector<HTMLInputElement>("#review-image-input");
-    if (input) {
-      input.value = "";
-    }
-    const preview = this.querySelector<HTMLElement>("#review-image-preview");
-    if (preview) {
-      preview.hidden = true;
+    this.querySelector<ImageAttachView>("#review-image-attach")?.reset();
+    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
+    if (imagePicker) {
+      imagePicker.dataUrl = "";
     }
     this.hideImageError();
   }
 
   private showImageError(text: string): void {
-    const el = this.querySelector<HTMLElement>("#review-image-error");
-    if (!el) {
-      return;
+    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
+    if (imagePicker) {
+      imagePicker.error = text;
     }
-    el.hidden = false;
-    el.textContent = text;
   }
 
   private hideImageError(): void {
-    const el = this.querySelector<HTMLElement>("#review-image-error");
-    if (el) {
-      el.hidden = true;
+    const imagePicker = this.querySelector<ImagePickerView>("#review-image-picker");
+    if (imagePicker) {
+      imagePicker.error = "";
     }
   }
 

@@ -1684,13 +1684,35 @@ assert(
 );
 assert(document.getElementById("chat-image-preview").hidden, "the attachment clears after send regardless of outcome, same as the text input");
 
+// review.ts is migrated onto <view-image-attach>/<view-image-picker>
+// (justjs#105/justjs#109) - the real file input now lives inside
+// <view-image-attach>'s shadow root (no light-DOM #review-image-input
+// id anymore), and the preview lives inside <view-image-picker>'s
+// shadow root as a real .preview element, only rendered when dataUrl
+// is set (rather than a light-DOM element toggling .hidden). chat.ts
+// and scaffold.ts haven't migrated yet, so they keep using
+// attachFakeImage()/getElementById() against their still-light-DOM
+// markup unchanged.
+async function attachFakeImageToReview(bytes, filename, mediaType) {
+  const input = document.querySelector("#review-image-attach")?.shadowRoot?.querySelector("input");
+  const file = new window.File([bytes], filename, { type: mediaType });
+  const dataTransfer = new window.DataTransfer();
+  dataTransfer.items.add(file);
+  input.files = dataTransfer.files;
+  input.dispatchEvent(new window.Event("change", { bubbles: true }));
+  return sleep(50);
+}
+function reviewImagePreviewVisible() {
+  return document.querySelector("#review-image-picker")?.shadowRoot?.querySelector(".preview") !== null;
+}
+
 document.querySelector('.nav-btn[data-route="/review"]').click();
-await attachFakeImage("#review-image-input", "fake-jpeg-bytes", "error.jpg", "image/jpeg");
-assert(!document.getElementById("review-image-preview").hidden, "Review's attach-screenshot control shows a live preview too");
+await attachFakeImageToReview("fake-jpeg-bytes", "error.jpg", "image/jpeg");
+assert(reviewImagePreviewVisible(), "Review's attach-screenshot control shows a live preview too");
 document.querySelector("#review-run-btn").click();
 await sleep(30);
 assert(document.querySelector("#review-status").textContent.includes("Add an Anthropic API key"), "Review with an attached screenshot still hits the no-key error path");
-assert(document.getElementById("review-image-preview").hidden, "Review's attachment also clears after running, regardless of outcome");
+assert(!reviewImagePreviewVisible(), "Review's attachment also clears after running, regardless of outcome");
 
 document.querySelector('.nav-btn[data-route="/scaffold"]').click();
 document.querySelector("#scaffold-mode-project-btn").click();
