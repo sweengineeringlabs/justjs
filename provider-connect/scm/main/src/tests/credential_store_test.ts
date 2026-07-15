@@ -1,15 +1,32 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, beforeAll, afterEach } from "bun:test";
 import { Window } from "happy-dom";
-import { createCredentialStore } from "../saf/index.js";
 
 // bun test has no real localStorage (see memory package's own int test) -
 // happy-dom (already an established devDependency pattern in this
 // monorepo) provides one. Copied onto globalThis only when not already
 // present, matching this monorepo's own established shimming convention.
+//
+// saf/index.js now also self-registers <control-provider-connector>
+// (justjs#101) as an import side effect, which extends HTMLElement at
+// module-eval time - so createCredentialStore has to be reached via a
+// dynamic import *after* the DOM shim runs, same as every
+// component-view test already does, not a static import (which bun
+// hoists above this file's own shim code, same as any ES module).
 const win = new Window();
+for (const key of ["customElements", "HTMLElement", "document", "ShadowRoot", "Node"] as const) {
+  if (!(key in globalThis)) {
+    (globalThis as Record<string, unknown>)[key] = (win as unknown as Record<string, unknown>)[key];
+  }
+}
 if (!("localStorage" in globalThis)) {
   (globalThis as Record<string, unknown>).localStorage = win.localStorage;
 }
+
+let createCredentialStore: typeof import("../saf/index.js").createCredentialStore;
+
+beforeAll(async () => {
+  ({ createCredentialStore } = await import("../saf/index.js"));
+});
 
 afterEach(() => {
   globalThis.localStorage.clear();

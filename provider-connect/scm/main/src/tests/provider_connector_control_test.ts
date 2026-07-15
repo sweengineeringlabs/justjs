@@ -1,0 +1,135 @@
+import { describe, it, expect, beforeAll } from "bun:test";
+import { Window } from "happy-dom";
+
+const win = new Window();
+for (const key of ["customElements", "HTMLElement", "document", "ShadowRoot", "Node"] as const) {
+  if (!(key in globalThis)) {
+    (globalThis as Record<string, unknown>)[key] = (win as unknown as Record<string, unknown>)[key];
+  }
+}
+
+let ProviderConnectorControl: typeof import("../core/provider_connector_control.js").ProviderConnectorControl;
+
+beforeAll(async () => {
+  ({ ProviderConnectorControl } = await import("../core/provider_connector_control.js"));
+});
+
+const PROVIDERS = [
+  {
+    id: "mastodon",
+    name: "Mastodon",
+    icon: "🐘",
+    color: "#6364FF",
+    fields: [{ id: "token", type: "password" as const, placeholder: "Paste your Mastodon token" }],
+  },
+  {
+    id: "bluesky",
+    name: "Bluesky",
+    icon: "🦋",
+    color: "#0085FF",
+    fields: [
+      { id: "identifier", type: "text" as const, placeholder: "Bluesky handle or email" },
+      { id: "appPassword", type: "password" as const, placeholder: "App Password" },
+    ],
+  },
+];
+
+function mount(): InstanceType<typeof ProviderConnectorControl> {
+  const el = document.createElement("control-provider-connector") as InstanceType<typeof ProviderConnectorControl>;
+  document.body.appendChild(el);
+  return el;
+}
+
+describe("ProviderConnectorControl", () => {
+  it("registers as control-provider-connector", () => {
+    expect(customElements.get("control-provider-connector")).toBe(ProviderConnectorControl);
+  });
+
+  it("renders the grid step first, composing view-grid with the provider catalog", () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    const grid = el.shadowRoot?.querySelector("view-grid") as { items?: readonly { id: string }[] } | null;
+    expect(grid).not.toBeNull();
+    expect(grid?.items?.map((i) => i.id)).toEqual(["mastodon", "bluesky"]);
+    expect(el.shadowRoot?.querySelector("view-form")).toBeNull();
+  });
+
+  it("switches to the form step when a grid tile is selected", () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "bluesky" } }));
+    const form = el.shadowRoot?.querySelector("view-form") as { fields?: readonly { id: string }[] } | null;
+    expect(form).not.toBeNull();
+    expect(form?.fields?.map((f) => f.id)).toEqual(["identifier", "appPassword"]);
+    expect(el.shadowRoot?.querySelector("view-grid")).toBeNull();
+  });
+
+  it("dispatches connected and populates the list step on a successful connect", async () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    el.connect = async (providerId, values) => {
+      expect(providerId).toBe("mastodon");
+      expect(values["token"]).toBe("real-token");
+      return { session: "abc" };
+    };
+    el.list = async (providerId, session) => {
+      expect(providerId).toBe("mastodon");
+      expect((session as { session: string }).session).toBe("abc");
+      return [{ id: "list-1", name: "Home timeline", status: "Active" }];
+    };
+    let connectedDetail: { providerId: string } | undefined;
+    el.addEventListener("connected", (e) => {
+      connectedDetail = (e as CustomEvent).detail;
+    });
+
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: { token: "real-token" } } }));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(connectedDetail).toEqual({ providerId: "mastodon" });
+    const list = el.shadowRoot?.querySelector("view-list") as { items?: readonly { name: string }[] } | null;
+    expect(list).not.toBeNull();
+    expect(list?.items?.[0]?.name).toBe("Home timeline");
+  });
+
+  it("shows the error via the status line and dispatches error on a failed connect", async () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    el.connect = async () => {
+      throw new Error("Paste a token first.");
+    };
+    let errorDetail: { providerId: string; message: string } | undefined;
+    el.addEventListener("error", (e) => {
+      errorDetail = (e as CustomEvent).detail;
+    });
+
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: { token: "" } } }));
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(errorDetail).toEqual({ providerId: "mastodon", message: "Paste a token first." });
+    const status = el.shadowRoot?.querySelector("view-status-line") as { text?: string } | null;
+    expect(status?.text).toBe("⚠️ Paste a token first.");
+    expect(el.shadowRoot?.querySelector("view-list")).toBeNull();
+  });
+
+  it("returns to the grid step when Back is clicked", () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+    expect(el.shadowRoot?.querySelector("view-form")).not.toBeNull();
+
+    el.shadowRoot?.querySelector<HTMLButtonElement>(".back-btn")?.click();
+
+    expect(el.shadowRoot?.querySelector("view-grid")).not.toBeNull();
+    expect(el.shadowRoot?.querySelector("view-form")).toBeNull();
+  });
+});
