@@ -1,25 +1,33 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom scaffold_component.yaml
 // Source: scaffold_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class ScaffoldBase extends HTMLElement {
   static readonly tagName = 'js-scaffold';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected code!: HTMLPreElement;
+  protected description!: HTMLTextAreaElement;
+  protected fileMode!: HTMLDivElement;
+  protected filePath!: HTMLInputElement;
+  protected generateBtn!: HTMLButtonElement;
+  protected generateProjectBtn!: HTMLButtonElement;
+  protected modeToggle!: HTMLElement;
+  protected projectDescription!: HTMLTextAreaElement;
+  protected projectFiles!: HTMLDivElement;
+  protected projectImageError!: HTMLParagraphElement;
+  protected projectImageInput!: HTMLInputElement;
+  protected projectImagePreview!: HTMLDivElement;
+  protected projectImageThumb!: HTMLImageElement;
+  protected projectMode!: HTMLDivElement;
+  protected projectResult!: HTMLDivElement;
+  protected replaceConfirm!: HTMLDivElement;
+  protected replaceMessage!: HTMLParagraphElement;
+  protected result!: HTMLDivElement;
+  protected status!: HTMLParagraphElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +49,6 @@ export class ScaffoldBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +65,143 @@ export class ScaffoldBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.code) {
+      const __el = this.querySelector('[data-part="code"]') as HTMLPreElement | null;
+      if (__el) {
+        this.code = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:code');
+      }
+    }
+    if (!this.description) {
+      const __el = this.querySelector('[data-part="description"]') as HTMLTextAreaElement | null;
+      if (__el) {
+        this.description = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:description');
+      }
+    }
+    if (!this.fileMode) {
+      const __el = this.querySelector('[data-part="file-mode"]') as HTMLDivElement | null;
+      if (__el) {
+        this.fileMode = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:file-mode');
+      }
+    }
+    if (!this.filePath) {
+      const __el = this.querySelector('[data-part="file-path"]') as HTMLInputElement | null;
+      if (__el) {
+        this.filePath = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:file-path');
+      }
+    }
+    if (!this.generateBtn) {
+      const __el = this.querySelector('[data-part="generate-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.generateBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:generate-btn');
+      }
+    }
+    if (!this.generateProjectBtn) {
+      const __el = this.querySelector('[data-part="generate-project-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.generateProjectBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:generate-project-btn');
+      }
+    }
+    if (!this.modeToggle) {
+      const __el = this.querySelector('[data-part="mode-toggle"]') as HTMLElement | null;
+      if (__el) {
+        this.modeToggle = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:mode-toggle');
+      }
+    }
+    if (!this.projectDescription) {
+      const __el = this.querySelector('[data-part="project-description"]') as HTMLTextAreaElement | null;
+      if (__el) {
+        this.projectDescription = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-description');
+      }
+    }
+    if (!this.projectFiles) {
+      const __el = this.querySelector('[data-part="project-files"]') as HTMLDivElement | null;
+      if (__el) {
+        this.projectFiles = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-files');
+      }
+    }
+    if (!this.projectImageError) {
+      const __el = this.querySelector('[data-part="project-image-error"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.projectImageError = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-image-error');
+      }
+    }
+    if (!this.projectImageInput) {
+      const __el = this.querySelector('[data-part="project-image-input"]') as HTMLInputElement | null;
+      if (__el) {
+        this.projectImageInput = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-image-input');
+      }
+    }
+    if (!this.projectImagePreview) {
+      const __el = this.querySelector('[data-part="project-image-preview"]') as HTMLDivElement | null;
+      if (__el) {
+        this.projectImagePreview = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-image-preview');
+      }
+    }
+    if (!this.projectImageThumb) {
+      const __el = this.querySelector('[data-part="project-image-thumb"]') as HTMLImageElement | null;
+      if (__el) {
+        this.projectImageThumb = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-image-thumb');
+      }
+    }
+    if (!this.projectMode) {
+      const __el = this.querySelector('[data-part="project-mode"]') as HTMLDivElement | null;
+      if (__el) {
+        this.projectMode = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-mode');
+      }
+    }
+    if (!this.projectResult) {
+      const __el = this.querySelector('[data-part="project-result"]') as HTMLDivElement | null;
+      if (__el) {
+        this.projectResult = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:project-result');
+      }
+    }
+    if (!this.replaceConfirm) {
+      const __el = this.querySelector('[data-part="replace-confirm"]') as HTMLDivElement | null;
+      if (__el) {
+        this.replaceConfirm = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:replace-confirm');
+      }
+    }
+    if (!this.replaceMessage) {
+      const __el = this.querySelector('[data-part="replace-message"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.replaceMessage = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:replace-message');
+      }
+    }
+    if (!this.result) {
+      const __el = this.querySelector('[data-part="result"]') as HTMLDivElement | null;
+      if (__el) {
+        this.result = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:result');
+      }
+    }
+    if (!this.status) {
+      const __el = this.querySelector('[data-part="status"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.status = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:scaffold:scaffold:status');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.code && !!this.description && !!this.fileMode && !!this.filePath && !!this.generateBtn && !!this.generateProjectBtn && !!this.modeToggle && !!this.projectDescription && !!this.projectFiles && !!this.projectImageError && !!this.projectImageInput && !!this.projectImagePreview && !!this.projectImageThumb && !!this.projectMode && !!this.projectResult && !!this.replaceConfirm && !!this.replaceMessage && !!this.result && !!this.status;
   }
 }
 

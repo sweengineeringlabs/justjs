@@ -1835,6 +1835,24 @@ await sleep(30);
 assert(document.querySelector("#scaffold-status").textContent.includes("Add an Anthropic API key"), "Scaffold New Project with an attached screenshot still hits the no-key error path");
 assert(document.getElementById("scaffold-project-image-preview").hidden, "Scaffold's attachment also clears after generating, regardless of outcome");
 
+// justjs#118 (ScaffoldElement now extends the justweb-generated
+// ScaffoldBase) - real proof the keep-alive router (justjs#94) still
+// preserves the New File/New Project mode (local-only DOM state, never
+// stored in FeatureStore, same stronger-discriminator shape as
+// justjs#117's own check) across a tab switch away from and back to
+// Scaffold. Currently in "project" mode from the attach-screenshot
+// test just above.
+assert(!document.getElementById("scaffold-project-mode").hidden, "Scaffold is in New Project mode before switching away");
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Scaffold to Editor");
+document.querySelector('.nav-btn[data-route="/scaffold"]').click();
+await sleep(20);
+assert(
+  !document.getElementById("scaffold-project-mode").hidden && document.getElementById("scaffold-file-mode").hidden,
+  "switching back to Scaffold still shows New Project mode, not reset to New File - real keep-alive router proof, not just asserted"
+);
+
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 
 // 16. Persistence proof - the whole project (files/emptyFolders/

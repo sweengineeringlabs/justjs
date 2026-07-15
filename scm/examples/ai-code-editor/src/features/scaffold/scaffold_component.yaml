@@ -2,3 +2,77 @@ name: scaffold
 version: 1
 dom:
   tag: x-scaffold
+  builtinStates: false
+  # No customElement.tagName override - see justjs#113's shared note
+  # (ScaffoldBase self-registers under its harmless default js-scaffold;
+  # ScaffoldElement keeps its own explicit x-scaffold registration).
+  #
+  # #scaffold-description-mic-btn/#scaffold-project-description-mic-btn
+  # are deliberately NOT declared - both conditionally rendered
+  # (`${voiceSupported ? ... : ""}`), so on a voice-unsupported device
+  # neither would ever exist and _hasAllElements() would never return
+  # true. Both stay plain querySelector calls inside setupVoiceButton(),
+  # matching the original code's own already-conditional handling.
+  #
+  # One-shot buttons wired once in connectedCallback and never read
+  # again (insert-btn, project-image-btn, project-image-remove,
+  # replace-btn, replace-confirm-btn, replace-cancel-btn) are also
+  # excluded, same bar every prior migration in this epic used.
+  elements:
+    mode-toggle:
+      tag: view-toggle
+      address: true
+    description:
+      tag: textarea
+      address: true
+    file-path:
+      tag: input
+      address: true
+    generate-btn:
+      tag: button
+      address: true
+    result:
+      tag: div
+      address: true
+    code:
+      tag: pre
+      address: true
+    file-mode:
+      tag: div
+      address: true
+    project-mode:
+      tag: div
+      address: true
+    project-description:
+      tag: textarea
+      address: true
+    project-image-input:
+      tag: input
+      address: true
+    project-image-preview:
+      tag: div
+      address: true
+    project-image-thumb:
+      tag: img
+      address: true
+    project-image-error:
+      tag: p
+      address: true
+    generate-project-btn:
+      tag: button
+      address: true
+    status:
+      tag: p
+      address: true
+    project-result:
+      tag: div
+      address: true
+    project-files:
+      tag: div
+      address: true
+    replace-confirm:
+      tag: div
+      address: true
+    replace-message:
+      tag: p
+      address: true

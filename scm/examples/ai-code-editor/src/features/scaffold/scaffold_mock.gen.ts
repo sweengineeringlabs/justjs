@@ -3,10 +3,82 @@
 // Regenerate with: justw generate app
 
 export interface ScaffoldSampleData {
+  code: string;
+  description: string;
+  fileMode: string;
+  filePath: string;
+  generateBtn: string;
+  generateProjectBtn: string;
+  modeToggle: string;
+  projectDescription: string;
+  projectFiles: string;
+  projectImageError: string;
+  projectImageInput: string;
+  projectImagePreview: string;
+  projectImageThumb: string;
+  projectMode: string;
+  projectResult: string;
+  replaceConfirm: string;
+  replaceMessage: string;
+  result: string;
+  status: string;
 }
 
 export const sampleData: ScaffoldSampleData = {
+  code: "Sample code",
+  description: "A brief description of this item.",
+  fileMode: "Sample file-mode",
+  filePath: "Sample file-path",
+  generateBtn: "Submit",
+  generateProjectBtn: "Submit",
+  modeToggle: "Sample mode-toggle",
+  projectDescription: "A brief description of this item.",
+  projectFiles: "Sample project-files",
+  projectImageError: "Sample project-image-error",
+  projectImageInput: "Sample project-image-input",
+  projectImagePreview: "Sample project-image-preview",
+  projectImageThumb: "Sample project-image-thumb",
+  projectMode: "Sample project-mode",
+  projectResult: "Sample project-result",
+  replaceConfirm: "Sample replace-confirm",
+  replaceMessage: "Sample replace-message",
+  result: "Sample result",
+  status: "active",
 };
 
 export function populateScaffold(root: HTMLElement): void {
+  const code = root.querySelector("[data-part='code']") as HTMLElement;
+  if (code) code.textContent = String(sampleData.code);
+  const description = root.querySelector("[data-part='description']") as HTMLElement;
+  if (description) description.textContent = String(sampleData.description);
+  const fileMode = root.querySelector("[data-part='file-mode']") as HTMLElement;
+  if (fileMode) fileMode.textContent = String(sampleData.fileMode);
+  const filePath = root.querySelector("[data-part='file-path']") as HTMLInputElement;
+  if (filePath) filePath.value = String(sampleData.filePath);
+  const modeToggle = root.querySelector("[data-part='mode-toggle']") as HTMLElement;
+  if (modeToggle) modeToggle.textContent = String(sampleData.modeToggle);
+  const projectDescription = root.querySelector("[data-part='project-description']") as HTMLElement;
+  if (projectDescription) projectDescription.textContent = String(sampleData.projectDescription);
+  const projectFiles = root.querySelector("[data-part='project-files']") as HTMLElement;
+  if (projectFiles) projectFiles.textContent = String(sampleData.projectFiles);
+  const projectImageError = root.querySelector("[data-part='project-image-error']") as HTMLElement;
+  if (projectImageError) projectImageError.textContent = String(sampleData.projectImageError);
+  const projectImageInput = root.querySelector("[data-part='project-image-input']") as HTMLInputElement;
+  if (projectImageInput) projectImageInput.value = String(sampleData.projectImageInput);
+  const projectImagePreview = root.querySelector("[data-part='project-image-preview']") as HTMLElement;
+  if (projectImagePreview) projectImagePreview.textContent = String(sampleData.projectImagePreview);
+  const projectImageThumb = root.querySelector("[data-part='project-image-thumb']") as HTMLElement;
+  if (projectImageThumb) projectImageThumb.textContent = String(sampleData.projectImageThumb);
+  const projectMode = root.querySelector("[data-part='project-mode']") as HTMLElement;
+  if (projectMode) projectMode.textContent = String(sampleData.projectMode);
+  const projectResult = root.querySelector("[data-part='project-result']") as HTMLElement;
+  if (projectResult) projectResult.textContent = String(sampleData.projectResult);
+  const replaceConfirm = root.querySelector("[data-part='replace-confirm']") as HTMLElement;
+  if (replaceConfirm) replaceConfirm.textContent = String(sampleData.replaceConfirm);
+  const replaceMessage = root.querySelector("[data-part='replace-message']") as HTMLElement;
+  if (replaceMessage) replaceMessage.textContent = String(sampleData.replaceMessage);
+  const result = root.querySelector("[data-part='result']") as HTMLElement;
+  if (result) result.textContent = String(sampleData.result);
+  const status = root.querySelector("[data-part='status']") as HTMLElement;
+  if (status) status.textContent = String(sampleData.status);
 }
