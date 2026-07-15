@@ -66,7 +66,23 @@ import {
 import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConnect } from "../core/pm_connect.js";
 import type { PmResource } from "../core/pm_connect.js";
 import "@justjs/component-view";
-import type { BadgeView } from "@justjs/component-view";
+import type { BadgeView, GridView } from "@justjs/component-view";
+
+// Real hex values ported from app.css's own [data-stage="..."] rules -
+// <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
+// (see grid_view.ts's accentColor doc), so each stage's hue now travels
+// as real per-item data instead, the same colors unchanged.
+const STAGE_COLORS: Record<string, string> = {
+  ideation: "#f5a524",
+  requirement: "#3b82f6",
+  planning: "#14b8a6",
+  design: "#a855f7",
+  development: "#6366f1",
+  testing: "#f43f5e",
+  deployment: "#f97316",
+  operations: "#06b6d4",
+  presentation: "#d946ef",
+};
 
 interface SdlcFunction {
   readonly label: string;
@@ -450,44 +466,38 @@ export class WorkspaceElement extends HTMLElement {
     // Clears whatever a previous drill-down's renderStage() set - the
     // overview grid colors each widget individually, not the container.
     container.removeAttribute("data-stage");
-    container.innerHTML = `
-      <div class="widget-grid">
-        ${SDLC_STAGES.map(
-          (s) => `
-            <button class="widget widget-action" data-stage="${s.key}" type="button">
-              <span class="widget-icon">${s.icon}</span>
-              <span class="widget-label">${escapeHtml(s.label)}</span>
-            </button>
-          `
-        ).join("")}
-      </div>
-    `;
-    container.querySelectorAll<HTMLButtonElement>("[data-stage]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.currentStageKey = btn.dataset.stage ?? null;
-        // Always start a freshly-entered stage at its function list, not
-        // mid-generator/mid-provider-list from a previous visit.
-        this.showDesignGenerator = false;
-        this.showCloudProviders = false;
-        this.selectedCloudProviderId = null;
-        this.cloudResources = null;
-        this.cloudConnectError = null;
-        this.awsInstances = null;
-        this.awsInstancesError = null;
-        this.cloudDeployResult = null;
-        this.cloudDeployError = null;
-        this.showScmConnect = false;
-        this.selectedScmProviderId = null;
-        this.scmResources = null;
-        this.scmConnectError = null;
-        this.showPmConnect = false;
-        this.selectedPmProviderId = null;
-        this.pmResources = null;
-        this.pmConnectError = null;
-        this.showPresentationGenerator = false;
-        this.showCliTerminal = false;
-        this.renderView();
-      });
+    container.innerHTML = `<view-grid id="workspace-overview-grid"></view-grid>`;
+    const grid = container.querySelector<GridView>("#workspace-overview-grid")!;
+    grid.items = SDLC_STAGES.map((s) => ({
+      id: s.key,
+      label: s.label,
+      icon: s.icon,
+      accentColor: STAGE_COLORS[s.key],
+    }));
+    grid.addEventListener("item-select", (e) => {
+      this.currentStageKey = (e as CustomEvent<{ id: string }>).detail.id;
+      // Always start a freshly-entered stage at its function list, not
+      // mid-generator/mid-provider-list from a previous visit.
+      this.showDesignGenerator = false;
+      this.showCloudProviders = false;
+      this.selectedCloudProviderId = null;
+      this.cloudResources = null;
+      this.cloudConnectError = null;
+      this.awsInstances = null;
+      this.awsInstancesError = null;
+      this.cloudDeployResult = null;
+      this.cloudDeployError = null;
+      this.showScmConnect = false;
+      this.selectedScmProviderId = null;
+      this.scmResources = null;
+      this.scmConnectError = null;
+      this.showPmConnect = false;
+      this.selectedPmProviderId = null;
+      this.pmResources = null;
+      this.pmConnectError = null;
+      this.showPresentationGenerator = false;
+      this.showCliTerminal = false;
+      this.renderView();
     });
   }
 

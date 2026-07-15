@@ -190,11 +190,24 @@ assert(document.getElementById("mount-cartoon").innerHTML.length > 0, "cartoon m
 // Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
 // Development->Editor, Testing->Review) are live links; the rest are
 // honestly-labeled stubs, not fake-functional buttons.
+// WorkspaceElement's SDLC hub overview is migrated onto <view-grid>
+// (justjs#108) - the 9 stage tiles now live inside its shadow root as
+// data-id-tagged .tile buttons, not light-DOM [data-stage] elements.
+// The drilled-in stage view itself (#workspace-view) still gets a
+// real light-DOM data-stage attribute (renderStage() - unchanged), so
+// that part of app.css's [data-stage="..."] coloring is untouched.
+function workspaceOverviewTiles() {
+  return [...(document.querySelector("#mount-workspace view-grid")?.shadowRoot?.querySelectorAll(".tile") ?? [])];
+}
+function clickWorkspaceOverviewTile(stageKey) {
+  document.querySelector("#mount-workspace view-grid")?.shadowRoot?.querySelector(`.tile[data-id="${stageKey}"]`)?.click();
+}
+
 document.querySelector('.nav-btn[data-route="/workspace"]').click();
-const workspaceWidgets = [...document.querySelectorAll('#mount-workspace [data-stage]')];
+const workspaceWidgets = workspaceOverviewTiles();
 assert(workspaceWidgets.length === 9, `the workspace overview shows exactly 9 widgets - the 8 SDLC stages plus Presentation (found ${workspaceWidgets.length})`);
 assert(
-  workspaceWidgets.map((w) => w.dataset.stage).join(",") ===
+  workspaceWidgets.map((w) => w.dataset.id).join(",") ===
     "ideation,requirement,planning,design,development,testing,deployment,operations,presentation",
   "the 8 SDLC-stage widgets are in order, with Presentation appended after them"
 );
@@ -207,7 +220,7 @@ assert(
 // "nothing entered yet" error path (plus Jira's real navigate-away
 // button, spied rather than actually followed), not a live external
 // network call.
-document.querySelector('#mount-workspace [data-stage="requirement"]').click();
+clickWorkspaceOverviewTile("requirement");
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Requirement"),
@@ -312,7 +325,7 @@ assert(
 
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
-document.querySelector('#mount-workspace [data-stage="planning"]').click();
+clickWorkspaceOverviewTile("planning");
 await sleep(20);
 const planningLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
@@ -331,7 +344,7 @@ await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 
-document.querySelector('#mount-workspace [data-stage="presentation"]').click();
+clickWorkspaceOverviewTile("presentation");
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Presentation"),
@@ -344,7 +357,7 @@ assert(
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 
-document.querySelector('#mount-workspace [data-stage="deployment"]').click();
+clickWorkspaceOverviewTile("deployment");
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Deployment"),
@@ -529,12 +542,9 @@ assert(
 
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
-assert(
-  document.querySelectorAll('#mount-workspace [data-stage]').length === 9,
-  "the back button returns to the 9-widget overview"
-);
+assert(workspaceOverviewTiles().length === 9, "the back button returns to the 9-widget overview");
 
-document.querySelector('#mount-workspace [data-stage="development"]').click();
+clickWorkspaceOverviewTile("development");
 await sleep(20);
 const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
@@ -572,7 +582,7 @@ document.querySelector('.nav-btn[data-route="/workspace"]').click();
 // bottom nav, returns to the 8-widget overview.
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
-document.querySelector('#mount-workspace [data-stage="design"]').click();
+clickWorkspaceOverviewTile("design");
 await sleep(20);
 assert(document.querySelector("#design-description") === null, "Design opens its own Architecture/Wireframes list first, not straight into the generator");
 const designFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
@@ -664,7 +674,7 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
-document.querySelector('#mount-workspace [data-stage="presentation"]').click();
+clickWorkspaceOverviewTile("presentation");
 await sleep(20);
 const presentationFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
@@ -777,7 +787,7 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
-document.querySelector('#mount-workspace [data-stage="development"]').click();
+clickWorkspaceOverviewTile("development");
 await sleep(20);
 const developmentLiveForCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(developmentLiveForCli[1].textContent.includes("CLI"), "CLI is the second real, live function under Development");

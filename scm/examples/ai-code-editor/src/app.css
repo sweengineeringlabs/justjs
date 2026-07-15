@@ -1218,24 +1218,20 @@ textarea:focus {
   flex: 1;
 }
 
-/* Workspace (SDLC hub) - widget-grid-then-drill-down, same architecture
-   agentic-memory-demo's dashboard.ts established for its own Memories
-   tab, reused here rather than inventing a new pattern. */
-.widget-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+/* Workspace (SDLC hub). .widget-grid/.widget/.widget-action/
+   .widget-icon/.widget-label moved into <view-grid>'s own Shadow DOM
+   (@justjs/component-view, ADR-0014) - no longer global classes here.
+   Each stage's hue now travels as real per-item accentColor data
+   instead (see workspace.ts's STAGE_COLORS), since a light-DOM
+   [data-stage="..."] selector can't reach inside that Shadow DOM. */
 
-/* Each stage sets --stage-color once here - not scoped to .widget, so
-   it applies equally to the overview grid's widget buttons AND
-   #workspace-view once you've drilled into a stage (renderStage() sets
-   the same data-stage on the container - see workspace.ts). Custom
-   properties inherit, so .workspace-function/.dash-back-btn/etc below
-   pick this up automatically without their own per-stage rules.
-   Percentages are picked to be clearly visible (not a "technically
-   there" 5% wash). Hues spread around the wheel and stay clear of
-   --danger/--warning/--success's meaning elsewhere. */
+/* #workspace-view still gets data-stage set directly once you've
+   drilled into a stage (renderStage() - see workspace.ts), so
+   .workspace-function/.dash-back-btn/etc below still pick up
+   --stage-color via inheritance. Percentages are picked to be clearly
+   visible (not a "technically there" 5% wash). Hues spread around the
+   wheel and stay clear of --danger/--warning/--success's meaning
+   elsewhere. */
 [data-stage="ideation"] { --stage-color: #f5a524; }
 [data-stage="requirement"] { --stage-color: #3b82f6; }
 [data-stage="planning"] { --stage-color: #14b8a6; }
@@ -1245,65 +1241,6 @@ textarea:focus {
 [data-stage="deployment"] { --stage-color: #f97316; }
 [data-stage="operations"] { --stage-color: #06b6d4; }
 [data-stage="presentation"] { --stage-color: #d946ef; }
-
-.widget {
-  position: relative;
-  /* Clips the corner wedge below to the card's own rounded corner,
-     instead of poking a square corner out past it. */
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 16px;
-  /* Was a flat single-value tint - now a real corner-to-corner fade,
-     each card's own --stage-color to plain --surface. */
-  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--surface)) 0%, var(--surface) 70%);
-  border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 25%, var(--border));
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  text-align: left;
-  min-height: 92px;
-}
-
-/* Folded-corner wedge accent, top-right, in the card's own stage color -
-   the "wedge edge" look applied per-card. */
-.widget::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 34px;
-  height: 34px;
-  background: var(--stage-color, var(--accent));
-  clip-path: polygon(100% 0, 100% 100%, 0 0);
-  opacity: 0.4;
-}
-
-.widget-action {
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  gap: 8px;
-}
-
-.widget-icon {
-  font-size: 20px;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--stage-color, var(--accent)) 35%, transparent);
-}
-
-.widget-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
 
 .dash-subnav {
   display: flex;
