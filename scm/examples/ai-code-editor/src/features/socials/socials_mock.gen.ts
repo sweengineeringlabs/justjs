@@ -3,10 +3,18 @@
 // Regenerate with: justw generate app
 
 export interface SocialsSampleData {
+  connector: string;
+  pageHeader: string;
 }
 
 export const sampleData: SocialsSampleData = {
+  connector: "Sample connector",
+  pageHeader: "Sample page-header",
 };
 
 export function populateSocials(root: HTMLElement): void {
+  const connector = root.querySelector("[data-part='connector']") as HTMLElement;
+  if (connector) connector.textContent = String(sampleData.connector);
+  const pageHeader = root.querySelector("[data-part='page-header']") as HTMLElement;
+  if (pageHeader) pageHeader.textContent = String(sampleData.pageHeader);
 }

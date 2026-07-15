@@ -2,3 +2,23 @@ name: socials
 version: 1
 dom:
   tag: x-socials
+  builtinStates: false
+  # No customElement.tagName override here, deliberately - SocialsElement
+  # (socials.ts) extends SocialsBase and does its own explicit
+  # customElements.define("x-socials", SocialsElement) after importing
+  # this file. Importing SocialsBase always runs its own unconditional
+  # self-registration as a real ES module side effect - if this base
+  # registered as "x-socials" too, it would win that race (imports
+  # always evaluate before the importing module's own subsequent code),
+  # permanently claiming the real tag for the inert base class instead
+  # of the real subclass (customElements has no redefine/unregister).
+  # Leaving this unset keeps SocialsBase on the harmless default
+  # (js-socials, never actually rendered), so the real registration for
+  # x-socials only ever happens once, correctly, as SocialsElement.
+  elements:
+    page-header:
+      tag: view-nav-header
+      address: true
+    connector:
+      tag: control-provider-connector
+      address: true

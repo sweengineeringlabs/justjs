@@ -1,25 +1,16 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom socials_component.yaml
 // Source: socials_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class SocialsBase extends HTMLElement {
   static readonly tagName = 'js-socials';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected connector!: HTMLElement;
+  protected pageHeader!: HTMLElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +32,6 @@ export class SocialsBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +48,24 @@ export class SocialsBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.connector) {
+      const __el = this.querySelector('[data-part="connector"]') as HTMLElement | null;
+      if (__el) {
+        this.connector = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:socials:socials:connector');
+      }
+    }
+    if (!this.pageHeader) {
+      const __el = this.querySelector('[data-part="page-header"]') as HTMLElement | null;
+      if (__el) {
+        this.pageHeader = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:socials:socials:page-header');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.connector && !!this.pageHeader;
   }
 }
 

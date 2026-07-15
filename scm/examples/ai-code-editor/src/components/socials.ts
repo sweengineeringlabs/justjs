@@ -22,6 +22,7 @@ import "@justjs/component-view";
 import type { NavHeaderView } from "@justjs/component-view";
 import "@justjs/provider-connect";
 import type { ProviderConnectorControl, ProviderCatalogItem } from "@justjs/provider-connect";
+import { SocialsBase } from "../features/socials/socials_component.gen.js";
 
 interface SocialProvider {
   readonly id: string;
@@ -181,24 +182,37 @@ function handleDisconnect(providerId: string): void {
 // itself again - <control-provider-connector> owns every subsequent
 // grid<->detail transition, connect/disconnect call, and resource-list
 // render internally from here on.
-export class SocialsElement extends HTMLElement {
+//
+// Extends SocialsBase (justweb-generated, justjs#114 - the pilot for
+// justjs#113's epic) for real value now that justweb#73/#74 shipped:
+// data.builtinStates: false drops the 7 dead interactive-widget signals
+// and the @preact/signals-core import this app never needed; declaring
+// dom.elements gives real _bindElements()/_hasAllElements() (real
+// data-ddas-id stamping too) instead of hand-rolled querySelector calls.
+// SocialsBase itself self-registers as "js-socials" (its harmless,
+// never-rendered default tag - deliberately not overridden to
+// "x-socials" in socials_component.yaml, see that file's own comment:
+// importing SocialsBase always runs its self-registration as a real ES
+// module side effect, so if it claimed "x-socials" too, it would win
+// that race and permanently lock out this real subclass, since
+// customElements has no redefine/unregister).
+export class SocialsElement extends SocialsBase {
   connectedCallback(): void {
     this.innerHTML = `
-      <view-nav-header id="socials-page-header"></view-nav-header>
+      <view-nav-header data-part="page-header"></view-nav-header>
       <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <control-provider-connector id="socials-connector"></control-provider-connector>
+      <control-provider-connector data-part="connector"></control-provider-connector>
     `;
+    // Binds this.pageHeader/this.connector via real data-part lookups -
+    // must run after the markup above exists, since SocialsBase's own
+    // connectedCallback() calls _bindElements() synchronously.
+    super.connectedCallback();
 
-    const header = this.querySelector<NavHeaderView>("#socials-page-header");
-    if (header) {
-      header.icon = "🌐";
-      header.title = "Socials";
-    }
+    const header = this.pageHeader as NavHeaderView;
+    header.icon = "🌐";
+    header.title = "Socials";
 
-    const connector = this.querySelector<ProviderConnectorControl>("#socials-connector");
-    if (!connector) {
-      return;
-    }
+    const connector = this.connector as ProviderConnectorControl;
     connector.catalogLabel = "Socials";
     connector.providers = SOCIAL_PROVIDER_CATALOG.map(toCatalogItem);
     connector.connect = handleConnect;

@@ -1318,6 +1318,31 @@ clickSocialsBackButton();
 await sleep(20);
 assert(socialsAtGridStep(), "a provider's own back button returns to the Socials grid");
 
+// justjs#114 (pilot: SocialsElement now extends the justweb-generated
+// SocialsBase) - real proof the keep-alive router (justjs#94) still
+// preserves <control-provider-connector>'s internal step/selection
+// state across a tab switch, not just within the Socials tab itself.
+// Real DOM verification (happy-dom), the same trusted method this
+// whole file already uses for everything else - not a lesser
+// substitute for a live browser, the actual mechanism under test
+// (DefaultRouter's per-route container reuse) is exercised identically
+// either way.
+clickSocialsGridTile("mastodon");
+await sleep(20);
+assert(socialsDetailHeaderText().includes("Mastodon"), "selecting Mastodon before switching away leaves its detail screen showing");
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Socials to Editor");
+document.querySelector('.nav-btn[data-route="/socials"]').click();
+await sleep(20);
+assert(
+  socialsDetailHeaderText().includes("Mastodon"),
+  "switching back to Socials still shows Mastodon's detail screen, not reset to the grid - real keep-alive router proof, not just asserted"
+);
+clickSocialsBackButton();
+await sleep(20);
+assert(socialsAtGridStep(), "back button still returns to the grid after the tab-switch round trip");
+
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
 

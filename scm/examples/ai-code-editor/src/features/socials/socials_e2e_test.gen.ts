@@ -28,6 +28,14 @@ page.waitForSelector('x-socials');
 const root = page.querySelector('x-socials');
 assert(root !== null, 'Socials root <x-socials> must exist in DOM');
 
+console.log('2. Socials element connector is reachable');
+const el_connector = page.querySelector('[data-addr="connector"]');
+assert(el_connector !== null, 'connector must have DOM address [[data-addr="connector"]]');
+
+console.log('3. Socials element page-header is reachable');
+const el_page_header = page.querySelector('[data-addr="page-header"]');
+assert(el_page_header !== null, 'page-header must have DOM address [[data-addr="page-header"]]');
+
 } catch (e: unknown) {
   __err = String(e);
 }
