@@ -1,6 +1,6 @@
 # ADR-0014: `@justjs/component-view` — reusable tile-grid view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 - **Supersedes:** [ADR-0013](ADR-0013-connect-kit-no-grid-component.md)
 
@@ -154,6 +154,17 @@ side-effect, outside DDAS/boot-time validation. Composes `<view-badge>`
 - [ ] `WorkspaceElement`'s `renderOverview()` migrated to `<view-grid>`,
       `verify_web.mjs` passes with no assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
+
+## Implementation note (added post-merge, justjs#108)
+
+Migrating `WorkspaceElement`'s `renderOverview()` surfaced one field
+missing from this ADR's originally-listed `items` shape: `accentColor`
+(a per-tile hex color). The SDLC hub's 9 tiles each carry their own hue
+today via a light-DOM `[data-stage="..."]` CSS selector — Shadow DOM
+rule matching can't reach inside `<view-grid>` from that selector, so
+the color has to travel as real per-item data instead. Each stage's
+existing hex value is unchanged, just supplied as `accentColor` rather
+than resolved via CSS attribute selector.
 
 ## Relates to
 

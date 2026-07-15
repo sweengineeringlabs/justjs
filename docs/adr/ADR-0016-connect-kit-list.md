@@ -1,6 +1,6 @@
 # ADR-0016: `@justjs/component-view` — reusable list view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

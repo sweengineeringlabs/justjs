@@ -1,6 +1,6 @@
 # ADR-0012: `@justjs/component-view` — reusable toggle view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

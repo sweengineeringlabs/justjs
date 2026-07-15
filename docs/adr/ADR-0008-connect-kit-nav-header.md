@@ -1,6 +1,6 @@
 # ADR-0008: `@justjs/component-view` — reusable nav-header view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

@@ -1,6 +1,6 @@
 # ADR-0006: `@justjs/component-view` — package scaffold + reusable badge view
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

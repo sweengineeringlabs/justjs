@@ -1,6 +1,6 @@
 # ADR-0009: `@justjs/component-view` — reusable status-line view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

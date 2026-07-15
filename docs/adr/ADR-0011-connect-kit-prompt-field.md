@@ -1,6 +1,6 @@
 # ADR-0011: `@justjs/component-view` — reusable prompt-field view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

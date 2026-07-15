@@ -1,6 +1,6 @@
 # ADR-0010: `@justjs/component-view` — reusable image-attach view components
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary

@@ -1,6 +1,6 @@
 # ADR-0007: `@justjs/provider-connect` — package scaffold + provider-connector control
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary
@@ -223,6 +223,25 @@ provider-connect/scm/main/src/
       `<control-provider-connector>`, `verify_web.mjs` passes with no
       assertion count regression
 - [ ] Root `bun run build`/`typecheck`/`test` clean
+
+## Implementation note (added post-merge, justjs#101/justjs#102)
+
+This ADR's own text flagged `ProviderConnectorControl`'s exact
+property/event surface as undecided ("a design decision for the
+implementing issue, not fully fixed by this ADR"). Migrating Socials
+(the sole v1 consumer) surfaced 3 real, necessary additions to
+`ProviderCatalogItem` beyond the fields listed under Scope above:
+`disclosure` (the per-provider "stored only on this device..." prose
+shown above the form), `resourceListLabel` (the "Follows"/"r/popular"
+heading shown above the resource list), and `unsupportedMessage` (a
+provider with no connect form at all — X/LinkedIn's real
+no-confirmed-CORS-access state, a third exclusion kind beyond the
+OAuth/billed-generate list this ADR originally named). The control
+also composes `<view-nav-header>` (ADR-0008) internally for the detail
+screen's own header, via a `catalogLabel` property — not itemized in
+this ADR's original "composes ... `<view-grid>`/`<view-form>`/
+`<view-status-line>`/`<view-list>`" list, added because it was the
+correct fit for exactly the pattern that element already covers.
 
 ## Relates to
 

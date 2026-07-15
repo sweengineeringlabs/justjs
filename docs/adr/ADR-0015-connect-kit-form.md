@@ -1,6 +1,6 @@
 # ADR-0015: `@justjs/component-view` — reusable form view component
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-14
 
 ## Summary
