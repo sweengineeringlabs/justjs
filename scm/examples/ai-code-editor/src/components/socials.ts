@@ -19,13 +19,9 @@ import {
 import { connectMastodon, connectBluesky, connectReddit } from "../core/socials_connect.js";
 import type { SocialResource } from "../core/socials_connect.js";
 import "@justjs/component-view";
-import type { BadgeView, NavHeaderView } from "@justjs/component-view";
-
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
+import type { NavHeaderView } from "@justjs/component-view";
+import "@justjs/provider-connect";
+import type { ProviderConnectorControl, ProviderCatalogItem } from "@justjs/provider-connect";
 
 interface SocialProvider {
   readonly id: string;
@@ -39,14 +35,14 @@ interface SocialProvider {
   // real convention, never the account password) - see
   // core/bluesky_provider.ts for why nothing but these 2 fields is ever
   // persisted. "clientcreds" - Reddit's real 2-field client ID + secret,
-  // exchanged for an app-level-only token (see the disclosure text in
-  // renderSocialProviderBody below) - real user-scoped access needs the
-  // full OAuth consent flow, out of scope here. "unsupported" - X/
-  // Twitter's and LinkedIn's APIs did not return CORS headers when
-  // checked live; connecting directly from a browser isn't confirmed
-  // possible, so both stay an honest "not available" state rather than a
-  // connect form that might silently fail, same treatment Cloudflare
-  // already gets in workspace.ts's CLOUD_PROVIDER_CATALOG.
+  // exchanged for an app-level-only token (see the disclosure text
+  // below) - real user-scoped access needs the full OAuth consent flow,
+  // out of scope here. "unsupported" - X/Twitter's and LinkedIn's APIs
+  // did not return CORS headers when checked live; connecting directly
+  // from a browser isn't confirmed possible, so both stay an honest
+  // "not available" state rather than a connect form that might
+  // silently fail, same treatment Cloudflare already gets in
+  // workspace.ts's CLOUD_PROVIDER_CATALOG.
   readonly kind: "bearer" | "apppassword" | "clientcreds" | "unsupported";
 }
 
@@ -62,285 +58,152 @@ const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
   { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2", kind: "unsupported" },
 ];
 
-function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
-  const badge = el as BadgeView | null;
-  if (!badge) {
+function isProviderConnected(p: SocialProvider): boolean {
+  if (p.kind === "apppassword") {
+    return getStoredBlueskyCredentials() !== null;
+  }
+  if (p.kind === "clientcreds") {
+    return getStoredRedditCredentials() !== null;
+  }
+  if (p.kind === "unsupported") {
+    return false;
+  }
+  return getStoredSocialToken(p.id).length > 0;
+}
+
+const RESOURCE_LIST_LABELS: Record<string, string> = {
+  bluesky: "Follows",
+  reddit: "r/popular",
+};
+
+// <control-provider-connector> (@justjs/provider-connect) owns the
+// grid/detail/connect/list orchestration from here on - this only maps
+// each real provider to its property surface, computed once at mount.
+function toCatalogItem(p: SocialProvider): ProviderCatalogItem {
+  if (p.kind === "unsupported") {
+    return {
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      fields: [],
+      unsupportedMessage: `⚠️ ${p.name}'s API did not return CORS headers when checked directly from a browser - connecting here isn't confirmed possible without a backend proxy, which this app doesn't have. Left as a local-list-only entry rather than a connect form that might silently fail.`,
+    };
+  }
+  const base = {
+    id: p.id,
+    name: p.name,
+    icon: p.icon,
+    color: p.color,
+    connected: isProviderConnected(p),
+    resourceListLabel: RESOURCE_LIST_LABELS[p.id] ?? "Lists",
+    ...(p.logo !== undefined ? { logo: p.logo } : {}),
+  };
+  if (p.kind === "apppassword") {
+    return {
+      ...base,
+      fields: [
+        { id: "identifier", type: "text", placeholder: "Bluesky handle or email" },
+        { id: "appPassword", type: "password", placeholder: "App Password" },
+      ],
+      disclosure: `Stored only on this device. Sent directly to Bluesky when you connect. Use a real Bluesky "App Password" (Settings → App Passwords on bsky.app) - never your actual account password. Bluesky's own session token is short-lived, so this reconnects fresh every time rather than trying to cache it.`,
+    };
+  }
+  if (p.kind === "clientcreds") {
+    return {
+      ...base,
+      fields: [
+        { id: "clientId", type: "text", placeholder: "Reddit client ID" },
+        { id: "clientSecret", type: "password", placeholder: "Reddit client secret" },
+      ],
+      disclosure: `Stored only on this device. Sent directly to Reddit when you connect. Reddit's client_credentials grant is app-level only - it proves your credentials work against real public data (r/popular), it cannot list your own saved posts or subscriptions. Full personal access needs Reddit's OAuth consent flow, not attempted here.`,
+    };
+  }
+  return {
+    ...base,
+    fields: [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }],
+    disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
+  };
+}
+
+// Real, actionable errors on empty fields (the same "Paste a token
+// first."/"Enter both..." copy every prior round of this app already
+// showed) stay here - <view-form> deliberately validates nothing
+// beyond rendering, per ADR-0015's own scope.
+async function handleConnect(providerId: string, values: Readonly<Record<string, string>>): Promise<SocialResource[]> {
+  const provider = SOCIAL_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  if (provider.kind === "apppassword") {
+    const identifier = (values["identifier"] ?? "").trim() || getStoredBlueskyCredentials()?.identifier || "";
+    const appPassword = (values["appPassword"] ?? "").trim() || getStoredBlueskyCredentials()?.appPassword || "";
+    if (!identifier || !appPassword) {
+      throw new Error("Enter both your handle/email and App Password.");
+    }
+    const resources = await connectBluesky(identifier, appPassword);
+    setStoredBlueskyCredentials({ identifier, appPassword });
+    return resources;
+  }
+  if (provider.kind === "clientcreds") {
+    const clientId = (values["clientId"] ?? "").trim() || getStoredRedditCredentials()?.clientId || "";
+    const clientSecret = (values["clientSecret"] ?? "").trim() || getStoredRedditCredentials()?.clientSecret || "";
+    if (!clientId || !clientSecret) {
+      throw new Error("Enter both the client ID and client secret.");
+    }
+    const resources = await connectReddit(clientId, clientSecret);
+    setStoredRedditCredentials({ clientId, clientSecret });
+    return resources;
+  }
+  const token = (values["token"] ?? "").trim() || getStoredSocialToken(providerId);
+  if (!token) {
+    throw new Error("Paste a token first.");
+  }
+  const resources = await connectMastodon(token);
+  setStoredSocialToken(providerId, token);
+  return resources;
+}
+
+function handleDisconnect(providerId: string): void {
+  const provider = SOCIAL_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
     return;
   }
-  badge.color = p.color;
-  if (p.icon !== undefined) {
-    badge.icon = p.icon;
-  }
-  if (p.logo !== undefined) {
-    badge.logo = p.logo;
+  if (provider.kind === "apppassword") {
+    setStoredBlueskyCredentials(null);
+  } else if (provider.kind === "clientcreds") {
+    setStoredRedditCredentials(null);
+  } else {
+    setStoredSocialToken(providerId, "");
   }
 }
 
-// Socials - the 7th top-level tab. Same simpler-than-Workspace shape
-// communication.ts already established: no SDLC-stage wrapper, this IS
-// directly the 5-provider grid (3 real connect screens plus 2 honest
-// not-available states), reusing the same generic
-// .provider-*/.connect-*/.resource-* CSS classes.
+// Socials - the 7th top-level tab. Mounts once and never re-renders
+// itself again - <control-provider-connector> owns every subsequent
+// grid<->detail transition, connect/disconnect call, and resource-list
+// render internally from here on.
 export class SocialsElement extends HTMLElement {
-  private selectedProviderId: string | null = null;
-  private resources: SocialResource[] | null = null;
-  private connectError: string | null = null;
-  private connecting = false;
-
   connectedCallback(): void {
-    this.renderView();
-  }
-
-  private renderView(): void {
-    if (this.selectedProviderId) {
-      const provider = SOCIAL_PROVIDER_CATALOG.find((p) => p.id === this.selectedProviderId);
-      if (provider) {
-        this.renderDetail(provider);
-        return;
-      }
-      this.selectedProviderId = null;
-    }
-    this.renderGrid();
-  }
-
-  private isProviderConnected(p: SocialProvider): boolean {
-    if (p.kind === "apppassword") {
-      return getStoredBlueskyCredentials() !== null;
-    }
-    if (p.kind === "clientcreds") {
-      return getStoredRedditCredentials() !== null;
-    }
-    if (p.kind === "unsupported") {
-      return false;
-    }
-    return getStoredSocialToken(p.id).length > 0;
-  }
-
-  private renderGrid(): void {
     this.innerHTML = `
-      <view-nav-header id="socials-grid-header"></view-nav-header>
+      <view-nav-header id="socials-page-header"></view-nav-header>
       <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <div class="provider-grid">
-        ${SOCIAL_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-social-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
+      <control-provider-connector id="socials-connector"></control-provider-connector>
     `;
 
-    const header = this.querySelector<NavHeaderView>("#socials-grid-header");
+    const header = this.querySelector<NavHeaderView>("#socials-page-header");
     if (header) {
       header.icon = "🌐";
       header.title = "Socials";
     }
 
-    this.querySelectorAll<HTMLButtonElement>("[data-social-provider-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.socialProviderId;
-        if (!id) {
-          return;
-        }
-        this.selectedProviderId = id;
-        this.resources = null;
-        this.connectError = null;
-        this.renderView();
-      });
-    });
-    this.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
-      const provider = SOCIAL_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
-      if (provider) {
-        setBadgeProps(el, provider);
-      }
-    });
-  }
-
-  private renderDetail(provider: SocialProvider): void {
-    const connected = this.isProviderConnected(provider);
-    this.innerHTML = `
-      <view-nav-header id="socials-detail-header"><view-badge id="socials-detail-badge"></view-badge> ${escapeHtml(provider.name)}</view-nav-header>
-      ${this.renderProviderBody(provider, connected)}
-    `;
-    setBadgeProps(this.querySelector("#socials-detail-badge"), provider);
-
-    const header = this.querySelector<NavHeaderView>("#socials-detail-header");
-    if (header) {
-      header.backLabel = "Socials";
-    }
-    header?.addEventListener("nav-back", () => {
-      this.selectedProviderId = null;
-      this.renderView();
-    });
-
-    if (provider.kind === "unsupported") {
+    const connector = this.querySelector<ProviderConnectorControl>("#socials-connector");
+    if (!connector) {
       return;
     }
-
-    this.querySelector("#socials-connect-btn")?.addEventListener("click", () => {
-      void this.handleConnect(provider);
-    });
-    this.querySelector("#socials-disconnect-btn")?.addEventListener("click", () => {
-      if (provider.kind === "apppassword") {
-        setStoredBlueskyCredentials(null);
-      } else if (provider.kind === "clientcreds") {
-        setStoredRedditCredentials(null);
-      } else {
-        setStoredSocialToken(provider.id, "");
-      }
-      this.resources = null;
-      this.connectError = null;
-      this.renderView();
-    });
-
-    // Already connected (a credential was saved in a previous session)
-    // and nothing fetched yet this visit - fetch automatically, same
-    // lazy-validation posture as workspace.ts's/communication.ts's own
-    // connect screens.
-    if (connected && !this.resources && !this.connectError && !this.connecting) {
-      void this.handleConnect(provider);
-    }
-  }
-
-  private renderProviderBody(provider: SocialProvider, connected: boolean): string {
-    if (provider.kind === "unsupported") {
-      return `
-        <p class="connect-hint">⚠️ ${escapeHtml(provider.name)}'s API did not return CORS headers when checked directly from a browser - connecting here isn't confirmed possible without a backend proxy, which this app doesn't have. Left as a local-list-only entry rather than a connect form that might silently fail.</p>
-      `;
-    }
-
-    const disclosure =
-      provider.kind === "apppassword"
-        ? `Stored only on this device. Sent directly to Bluesky when you connect. Use a real Bluesky "App Password" (Settings → App Passwords on bsky.app) - never your actual account password. Bluesky's own session token is short-lived, so this reconnects fresh every time rather than trying to cache it.`
-        : provider.kind === "clientcreds"
-          ? `Stored only on this device. Sent directly to Reddit when you connect. Reddit's client_credentials grant is app-level only - it proves your credentials work against real public data (r/popular), it cannot list your own saved posts or subscriptions. Full personal access needs Reddit's OAuth consent flow, not attempted here.`
-          : `Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.`;
-
-    const form =
-      provider.kind === "apppassword"
-        ? `
-          <input id="socials-connect-identifier" type="text" placeholder="Bluesky handle or email" autocomplete="off" spellcheck="false" />
-          <input id="socials-connect-app-password" type="password" placeholder="App Password" autocomplete="off" spellcheck="false" />
-        `
-        : provider.kind === "clientcreds"
-          ? `
-          <input id="socials-connect-client-id" type="text" placeholder="Reddit client ID" autocomplete="off" spellcheck="false" />
-          <input id="socials-connect-client-secret" type="password" placeholder="Reddit client secret" autocomplete="off" spellcheck="false" />
-        `
-          : `<input id="socials-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />`;
-
-    return `
-      <p class="settings-disclosure">${disclosure}</p>
-      <div class="connect-form">
-        ${form}
-        <div class="connect-actions">
-          <button id="socials-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="socials-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="socials-connect-status" class="connect-status${this.connectError ? " connect-status-error" : ""}">${this.connecting ? "Connecting…" : this.connectError ? `⚠️ ${escapeHtml(this.connectError)}` : ""}</p>
-      </div>
-      ${this.renderResourceList(provider)}
-    `;
-  }
-
-  private renderResourceList(provider: SocialProvider): string {
-    if (!this.resources) {
-      return "";
-    }
-    const listLabel = provider.id === "bluesky" ? "Follows" : provider.id === "reddit" ? "r/popular" : "Lists";
-    const rows =
-      this.resources.length === 0
-        ? `<p class="connect-hint">Connected - no results found.</p>`
-        : `<ul class="resource-list">
-            ${this.resources
-              .map(
-                (r) => `
-                  <li class="resource-row">
-                    <span class="resource-name">${escapeHtml(r.name)}</span>
-                    <span class="resource-status">${escapeHtml(r.status)}</span>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>`;
-    return `<h3 class="resource-list-label">${listLabel}</h3>${rows}`;
-  }
-
-  private async handleConnect(provider: SocialProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#socials-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#socials-connect-btn");
-
-    let blueskyCreds: { identifier: string; appPassword: string } | null = null;
-    let redditCreds: { clientId: string; clientSecret: string } | null = null;
-    let token = "";
-
-    if (provider.kind === "apppassword") {
-      const identifierInput = this.querySelector<HTMLInputElement>("#socials-connect-identifier");
-      const appPasswordInput = this.querySelector<HTMLInputElement>("#socials-connect-app-password");
-      const identifier = identifierInput?.value.trim() || getStoredBlueskyCredentials()?.identifier || "";
-      const appPassword = appPasswordInput?.value.trim() || getStoredBlueskyCredentials()?.appPassword || "";
-      if (!identifier || !appPassword) {
-        this.connectError = "Enter both your handle/email and App Password.";
-        this.renderView();
-        return;
-      }
-      blueskyCreds = { identifier, appPassword };
-    } else if (provider.kind === "clientcreds") {
-      const clientIdInput = this.querySelector<HTMLInputElement>("#socials-connect-client-id");
-      const clientSecretInput = this.querySelector<HTMLInputElement>("#socials-connect-client-secret");
-      const clientId = clientIdInput?.value.trim() || getStoredRedditCredentials()?.clientId || "";
-      const clientSecret = clientSecretInput?.value.trim() || getStoredRedditCredentials()?.clientSecret || "";
-      if (!clientId || !clientSecret) {
-        this.connectError = "Enter both the client ID and client secret.";
-        this.renderView();
-        return;
-      }
-      redditCreds = { clientId, clientSecret };
-    } else {
-      const tokenInput = this.querySelector<HTMLInputElement>("#socials-connect-token");
-      token = tokenInput?.value.trim() || getStoredSocialToken(provider.id);
-      if (!token) {
-        this.connectError = "Paste a token first.";
-        this.renderView();
-        return;
-      }
-    }
-
-    this.connecting = true;
-    this.connectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
-    try {
-      const resources =
-        provider.kind === "apppassword" && blueskyCreds
-          ? await connectBluesky(blueskyCreds.identifier, blueskyCreds.appPassword)
-          : provider.kind === "clientcreds" && redditCreds
-            ? await connectReddit(redditCreds.clientId, redditCreds.clientSecret)
-            : await connectMastodon(token);
-      if (provider.kind === "apppassword" && blueskyCreds) {
-        setStoredBlueskyCredentials(blueskyCreds);
-      } else if (provider.kind === "clientcreds" && redditCreds) {
-        setStoredRedditCredentials(redditCreds);
-      } else {
-        setStoredSocialToken(provider.id, token);
-      }
-      this.resources = resources;
-      this.connectError = null;
-    } catch (e) {
-      this.connectError = e instanceof Error ? e.message : String(e);
-      this.resources = null;
-    } finally {
-      this.connecting = false;
-      this.renderView();
-    }
+    connector.catalogLabel = "Socials";
+    connector.providers = SOCIAL_PROVIDER_CATALOG.map(toCatalogItem);
+    connector.connect = handleConnect;
+    connector.list = async (_providerId, session) => session as SocialResource[];
+    connector.disconnect = handleDisconnect;
   }
 }
 

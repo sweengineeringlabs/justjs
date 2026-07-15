@@ -1170,38 +1170,79 @@ await sleep(20);
 // Cloudflare. No credential is set anywhere in this run, so this
 // proves each real provider's own "nothing entered yet" error path,
 // not a live external network call.
-// socials.ts is migrated onto <view-nav-header> (justjs#103) - its
-// title text and back button now live inside that element's Shadow
-// DOM, not as light-DOM .workspace-stage-title/#socials-back-btn
-// elements like every other tab's still-unmigrated header. These two
-// helpers pierce the shadow root; every other tab below keeps
-// querying the light DOM directly since it hasn't migrated yet.
-function socialsHeaderText() {
+//
+// socials.ts is migrated onto <control-provider-connector>
+// (@justjs/provider-connect, justjs#101/justjs#102) - the grid/form/
+// status/list all live behind a second, nested layer of Shadow DOM
+// now: #mount-socials (light) -> <control-provider-connector>
+// (shadow) -> <view-grid>/<view-form>/<view-status-line>/
+// <view-nav-header> (each with its own further-nested shadow root).
+// These helpers pierce both layers; every other still-unmigrated tab
+// below keeps querying its own light DOM directly.
+function socialsConnector() {
+  return document.querySelector("#mount-socials control-provider-connector");
+}
+function socialsPageHeaderText() {
   const host = document.querySelector("#mount-socials view-nav-header");
-  if (!host) {
-    return "";
-  }
-  // When the caller slots real light-DOM content (the provider-detail
-  // header's <view-badge> + name), .textContent on the shadow's <slot>
-  // element returns the slot's *fallback* markup, not the projected
-  // content - a real Shadow DOM gotcha, not a bug here. Reading the
-  // host's own light-DOM textContent first is what actually reflects
-  // what's rendered in that case; the shadow fallback is only correct
-  // when the host has no light-DOM children (the top-level grid header,
-  // driven purely by the icon/title properties).
-  return host.childNodes.length > 0 ? host.textContent : (host.shadowRoot?.querySelector(".title")?.textContent ?? "");
+  return host?.shadowRoot?.querySelector(".title")?.textContent ?? "";
+}
+function socialsGridTiles() {
+  return [...(socialsConnector()?.shadowRoot?.querySelector("view-grid")?.shadowRoot?.querySelectorAll(".tile") ?? [])];
+}
+function clickSocialsGridTile(providerId) {
+  socialsConnector()
+    ?.shadowRoot?.querySelector("view-grid")
+    ?.shadowRoot?.querySelector(`.tile[data-id="${providerId}"]`)
+    ?.click();
+}
+function socialsAtGridStep() {
+  return socialsConnector()?.shadowRoot?.querySelector("view-grid") !== null;
+}
+// The detail header's own light-DOM textContent (a <view-badge> +
+// provider-name text node slotted into <view-nav-header>) - same real
+// Shadow DOM gotcha documented at length before this migration:
+// .textContent on the shadow's <slot> wrapper would return fallback
+// markup, not projected content, so this reads the host directly.
+function socialsDetailHeaderText() {
+  return socialsConnector()?.shadowRoot?.querySelector("view-nav-header")?.textContent ?? "";
 }
 function clickSocialsBackButton() {
-  document.querySelector("#mount-socials view-nav-header")?.shadowRoot?.querySelector(".back-btn")?.click();
+  socialsConnector()
+    ?.shadowRoot?.querySelector("view-nav-header")
+    ?.shadowRoot?.querySelector(".back-btn")
+    ?.click();
+}
+function socialsFormInput(fieldId) {
+  return (
+    socialsConnector()?.shadowRoot?.querySelector("view-form")?.shadowRoot?.querySelector(`input[data-field-id="${fieldId}"]`) ??
+    null
+  );
+}
+function clickSocialsConnectButton() {
+  socialsConnector()?.shadowRoot?.querySelector("view-form")?.shadowRoot?.querySelector(".connect-btn")?.click();
+}
+function socialsStatusText() {
+  return socialsConnector()?.shadowRoot?.querySelector("view-status-line")?.shadowRoot?.querySelector("p")?.textContent ?? "";
+}
+function socialsHasResourceList() {
+  return socialsConnector()?.shadowRoot?.querySelector("view-list") !== null;
+}
+function socialsHasForm() {
+  return socialsConnector()?.shadowRoot?.querySelector("view-form") !== null;
+}
+function socialsDisclosureText() {
+  return socialsConnector()?.shadowRoot?.querySelector(".settings-disclosure")?.textContent ?? "";
+}
+function socialsUnsupportedText() {
+  return socialsConnector()?.shadowRoot?.querySelector(".connect-hint")?.textContent ?? "";
 }
 
 document.querySelector('.nav-btn[data-route="/socials"]').click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/socials"]').classList.contains("active"), "tapping the Socials tab navigates to the real Socials route");
 assert(document.getElementById("mount-socials").classList.contains("active"), "the Socials mount is now the active page");
-assert(socialsHeaderText().includes("Socials"), "Socials renders its own real provider grid directly, not a stub");
-const socialProviderCards = [...document.querySelectorAll("#mount-socials .provider-card")];
-const socialProviderNames = socialProviderCards.map((el) => el.querySelector(".provider-name").textContent);
+assert(socialsPageHeaderText().includes("Socials"), "Socials renders its own real provider grid directly, not a stub");
+const socialProviderNames = socialsGridTiles().map((el) => el.querySelector(".tile-label").textContent);
 assert(
   socialProviderNames.includes("Mastodon") &&
     socialProviderNames.includes("Bluesky") &&
@@ -1210,96 +1251,72 @@ assert(
     socialProviderNames.includes("LinkedIn"),
   `Socials opens a real catalog of all 5 actual social providers, including the 2 honestly-unsupported ones (found ${socialProviderNames.join(", ")})`
 );
-assert(socialProviderCards.every((el) => !el.classList.contains("selected")), "no social provider shows as Connected before any credential is ever saved");
+assert(socialsGridTiles().every((el) => !el.classList.contains("selected")), "no social provider shows as Connected before any credential is ever saved");
 
-const mastodonCard = document.querySelector('[data-social-provider-id="mastodon"]');
-mastodonCard.click();
+clickSocialsGridTile("mastodon");
 await sleep(20);
-assert(socialsHeaderText().includes("Mastodon"), "tapping a provider card opens that provider's own connect screen");
-assert(document.getElementById("socials-connect-token") !== null, "Mastodon shows a single token input, same shape as a bearer-token cloud/SCM/comms provider");
-document.getElementById("socials-connect-btn").click();
+assert(socialsDetailHeaderText().includes("Mastodon"), "tapping a provider card opens that provider's own connect screen");
+assert(socialsFormInput("token") !== null, "Mastodon shows a single token input, same shape as a bearer-token cloud/SCM/comms provider");
+clickSocialsConnectButton();
 await sleep(20);
 assert(
-  document.getElementById("socials-connect-status").textContent.includes("Paste a token first"),
+  socialsStatusText().includes("Paste a token first"),
   "connecting Mastodon with an empty token shows a real, actionable error, not a silent no-op"
 );
-assert(document.querySelector("#mount-socials .resource-list") === null, "no resource list renders without a real successful connect");
+assert(!socialsHasResourceList(), "no resource list renders without a real successful connect");
 
 clickSocialsBackButton();
 await sleep(20);
-const blueskyCard = document.querySelector('[data-social-provider-id="bluesky"]');
-blueskyCard.click();
+clickSocialsGridTile("bluesky");
 await sleep(20);
 assert(
-  document.getElementById("socials-connect-identifier") !== null && document.getElementById("socials-connect-app-password") !== null,
+  socialsFormInput("identifier") !== null && socialsFormInput("appPassword") !== null,
   "Bluesky shows two real fields (handle/email + App Password), not a single token input"
 );
 assert(
-  document.querySelector("#mount-socials .settings-disclosure").textContent.includes("App Password") &&
-    document.querySelector("#mount-socials .settings-disclosure").textContent.includes("never your actual account password"),
+  socialsDisclosureText().includes("App Password") && socialsDisclosureText().includes("never your actual account password"),
   "Bluesky's disclosure explains the real App Password requirement, not the generic bearer-token copy"
 );
-document.getElementById("socials-connect-btn").click();
+clickSocialsConnectButton();
 await sleep(20);
-assert(
-  document.getElementById("socials-connect-status").textContent.includes("Enter both"),
-  "connecting Bluesky with empty fields shows a real, actionable error naming what's missing"
-);
+assert(socialsStatusText().includes("Enter both"), "connecting Bluesky with empty fields shows a real, actionable error naming what's missing");
 
 clickSocialsBackButton();
 await sleep(20);
-const redditCard = document.querySelector('[data-social-provider-id="reddit"]');
-redditCard.click();
+clickSocialsGridTile("reddit");
 await sleep(20);
 assert(
-  document.getElementById("socials-connect-client-id") !== null && document.getElementById("socials-connect-client-secret") !== null,
+  socialsFormInput("clientId") !== null && socialsFormInput("clientSecret") !== null,
   "Reddit shows two real fields (client ID + client secret), matching AWS's own two-field shape"
 );
 assert(
-  document.querySelector("#mount-socials .settings-disclosure").textContent.includes("app-level only"),
+  socialsDisclosureText().includes("app-level only"),
   "Reddit's disclosure honestly states its client_credentials grant is app-level only, not presented as full personal access"
 );
-document.getElementById("socials-connect-btn").click();
+clickSocialsConnectButton();
 await sleep(20);
-assert(
-  document.getElementById("socials-connect-status").textContent.includes("Enter both"),
-  "connecting Reddit with empty fields shows a real, actionable error naming what's missing"
-);
+assert(socialsStatusText().includes("Enter both"), "connecting Reddit with empty fields shows a real, actionable error naming what's missing");
 
 clickSocialsBackButton();
 await sleep(20);
-const xCard = document.querySelector('[data-social-provider-id="x"]');
-xCard.click();
+clickSocialsGridTile("x");
 await sleep(20);
+assert(!socialsHasForm(), "X (Twitter) shows no connect form at all - no confirmed CORS access, not a form that would silently fail");
 assert(
-  document.getElementById("socials-connect-token") === null && document.getElementById("socials-connect-btn") === null,
-  "X (Twitter) shows no connect form at all - no confirmed CORS access, not a form that would silently fail"
-);
-assert(
-  document.querySelector("#mount-socials .connect-hint").textContent.includes("did not return CORS headers"),
+  socialsUnsupportedText().includes("did not return CORS headers"),
   "X (Twitter)'s screen states honestly why it can't connect, not a generic disabled state"
 );
 
 clickSocialsBackButton();
 await sleep(20);
-const linkedinCard = document.querySelector('[data-social-provider-id="linkedin"]');
-linkedinCard.click();
+clickSocialsGridTile("linkedin");
 await sleep(20);
-assert(
-  document.getElementById("socials-connect-token") === null && document.getElementById("socials-connect-btn") === null,
-  "LinkedIn shows no connect form at all either - no confirmed CORS access"
-);
-assert(
-  document.querySelector("#mount-socials .connect-hint").textContent.includes("did not return CORS headers"),
-  "LinkedIn's screen also states honestly why it can't connect"
-);
+assert(!socialsHasForm(), "LinkedIn shows no connect form at all either - no confirmed CORS access");
+assert(socialsUnsupportedText().includes("did not return CORS headers"), "LinkedIn's screen also states honestly why it can't connect");
 
 clickSocialsBackButton();
 await sleep(20);
-assert(
-  socialsHeaderText().includes("Socials"),
-  "a provider's own back button returns to the Socials grid"
-);
+assert(socialsAtGridStep(), "a provider's own back button returns to the Socials grid");
 
 document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);

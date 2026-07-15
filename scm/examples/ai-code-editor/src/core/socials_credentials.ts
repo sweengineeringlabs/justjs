@@ -1,12 +1,19 @@
-// Mirrors comms_credentials.ts's exact storage conventions
-// (justjs:ai-editor:* key prefix, localStorage-only, best-effort
-// try/catch, empty string -> removeItem rather than storing "") - same
-// pattern, a separate key namespace so a social-provider credential
-// never collides with a same-named cloud/SCM/comms provider token.
-// Mastodon uses a single bearer token (same tokenStorageKey() shape as
-// every other single-token provider); Bluesky/Reddit each need 2 real
-// fields, stored as one JSON blob per provider - same shape
-// cloud_credentials.ts's AwsCredentials already established for AWS.
+import { createCredentialStore } from "@justjs/provider-connect";
+
+// Mastodon is the only single bearer-token provider among Socials' 3
+// real providers - its storage now goes through createCredentialStore()
+// (@justjs/provider-connect), same as cartoon_credentials.ts. Its real
+// key shape (justjs:ai-editor:social-token:<providerId>) is unchanged -
+// createCredentialStore("social") produces the exact same prefix the
+// old hand-rolled tokenStorageKey() did, so already-stored tokens stay
+// valid across this migration.
+//
+// Bluesky and Reddit each need 2 real fields stored as one JSON blob
+// per provider - a different shape createCredentialStore()'s
+// single-string get/set API doesn't cover, so they keep their own
+// dedicated localStorage logic below (a real, disclosed limitation,
+// not overlooked - same shape cloud_credentials.ts's AwsCredentials
+// already established for AWS).
 
 export interface BlueskyCredentials {
   readonly identifier: string;
@@ -18,31 +25,17 @@ export interface RedditCredentials {
   readonly clientSecret: string;
 }
 
-function tokenStorageKey(providerId: string): string {
-  return `justjs:ai-editor:social-token:${providerId}`;
-}
+const socialCredentialStore = createCredentialStore("social");
 
 const BLUESKY_CREDENTIALS_STORAGE_KEY = "justjs:ai-editor:bluesky-credentials";
 const REDDIT_CREDENTIALS_STORAGE_KEY = "justjs:ai-editor:reddit-credentials";
 
 export function getStoredSocialToken(providerId: string): string {
-  try {
-    return globalThis.localStorage?.getItem(tokenStorageKey(providerId)) ?? "";
-  } catch {
-    return "";
-  }
+  return socialCredentialStore.get(providerId);
 }
 
 export function setStoredSocialToken(providerId: string, token: string): void {
-  try {
-    if (token) {
-      globalThis.localStorage?.setItem(tokenStorageKey(providerId), token);
-    } else {
-      globalThis.localStorage?.removeItem(tokenStorageKey(providerId));
-    }
-  } catch {
-    // Best-effort only, same graceful-degradation shape as ai_assist.ts.
-  }
+  socialCredentialStore.set(providerId, token);
 }
 
 export function getStoredBlueskyCredentials(): BlueskyCredentials | null {

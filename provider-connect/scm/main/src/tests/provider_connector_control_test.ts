@@ -120,16 +120,79 @@ describe("ProviderConnectorControl", () => {
     expect(el.shadowRoot?.querySelector("view-list")).toBeNull();
   });
 
-  it("returns to the grid step when Back is clicked", () => {
+  it("returns to the grid step when the detail header's back button is clicked", () => {
     const el = mount();
+    el.catalogLabel = "Socials";
     el.providers = PROVIDERS;
     const grid = el.shadowRoot!.querySelector("view-grid")!;
     grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
     expect(el.shadowRoot?.querySelector("view-form")).not.toBeNull();
 
-    el.shadowRoot?.querySelector<HTMLButtonElement>(".back-btn")?.click();
+    const header = el.shadowRoot?.querySelector("view-nav-header") as { backLabel?: string } | null;
+    expect(header?.backLabel).toBe("Socials");
+    el.shadowRoot?.querySelector("view-nav-header")?.shadowRoot?.querySelector<HTMLButtonElement>(".back-btn")?.click();
 
     expect(el.shadowRoot?.querySelector("view-grid")).not.toBeNull();
     expect(el.shadowRoot?.querySelector("view-form")).toBeNull();
+  });
+
+  it("composes the detail header with the provider's own badge and name", () => {
+    const el = mount();
+    el.providers = PROVIDERS;
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "bluesky" } }));
+    const header = el.shadowRoot?.querySelector("view-nav-header");
+    expect(header?.textContent).toContain("Bluesky");
+    const badge = header?.querySelector("view-badge") as { color?: string; icon?: string } | null;
+    expect(badge?.color).toBe("#0085FF");
+    expect(badge?.icon).toBe("🦋");
+  });
+
+  it("renders the disclosure text above the form when set", () => {
+    const el = mount();
+    el.providers = [{ ...PROVIDERS[0]!, disclosure: "Stored only on this device." }];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+    expect(el.shadowRoot?.querySelector(".settings-disclosure")?.textContent).toBe("Stored only on this device.");
+  });
+
+  it("renders the resourceListLabel heading once resources are fetched", async () => {
+    const el = mount();
+    el.providers = [{ ...PROVIDERS[0]!, resourceListLabel: "Follows" }];
+    el.connect = async () => "session";
+    el.list = async () => [{ id: "a", name: "A", status: "Active" }];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+    const formEl = el.shadowRoot!.querySelector("view-form")!;
+    formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: { token: "x" } } }));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(el.shadowRoot?.querySelector(".resource-list-label")?.textContent).toBe("Follows");
+  });
+
+  it("shows unsupportedMessage instead of a form, and never calls connect for that provider", () => {
+    const el = mount();
+    let connectCalled = false;
+    el.connect = async () => {
+      connectCalled = true;
+      return undefined;
+    };
+    el.providers = [
+      {
+        id: "x",
+        name: "X (Twitter)",
+        color: "#000000",
+        fields: [],
+        unsupportedMessage: "X's API did not return CORS headers when checked directly from a browser.",
+      },
+    ];
+    const grid = el.shadowRoot!.querySelector("view-grid")!;
+    grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "x" } }));
+
+    expect(el.shadowRoot?.querySelector(".connect-hint")?.textContent).toBe(
+      "X's API did not return CORS headers when checked directly from a browser."
+    );
+    expect(el.shadowRoot?.querySelector("view-form")).toBeNull();
+    expect(el.shadowRoot?.querySelector("view-status-line")).toBeNull();
+    expect(connectCalled).toBe(false);
   });
 });
