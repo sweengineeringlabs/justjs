@@ -76,6 +76,7 @@ import "./presentation_generator_control.js";
 import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
 import "./cloud_connector.js";
 import type { CloudCatalogItem, CloudConnectorControl } from "./cloud_connector.js";
+import { WorkspaceBase } from "../features/workspace/workspace_component.gen.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -643,7 +644,21 @@ function escapeHtml(text: string): string {
 // virtual-filesystem terminal; a real cloud-provider catalog to toggle
 // on/off; an AI-generated slide deck) rather than a link elsewhere or a
 // stub.
-export class WorkspaceElement extends HTMLElement {
+//
+// Extends WorkspaceBase (justweb-generated, justjs#127 - the final
+// closing sub-issue of justjs#119's decomposition) for real value now
+// that the 6 live sub-screens are extracted into their own controls
+// (justjs#122-#126): only what's genuinely static across every
+// navigation state is declared in dom.elements (the root wrapper, the
+// persistent overview grid, the generic function-list shell, the
+// sub-screen mount point) - see workspace_component.yaml's own comment
+// for why this is a narrower, more honest scope than
+// editor/chat/review/scaffold's own dom.elements specs. See justjs#113's
+// shared note for why customElement.tagName is deliberately not set
+// (WorkspaceBase self-registers under its harmless default
+// js-workspace; WorkspaceElement keeps its own explicit x-workspace
+// registration).
+export class WorkspaceElement extends WorkspaceBase {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
 
@@ -718,36 +733,34 @@ export class WorkspaceElement extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.innerHTML = `<div id="workspace-view"></div>`;
-    this.renderView();
-  }
+    this.innerHTML = `
+      <div id="workspace-view" data-part="workspace-view">
+        <view-grid id="workspace-overview-grid" data-part="overview-grid" hidden></view-grid>
+        <div id="workspace-function-list-view" data-part="function-list-view" hidden>
+          <div class="dash-subnav">
+            <button id="workspace-back-btn" data-part="back-btn" class="dash-back-btn" type="button">← Workspace</button>
+            <h2 class="workspace-stage-title" data-part="stage-title"></h2>
+          </div>
+          <div class="workspace-function-list" data-part="function-list"></div>
+        </div>
+        <div id="workspace-subscreen-view" data-part="subscreen-view" hidden></div>
+      </div>
+    `;
+    // Binds this.workspaceView/overviewGrid/functionListView/backBtn/
+    // stageTitle/functionList/subscreenView via real data-part lookups -
+    // must run after the markup above exists, since WorkspaceBase's own
+    // connectedCallback() calls _bindElements() synchronously.
+    super.connectedCallback();
 
-  private renderView(): void {
-    const container = this.querySelector("#workspace-view");
-    if (!container) {
-      return;
-    }
-    const stage = SDLC_STAGES.find((s) => s.key === this.currentStageKey);
-    if (!stage) {
-      this.renderOverview(container);
-      return;
-    }
-    this.renderStage(container, stage);
-  }
-
-  private renderOverview(container: Element): void {
-    // Clears whatever a previous drill-down's renderStage() set - the
-    // overview grid colors each widget individually, not the container.
-    container.removeAttribute("data-stage");
-    container.innerHTML = `<view-grid id="workspace-overview-grid"></view-grid>`;
-    const grid = container.querySelector<GridView>("#workspace-overview-grid")!;
-    grid.items = SDLC_STAGES.map((s) => ({
-      id: s.key,
-      label: s.label,
-      icon: s.icon,
-      accentColor: STAGE_COLORS[s.key],
-    }));
-    grid.addEventListener("item-select", (e) => {
+    // Both bound once - the overview grid and the back button are now
+    // permanent, cached elements (not torn down and rebuilt on every
+    // overview/stage transition, unlike before justjs#127), so their
+    // listeners only need wiring a single time here, not per-render.
+    this.backBtn.addEventListener("click", () => {
+      this.currentStageKey = null;
+      this.renderView();
+    });
+    (this.overviewGrid as GridView).addEventListener("item-select", (e) => {
       this.currentStageKey = (e as CustomEvent<{ id: string }>).detail.id;
       // Always start a freshly-entered stage at its function list, not
       // mid-generator/mid-provider-list from a previous visit.
@@ -768,77 +781,110 @@ export class WorkspaceElement extends HTMLElement {
       this.showCliTerminal = false;
       this.renderView();
     });
+
+    this.renderView();
   }
 
-  private renderStage(container: Element, stage: SdlcStage): void {
+  private renderView(): void {
+    const stage = SDLC_STAGES.find((s) => s.key === this.currentStageKey);
+    if (!stage) {
+      this.renderOverview();
+      return;
+    }
+    this.renderStage(stage);
+  }
+
+  private renderOverview(): void {
+    // Clears whatever a previous drill-down's renderStage() set - the
+    // overview grid colors each widget individually, not the container.
+    this.workspaceView.removeAttribute("data-stage");
+    this.functionListView.hidden = true;
+    // Detaches whatever sub-screen was showing (if any) - matches the
+    // original's own full container.innerHTML replace, which always
+    // destroyed the previous drill-down's DOM outright. The cached
+    // instance itself (this.cliTerminal/designGenerator/etc) survives
+    // regardless, held by its own JS reference, not the DOM.
+    this.subscreenView.hidden = true;
+    this.subscreenView.innerHTML = "";
+    this.overviewGrid.hidden = false;
+    (this.overviewGrid as GridView).items = SDLC_STAGES.map((s) => ({
+      id: s.key,
+      label: s.label,
+      icon: s.icon,
+      accentColor: STAGE_COLORS[s.key],
+    }));
+  }
+
+  private renderStage(stage: SdlcStage): void {
     // Lets the drill-down (function list + every special sub-view -
     // Design's generator, Cloud, Presentation's generator, the CLI)
     // inherit the same --stage-color the overview grid's widget already
     // set per stage (app.css's [data-stage="..."] rules), instead of
     // falling back to flat var(--surface) once you're inside a stage.
-    container.setAttribute("data-stage", stage.key);
+    this.workspaceView.setAttribute("data-stage", stage.key);
+    this.overviewGrid.hidden = true;
+
     if (stage.key === "design" && this.showDesignGenerator) {
-      this.renderDesignGenerator(container);
+      this.renderDesignGenerator();
       return;
     }
     if (stage.key === "deployment" && this.showCloudProviders) {
-      this.renderCloudProviders(container);
+      this.renderCloudProviders();
       return;
     }
     if (stage.key === "presentation" && this.showPresentationGenerator) {
-      this.renderPresentationGenerator(container);
+      this.renderPresentationGenerator();
       return;
     }
     if (stage.key === "development" && this.showCliTerminal) {
-      this.renderCliTerminal(container);
+      this.renderCliTerminal();
       return;
     }
     if (stage.key === "development" && this.showScmConnect) {
-      this.renderScmProviders(container);
+      this.renderScmProviders();
       return;
     }
     if ((stage.key === "requirement" || stage.key === "planning") && this.showPmConnect) {
-      this.renderPmProviders(container, stage);
+      this.renderPmProviders(stage);
       return;
     }
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="workspace-back-btn" class="dash-back-btn" type="button">← Workspace</button>
-        <h2 class="workspace-stage-title">${stage.icon} ${escapeHtml(stage.label)}</h2>
-      </div>
-      <div class="workspace-function-list">
-        ${stage.functions
-          .map((f) => {
-            if (f.action) {
-              return `
-                <button class="workspace-function workspace-function-live" data-action="${f.action}" type="button">
-                  <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                  <span class="workspace-function-arrow">→</span>
-                </button>
-              `;
-            }
-            return f.route
-              ? `
-                <button class="workspace-function workspace-function-live" data-route="${f.route}" type="button">
-                  <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                  <span class="workspace-function-arrow">→</span>
-                </button>
-              `
-              : `
-                <div class="workspace-function workspace-function-stub">
-                  <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                  <span class="workspace-function-badge">Coming soon</span>
-                </div>
-              `;
-          })
-          .join("")}
-      </div>
+
+    // Same detach reasoning as renderOverview() above - the generic
+    // function-list view can be reached directly from a sub-screen's
+    // own back button (e.g. Design's "← Design"), not just from the
+    // overview.
+    this.subscreenView.hidden = true;
+    this.subscreenView.innerHTML = "";
+    this.functionListView.hidden = false;
+    this.stageTitle.textContent = `${stage.icon} ${stage.label}`;
+    this.functionList.innerHTML = `
+      ${stage.functions
+        .map((f) => {
+          if (f.action) {
+            return `
+              <button class="workspace-function workspace-function-live" data-action="${f.action}" type="button">
+                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
+                <span class="workspace-function-arrow">→</span>
+              </button>
+            `;
+          }
+          return f.route
+            ? `
+              <button class="workspace-function workspace-function-live" data-route="${f.route}" type="button">
+                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
+                <span class="workspace-function-arrow">→</span>
+              </button>
+            `
+            : `
+              <div class="workspace-function workspace-function-stub">
+                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
+                <span class="workspace-function-badge">Coming soon</span>
+              </div>
+            `;
+        })
+        .join("")}
     `;
-    this.querySelector("#workspace-back-btn")?.addEventListener("click", () => {
-      this.currentStageKey = null;
-      this.renderView();
-    });
-    container.querySelectorAll<HTMLButtonElement>(".workspace-function-live[data-route]").forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>(".workspace-function-live[data-route]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const route = btn.dataset.route;
         if (route) {
@@ -846,37 +892,37 @@ export class WorkspaceElement extends HTMLElement {
         }
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="design-generate"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="design-generate"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showDesignGenerator = true;
         this.renderView();
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cloud-providers"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cloud-providers"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showCloudProviders = true;
         this.renderView();
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="scm-connect"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="scm-connect"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showScmConnect = true;
         this.renderView();
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="pm-connect"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="pm-connect"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showPmConnect = true;
         this.renderView();
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="presentation-generate"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="presentation-generate"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showPresentationGenerator = true;
         this.renderView();
       });
     });
-    container.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cli"]').forEach((btn) => {
+    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cli"]').forEach((btn) => {
       btn.addEventListener("click", () => {
         this.showCliTerminal = true;
         this.renderView();
@@ -887,8 +933,10 @@ export class WorkspaceElement extends HTMLElement {
   // ---- Design: Markdown + Mermaid doc generator (opened from either
   // Architecture or Wireframes above) ----
 
-  private renderDesignGenerator(container: Element): void {
-    container.innerHTML = "";
+  private renderDesignGenerator(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.designGenerator) {
       const generator = document.createElement("control-design-generator") as DesignGeneratorControl;
       generator.generate = async (description) => {
@@ -924,14 +972,16 @@ export class WorkspaceElement extends HTMLElement {
       });
       this.designGenerator = generator;
     }
-    container.appendChild(this.designGenerator);
+    this.subscreenView.appendChild(this.designGenerator);
   }
 
   // ---- Deployment: Cloud providers (opened from Cloud above) - migrated
   // onto <control-cloud-connector> (justjs#126). ----
 
-  private renderCloudProviders(container: Element): void {
-    container.innerHTML = "";
+  private renderCloudProviders(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.cloudScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
@@ -959,7 +1009,7 @@ export class WorkspaceElement extends HTMLElement {
       connector.catalogLabel = "Cloud Providers";
       this.cloudScreen = screen;
     }
-    container.appendChild(this.cloudScreen);
+    this.subscreenView.appendChild(this.cloudScreen);
   }
 
   // ---- Development: source-control connections (opened from Repository
@@ -967,8 +1017,10 @@ export class WorkspaceElement extends HTMLElement {
   // single bearer-token field, no extra actions beyond connect/list/
   // disconnect, a clean fit with zero package extension. ----
 
-  private renderScmProviders(container: Element): void {
-    container.innerHTML = "";
+  private renderScmProviders(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.scmScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
@@ -997,7 +1049,7 @@ export class WorkspaceElement extends HTMLElement {
       connector.catalogLabel = "Repository";
       this.scmScreen = screen;
     }
-    container.appendChild(this.scmScreen);
+    this.subscreenView.appendChild(this.scmScreen);
   }
 
   // ---- Requirement/Planning: project-management connections (opened
@@ -1005,8 +1057,10 @@ export class WorkspaceElement extends HTMLElement {
   // <control-provider-connector> (justjs#125), including Jira's real
   // OAuth-redirect flow via oauthRedirect/oauthBegin. ----
 
-  private renderPmProviders(container: Element, stage: SdlcStage): void {
-    container.innerHTML = "";
+  private renderPmProviders(stage: SdlcStage): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.pmScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
@@ -1037,13 +1091,15 @@ export class WorkspaceElement extends HTMLElement {
     // created it.
     const header = this.pmScreen.querySelector<NavHeaderView>("#pm-header")!;
     header.backLabel = stage.label;
-    container.appendChild(this.pmScreen);
+    this.subscreenView.appendChild(this.pmScreen);
   }
 
   // ---- Presentation: AI-generated slide deck (opened from Slides above) ----
 
-  private renderPresentationGenerator(container: Element): void {
-    container.innerHTML = "";
+  private renderPresentationGenerator(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.presentationGenerator) {
       const generator = document.createElement("control-presentation-generator") as PresentationGeneratorControl;
       generator.generate = async (description) => {
@@ -1077,13 +1133,15 @@ export class WorkspaceElement extends HTMLElement {
       });
       this.presentationGenerator = generator;
     }
-    container.appendChild(this.presentationGenerator);
+    this.subscreenView.appendChild(this.presentationGenerator);
   }
 
   // ---- Development: virtual-filesystem CLI (opened from CLI above) ----
 
-  private renderCliTerminal(container: Element): void {
-    container.innerHTML = "";
+  private renderCliTerminal(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
     if (!this.cliTerminal) {
       const terminal = document.createElement("control-cli-terminal") as CliTerminalControl;
       terminal.run = (input, cwd) => {
@@ -1105,7 +1163,7 @@ export class WorkspaceElement extends HTMLElement {
       });
       this.cliTerminal = terminal;
     }
-    container.appendChild(this.cliTerminal);
+    this.subscreenView.appendChild(this.cliTerminal);
   }
 }
 

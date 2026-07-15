@@ -1,25 +1,21 @@
 // AUTO-GENERATED — do not edit. Regenerate with: jsc dom workspace_component.yaml
 // Source: workspace_component.yaml (version 1)
 
-import { signal, effect } from '@preact/signals-core';
-
 export class WorkspaceBase extends HTMLElement {
   static readonly tagName = 'js-workspace';
-
-  // ── Reactive state ─────────────────────────────────────────
-  readonly checked = signal(false);
-  readonly completed = signal(false);
-  readonly disabled = signal(false);
-  readonly expanded = signal(false);
-  readonly invalid = signal(false);
-  readonly loading = signal(false);
-  readonly selected = signal(false);
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
   // ── Element references ──────────────────────────────────
   protected root!: HTMLElement;
+  protected backBtn!: HTMLButtonElement;
+  protected functionList!: HTMLDivElement;
+  protected functionListView!: HTMLDivElement;
+  protected overviewGrid!: HTMLElement;
+  protected stageTitle!: HTMLHeadingElement;
+  protected subscreenView!: HTMLDivElement;
+  protected workspaceView!: HTMLDivElement;
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -41,71 +37,6 @@ export class WorkspaceBase extends HTMLElement {
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
     }
-
-    // Signal effects
-    this.#cleanups.push(effect(() => {
-      const val = this.checked.value;
-      if (val) {
-        this.setAttribute('aria-checked', 'true');
-      } else {
-        this.removeAttribute('aria-checked');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.completed.value;
-      if (val) {
-        this.setAttribute('data-completed', '');
-      } else {
-        this.removeAttribute('data-completed');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.disabled.value;
-      if (val) {
-        this.setAttribute('disabled', '');
-        this.setAttribute('aria-disabled', 'true');
-      } else {
-        this.removeAttribute('disabled');
-        this.removeAttribute('aria-disabled');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.expanded.value;
-      if (val) {
-        this.setAttribute('aria-expanded', 'true');
-      } else {
-        this.removeAttribute('aria-expanded');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.invalid.value;
-      if (val) {
-        this.setAttribute('aria-invalid', 'true');
-      } else {
-        this.removeAttribute('aria-invalid');
-      }
-      if (val) {
-        this.setAttribute('data-invalid', '');
-      } else {
-        this.removeAttribute('data-invalid');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.loading.value;
-      if (val) {
-        this.setAttribute('aria-busy', 'true');
-      } else {
-        this.removeAttribute('aria-busy');
-      }
-    }));
-    this.#cleanups.push(effect(() => {
-      const val = this.selected.value;
-      if (val) {
-        this.setAttribute('aria-selected', 'true');
-      } else {
-        this.removeAttribute('aria-selected');
-      }
-    }));
   }
 
   disconnectedCallback(): void {
@@ -122,10 +53,59 @@ export class WorkspaceBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.backBtn) {
+      const __el = this.querySelector('[data-part="back-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.backBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:back-btn');
+      }
+    }
+    if (!this.functionList) {
+      const __el = this.querySelector('[data-part="function-list"]') as HTMLDivElement | null;
+      if (__el) {
+        this.functionList = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:function-list');
+      }
+    }
+    if (!this.functionListView) {
+      const __el = this.querySelector('[data-part="function-list-view"]') as HTMLDivElement | null;
+      if (__el) {
+        this.functionListView = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:function-list-view');
+      }
+    }
+    if (!this.overviewGrid) {
+      const __el = this.querySelector('[data-part="overview-grid"]') as HTMLElement | null;
+      if (__el) {
+        this.overviewGrid = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:overview-grid');
+      }
+    }
+    if (!this.stageTitle) {
+      const __el = this.querySelector('[data-part="stage-title"]') as HTMLHeadingElement | null;
+      if (__el) {
+        this.stageTitle = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:stage-title');
+      }
+    }
+    if (!this.subscreenView) {
+      const __el = this.querySelector('[data-part="subscreen-view"]') as HTMLDivElement | null;
+      if (__el) {
+        this.subscreenView = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:subscreen-view');
+      }
+    }
+    if (!this.workspaceView) {
+      const __el = this.querySelector('[data-part="workspace-view"]') as HTMLDivElement | null;
+      if (__el) {
+        this.workspaceView = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:workspace-view');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return true;
+    return !!this.backBtn && !!this.functionList && !!this.functionListView && !!this.overviewGrid && !!this.stageTitle && !!this.subscreenView && !!this.workspaceView;
   }
 }
 
