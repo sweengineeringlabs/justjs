@@ -1160,14 +1160,36 @@ await sleep(20);
 // Cloudflare. No credential is set anywhere in this run, so this
 // proves each real provider's own "nothing entered yet" error path,
 // not a live external network call.
+// socials.ts is migrated onto <view-nav-header> (justjs#103) - its
+// title text and back button now live inside that element's Shadow
+// DOM, not as light-DOM .workspace-stage-title/#socials-back-btn
+// elements like every other tab's still-unmigrated header. These two
+// helpers pierce the shadow root; every other tab below keeps
+// querying the light DOM directly since it hasn't migrated yet.
+function socialsHeaderText() {
+  const host = document.querySelector("#mount-socials view-nav-header");
+  if (!host) {
+    return "";
+  }
+  // When the caller slots real light-DOM content (the provider-detail
+  // header's <view-badge> + name), .textContent on the shadow's <slot>
+  // element returns the slot's *fallback* markup, not the projected
+  // content - a real Shadow DOM gotcha, not a bug here. Reading the
+  // host's own light-DOM textContent first is what actually reflects
+  // what's rendered in that case; the shadow fallback is only correct
+  // when the host has no light-DOM children (the top-level grid header,
+  // driven purely by the icon/title properties).
+  return host.childNodes.length > 0 ? host.textContent : (host.shadowRoot?.querySelector(".title")?.textContent ?? "");
+}
+function clickSocialsBackButton() {
+  document.querySelector("#mount-socials view-nav-header")?.shadowRoot?.querySelector(".back-btn")?.click();
+}
+
 document.querySelector('.nav-btn[data-route="/socials"]').click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/socials"]').classList.contains("active"), "tapping the Socials tab navigates to the real Socials route");
 assert(document.getElementById("mount-socials").classList.contains("active"), "the Socials mount is now the active page");
-assert(
-  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Socials"),
-  "Socials renders its own real provider grid directly, not a stub"
-);
+assert(socialsHeaderText().includes("Socials"), "Socials renders its own real provider grid directly, not a stub");
 const socialProviderCards = [...document.querySelectorAll("#mount-socials .provider-card")];
 const socialProviderNames = socialProviderCards.map((el) => el.querySelector(".provider-name").textContent);
 assert(
@@ -1183,10 +1205,7 @@ assert(socialProviderCards.every((el) => !el.classList.contains("selected")), "n
 const mastodonCard = document.querySelector('[data-social-provider-id="mastodon"]');
 mastodonCard.click();
 await sleep(20);
-assert(
-  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Mastodon"),
-  "tapping a provider card opens that provider's own connect screen"
-);
+assert(socialsHeaderText().includes("Mastodon"), "tapping a provider card opens that provider's own connect screen");
 assert(document.getElementById("socials-connect-token") !== null, "Mastodon shows a single token input, same shape as a bearer-token cloud/SCM/comms provider");
 document.getElementById("socials-connect-btn").click();
 await sleep(20);
@@ -1196,7 +1215,7 @@ assert(
 );
 assert(document.querySelector("#mount-socials .resource-list") === null, "no resource list renders without a real successful connect");
 
-document.getElementById("socials-back-btn").click();
+clickSocialsBackButton();
 await sleep(20);
 const blueskyCard = document.querySelector('[data-social-provider-id="bluesky"]');
 blueskyCard.click();
@@ -1217,7 +1236,7 @@ assert(
   "connecting Bluesky with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.getElementById("socials-back-btn").click();
+clickSocialsBackButton();
 await sleep(20);
 const redditCard = document.querySelector('[data-social-provider-id="reddit"]');
 redditCard.click();
@@ -1237,7 +1256,7 @@ assert(
   "connecting Reddit with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.getElementById("socials-back-btn").click();
+clickSocialsBackButton();
 await sleep(20);
 const xCard = document.querySelector('[data-social-provider-id="x"]');
 xCard.click();
@@ -1251,7 +1270,7 @@ assert(
   "X (Twitter)'s screen states honestly why it can't connect, not a generic disabled state"
 );
 
-document.getElementById("socials-back-btn").click();
+clickSocialsBackButton();
 await sleep(20);
 const linkedinCard = document.querySelector('[data-social-provider-id="linkedin"]');
 linkedinCard.click();
@@ -1265,10 +1284,10 @@ assert(
   "LinkedIn's screen also states honestly why it can't connect"
 );
 
-document.getElementById("socials-back-btn").click();
+clickSocialsBackButton();
 await sleep(20);
 assert(
-  document.querySelector("#mount-socials .workspace-stage-title").textContent.includes("Socials"),
+  socialsHeaderText().includes("Socials"),
   "a provider's own back button returns to the Socials grid"
 );
 

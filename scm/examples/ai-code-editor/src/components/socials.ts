@@ -19,7 +19,7 @@ import {
 import { connectMastodon, connectBluesky, connectReddit } from "../core/socials_connect.js";
 import type { SocialResource } from "../core/socials_connect.js";
 import "@justjs/component-view";
-import type { BadgeView } from "@justjs/component-view";
+import type { BadgeView, NavHeaderView } from "@justjs/component-view";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -118,9 +118,7 @@ export class SocialsElement extends HTMLElement {
 
   private renderGrid(): void {
     this.innerHTML = `
-      <div class="dash-subnav">
-        <h2 class="workspace-stage-title">🌐 Socials</h2>
-      </div>
+      <view-nav-header id="socials-grid-header"></view-nav-header>
       <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
       <div class="provider-grid">
         ${SOCIAL_PROVIDER_CATALOG.map((p) => {
@@ -135,6 +133,12 @@ export class SocialsElement extends HTMLElement {
         }).join("")}
       </div>
     `;
+
+    const header = this.querySelector<NavHeaderView>("#socials-grid-header");
+    if (header) {
+      header.icon = "🌐";
+      header.title = "Socials";
+    }
 
     this.querySelectorAll<HTMLButtonElement>("[data-social-provider-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -159,15 +163,16 @@ export class SocialsElement extends HTMLElement {
   private renderDetail(provider: SocialProvider): void {
     const connected = this.isProviderConnected(provider);
     this.innerHTML = `
-      <div class="dash-subnav">
-        <button id="socials-back-btn" class="dash-back-btn" type="button">← Socials</button>
-        <h2 class="workspace-stage-title"><view-badge id="socials-detail-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
+      <view-nav-header id="socials-detail-header"><view-badge id="socials-detail-badge"></view-badge> ${escapeHtml(provider.name)}</view-nav-header>
       ${this.renderProviderBody(provider, connected)}
     `;
     setBadgeProps(this.querySelector("#socials-detail-badge"), provider);
 
-    this.querySelector("#socials-back-btn")?.addEventListener("click", () => {
+    const header = this.querySelector<NavHeaderView>("#socials-detail-header");
+    if (header) {
+      header.backLabel = "Socials";
+    }
+    header?.addEventListener("nav-back", () => {
       this.selectedProviderId = null;
       this.renderView();
     });
