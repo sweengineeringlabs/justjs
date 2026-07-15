@@ -251,6 +251,17 @@
         "typescript": "^5.5.0",
       },
     },
+    "provider-connect/scm/main": {
+      "name": "@justjs/provider-connect",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/component-view": "^0.1.0",
+      },
+      "devDependencies": {
+        "happy-dom": "^15.0.0",
+        "typescript": "^5.5.0",
+      },
+    },
     "scm-connect/scm/main": {
       "name": "@justjs/scm-connect",
       "version": "0.1.0",
@@ -303,6 +314,7 @@
         "@justjs/image-connect": "^0.1.0",
         "@justjs/network": "^0.1.0",
         "@justjs/pm-connect": "^0.1.0",
+        "@justjs/provider-connect": "^0.1.0",
         "@justjs/scm-connect": "^0.1.0",
         "@justjs/social-connect": "^0.1.0",
         "@justjs/transport": "^0.1.0",
@@ -547,6 +559,8 @@
     "@justjs/platform-native": ["@justjs/platform-native@workspace:platform/native/scm/main"],
 
     "@justjs/pm-connect": ["@justjs/pm-connect@workspace:pm-connect/scm/main"],
+
+    "@justjs/provider-connect": ["@justjs/provider-connect@workspace:provider-connect/scm/main"],
 
     "@justjs/scm-connect": ["@justjs/scm-connect@workspace:scm-connect/scm/main"],
 

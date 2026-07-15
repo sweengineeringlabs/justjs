@@ -25,6 +25,7 @@
     "@justjs/image-connect": "^0.1.0",
     "@justjs/network": "^0.1.0",
     "@justjs/pm-connect": "^0.1.0",
+    "@justjs/provider-connect": "^0.1.0",
     "@justjs/scm-connect": "^0.1.0",
     "@justjs/social-connect": "^0.1.0",
     "@justjs/transport": "^0.1.0",
