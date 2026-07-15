@@ -793,15 +793,21 @@ const developmentLiveForCli = [...document.querySelectorAll("#mount-workspace .w
 assert(developmentLiveForCli[1].textContent.includes("CLI"), "CLI is the second real, live function under Development");
 developmentLiveForCli[1].click();
 await sleep(20);
-assert(document.querySelector("#cli-input") !== null, "tapping CLI opens the real terminal directly - no intermediate list");
+// control-cli-terminal (justjs#122) owns its own Shadow DOM - every
+// #cli-* lookup below goes through its shadowRoot instead of the
+// light DOM the original hand-rolled markup used.
+function cliShadow() {
+  return document.querySelector("control-cli-terminal")?.shadowRoot ?? null;
+}
+assert(cliShadow()?.querySelector("#input") != null, "tapping CLI opens the real terminal directly - no intermediate list");
 
 function runCliLine(line) {
-  const input = document.querySelector("#cli-input");
+  const input = cliShadow().querySelector("#input");
   input.value = line;
-  document.querySelector("#cli-run-btn").click();
+  cliShadow().querySelector("#run-btn").click();
 }
 function lastCliEntry() {
-  const entries = [...document.querySelectorAll("#cli-transcript .cli-entry")];
+  const entries = [...cliShadow().querySelectorAll("#transcript .cli-entry")];
   return entries[entries.length - 1] ?? null;
 }
 function lastCliOutput() {
@@ -910,12 +916,15 @@ assert(treeRow("cli-test") === null, "the real file tree no longer shows cli-tes
 runCliLine("nonsense-command");
 assert(lastCliIsError() && lastCliOutput().includes("command not found"), "an unknown command shows a real, honest error, not silent failure");
 
-const cliEntryCountBeforeClear = document.querySelectorAll("#cli-transcript .cli-entry").length;
+const cliEntryCountBeforeClear = cliShadow().querySelectorAll("#transcript .cli-entry").length;
 assert(cliEntryCountBeforeClear > 0, "the transcript has real history before clearing");
 runCliLine("clear");
-assert(document.querySelectorAll("#cli-transcript .cli-entry").length === 0, "clear wipes the real transcript - a client-side built-in, not routed through core/cli.ts");
+assert(cliShadow().querySelectorAll("#transcript .cli-entry").length === 0, "clear wipes the real transcript - a client-side built-in, not routed through core/cli.ts");
 
-document.querySelector("#cli-back-btn").click();
+// The back button lives inside <view-nav-header>'s own nested Shadow
+// DOM (control-cli-terminal composes it, justjs#122) - double shadow
+// traversal to reach the real .back-btn.
+cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 const developmentLiveAfterCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
@@ -923,12 +932,44 @@ assert(
   "CLI's own back button returns to Development's function list, not the Workspace overview"
 );
 
+// control-cli-terminal (justjs#122) is cached on WorkspaceElement and
+// only detached/reattached when navigating within Development itself
+// - a real keep-alive router (justjs#94) tab switch never touches that
+// subtree at all, so this proves the extraction didn't regress the
+// terminal's own real, non-store-backed transcript/cwd state.
+developmentLiveAfterCli[1].click();
+await sleep(20);
+runCliLine("pwd");
+const cliCwdBeforeSwitch = lastCliOutput();
+const cliEntryCountBeforeSwitch = cliShadow().querySelectorAll("#transcript .cli-entry").length;
+assert(cliEntryCountBeforeSwitch > 0, "CLI has real transcript history again after re-entering");
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+await sleep(20);
+assert(
+  cliShadow().querySelectorAll("#transcript .cli-entry").length === cliEntryCountBeforeSwitch,
+  "switching away from and back to Workspace preserves the CLI terminal's real transcript - the cached control-cli-terminal instance survives, not recreated"
+);
+runCliLine("pwd");
+assert(lastCliOutput() === cliCwdBeforeSwitch, "CLI's cwd also survives the tab switch, still the same real directory as before switching away");
+
+// Back to Development's function list before continuing to Repository
+// below - re-queried fresh since re-entering CLI above replaced the
+// previous function-list DOM (the earlier developmentLiveAfterCli
+// reference is now detached).
+cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
+await sleep(20);
+const developmentLiveAfterCliSwitch = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+assert(developmentLiveAfterCliSwitch.length === 3, "Development's function list is real again after the keep-alive check");
+
 // Repository: a real, recognizable catalog (GitHub/GitLab/Bitbucket via
 // @justjs/scm-connect) - same real-connect shape Deployment's Cloud
 // already proved, minus AWS's two-field/signing special case. No token
 // is set anywhere in this run, so this proves the real "paste a token
 // first" error path, not a live external network call.
-developmentLiveAfterCli[2].click();
+developmentLiveAfterCliSwitch[2].click();
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Repository"),

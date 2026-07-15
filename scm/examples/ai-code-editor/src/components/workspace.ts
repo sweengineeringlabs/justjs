@@ -67,6 +67,8 @@ import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConne
 import type { PmResource } from "../core/pm_connect.js";
 import "@justjs/component-view";
 import type { BadgeView, GridView } from "@justjs/component-view";
+import "./cli_terminal.js";
+import type { CliTerminalControl } from "./cli_terminal.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -430,14 +432,14 @@ export class WorkspaceElement extends HTMLElement {
   private showPresentationGenerator = false;
 
   // Development's CLI - a real terminal against this app's own virtual
-  // filesystem (core/cli.ts), component-local like every other
-  // drill-down above. cliCwd is entirely separate from
-  // AppState.activeFilePath (which tab the Editor has open) -
-  // deliberately no coupling between the two. Each history entry keeps
-  // the cwd it ran under, so historical prompt lines stay correct even
-  // after cliCwd has since changed.
-  private cliCwd = "";
-  private cliHistory: { input: string; cwd: string; output: string; isError?: boolean }[] = [];
+  // filesystem (core/cli.ts), extracted into <control-cli-terminal>
+  // (justjs#122). cwd/history now live on that element itself, not
+  // here - cached in cliTerminal so the same instance (and its state)
+  // survives leaving and re-entering the CLI sub-screen, matching the
+  // original's own persistence (cliCwd/cliHistory were deliberately
+  // never reset by renderOverview's item-select handler below, and
+  // deliberately uncoupled from AppState.activeFilePath).
+  private cliTerminal: CliTerminalControl | undefined;
   private showCliTerminal = false;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
@@ -1808,91 +1810,30 @@ export class WorkspaceElement extends HTMLElement {
 
   // ---- Development: virtual-filesystem CLI (opened from CLI above) ----
 
-  private cliPrompt(cwd: string): string {
-    return `${cwd ? `/${cwd}` : "/"}$`;
-  }
-
   private renderCliTerminal(container: Element): void {
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="cli-back-btn" class="dash-back-btn" type="button">← Development</button>
-        <h2 class="workspace-stage-title">💻 CLI</h2>
-      </div>
-      <div id="cli-transcript" class="cli-transcript">
-        ${this.cliHistory
-          .map(
-            (entry) => `
-          <div class="cli-entry">
-            <div class="cli-entry-prompt">${escapeHtml(this.cliPrompt(entry.cwd))} ${escapeHtml(entry.input)}</div>
-            ${entry.output ? `<pre class="cli-entry-output${entry.isError ? " cli-entry-error" : ""}">${escapeHtml(entry.output)}</pre>` : ""}
-          </div>
-        `
-          )
-          .join("")}
-      </div>
-      <div class="cli-input-row">
-        <span class="cli-prompt">${escapeHtml(this.cliPrompt(this.cliCwd))}</span>
-        <input id="cli-input" type="text" autocomplete="off" spellcheck="false" placeholder="help" />
-        <button id="cli-run-btn" type="button">Run</button>
-      </div>
-    `;
-
-    this.querySelector("#cli-back-btn")?.addEventListener("click", () => {
-      // One level back - to Development's own function list, not all
-      // the way out to the Workspace overview.
-      this.showCliTerminal = false;
-      this.renderView();
-    });
-
-    const input = this.querySelector<HTMLInputElement>("#cli-input");
-    input?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        this.handleRunCliCommand();
-      }
-    });
-    this.querySelector("#cli-run-btn")?.addEventListener("click", () => this.handleRunCliCommand());
-    input?.focus();
-
-    const transcript = this.querySelector<HTMLElement>("#cli-transcript");
-    if (transcript) {
-      transcript.scrollTop = transcript.scrollHeight;
+    container.innerHTML = "";
+    if (!this.cliTerminal) {
+      const terminal = document.createElement("control-cli-terminal") as CliTerminalControl;
+      terminal.run = (input, cwd) => {
+        if (!this.store) {
+          return { output: "", cwd };
+        }
+        const state = this.store.state.value;
+        return runCliCommand(input, cwd, state.files, state.emptyFolders);
+      };
+      terminal.addEventListener("back", () => {
+        // One level back - to Development's own function list, not all
+        // the way out to the Workspace overview.
+        this.showCliTerminal = false;
+        this.renderView();
+      });
+      terminal.addEventListener("command", (e) => {
+        const action = (e as CustomEvent<{ action: AppAction }>).detail.action;
+        this.store?.dispatch(action);
+      });
+      this.cliTerminal = terminal;
     }
-  }
-
-  private handleRunCliCommand(): void {
-    const input = this.querySelector<HTMLInputElement>("#cli-input");
-    if (!input || !this.store) {
-      return;
-    }
-    const trimmed = input.value.trim();
-    if (!trimmed) {
-      return;
-    }
-    // A client-side terminal built-in, not a real filesystem command -
-    // matches how real terminal emulators handle `clear` (wipes the
-    // screen, leaves no trace in the transcript), same reasoning
-    // core/cli.ts itself is never consulted for it.
-    if (trimmed === "clear") {
-      this.cliHistory = [];
-      this.renderView();
-      return;
-    }
-    const state = this.store.state.value;
-    const result = runCliCommand(trimmed, this.cliCwd, state.files, state.emptyFolders);
-    this.cliHistory = [
-      ...this.cliHistory,
-      {
-        input: trimmed,
-        cwd: this.cliCwd,
-        output: result.output,
-        ...(result.isError !== undefined ? { isError: result.isError } : {}),
-      },
-    ];
-    this.cliCwd = result.cwd;
-    if (result.action) {
-      this.store.dispatch(result.action);
-    }
-    this.renderView();
+    container.appendChild(this.cliTerminal);
   }
 }
 
