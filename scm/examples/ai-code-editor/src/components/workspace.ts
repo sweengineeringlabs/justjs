@@ -3,7 +3,6 @@ import type { AppState, AppAction } from "../core/state.js";
 import { getAiAssistProvider } from "../core/ai_assist.js";
 import { navigateTo } from "../core/navigation.js";
 import { inferLanguage, normalizePath, pathExists } from "../core/fs.js";
-import { renderMarkdownToHtml, splitMarkdownSlides } from "../core/markdown.js";
 import { runCliCommand } from "../core/cli.js";
 // Real, official brand marks (CC0, offline - no runtime network call,
 // same "no real API calls" posture as the rest of this app) via
@@ -69,6 +68,10 @@ import "@justjs/component-view";
 import type { BadgeView, GridView } from "@justjs/component-view";
 import "./cli_terminal.js";
 import type { CliTerminalControl } from "./cli_terminal.js";
+import "./doc_generator_control.js";
+import type { DesignGeneratorControl } from "./doc_generator_control.js";
+import "./presentation_generator_control.js";
+import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -357,14 +360,15 @@ export class WorkspaceElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
 
-  // Design-stage local state - component-local, not global AppState,
-  // matching ScaffoldElement's own generatedFileCode/generatedProjectFiles
-  // pattern: nothing here is committed to the real project until an
-  // explicit "Create file" tap.
-  private designDescription = "";
-  private designDoc: string | null = null;
-  private designViewMode: "edit" | "preview" = "edit";
-  private designRenderToken = 0;
+  // Design-stage generator - extracted into <control-design-generator>
+  // (justjs#123). Description/doc/viewMode/render-token now live on
+  // that element itself; cached in designGenerator so the same
+  // instance (and its in-progress doc) survives leaving and
+  // re-entering via either Architecture or Wireframes - same
+  // persistence semantics as the original's own component-local
+  // fields, matching CliTerminalControl's cliTerminal caching
+  // (justjs#122).
+  private designGenerator: DesignGeneratorControl | undefined;
   // Design has three drill-down levels (Workspace -> Design's own
   // Architecture/Wireframes list -> the shared generator), one more than
   // every other stage's two (Workspace -> function list). This flag is
@@ -417,18 +421,10 @@ export class WorkspaceElement extends HTMLElement {
   private pmConnectError: string | null = null;
   private pmConnecting = false;
 
-  // Presentation-stage local state - same component-local pattern as
-  // Design's above. slideChunks is computed by splitMarkdownSlides()
-  // once per generate/edit, not re-derived on every Prev/Next tap.
-  // slidesRenderToken is a separate counter from designRenderToken -
-  // Design and Slides are independent drill-downs, each with their own
-  // in-flight async Mermaid render to guard.
-  private presentationDescription = "";
-  private slidesDoc: string | null = null;
-  private slideChunks: string[] = [];
-  private currentSlideIndex = 0;
-  private slidesViewMode: "edit" | "preview" = "edit";
-  private slidesRenderToken = 0;
+  // Presentation-stage generator - extracted into
+  // <control-presentation-generator> (justjs#123), same caching
+  // reasoning as designGenerator above.
+  private presentationGenerator: PresentationGeneratorControl | undefined;
   private showPresentationGenerator = false;
 
   // Development's CLI - a real terminal against this app's own virtual
@@ -621,187 +617,43 @@ export class WorkspaceElement extends HTMLElement {
   // Architecture or Wireframes above) ----
 
   private renderDesignGenerator(container: Element): void {
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="workspace-back-btn" class="dash-back-btn" type="button">← Design</button>
-        <h2 class="workspace-stage-title">🎨 Generate</h2>
-      </div>
-      <div class="design-form">
-        <label class="field">
-          <span class="field-label">Describe what to design</span>
-          <textarea id="design-description" rows="4" placeholder="e.g. the auth flow for this app"></textarea>
-        </label>
-        <button id="design-generate-btn" type="button">Generate</button>
-      </div>
-      <p id="design-status" class="editor-status" hidden></p>
-      <div id="design-result" class="design-result" ${this.designDoc ? "" : "hidden"}>
-        <div class="design-mode-toggle">
-          <button id="design-mode-edit-btn" type="button" class="design-mode-btn active">Edit</button>
-          <button id="design-mode-preview-btn" type="button" class="design-mode-btn">Preview</button>
-        </div>
-        <textarea id="design-source" class="design-source" rows="10">${this.designDoc ? escapeHtml(this.designDoc) : ""}</textarea>
-        <div id="design-preview" class="design-preview" hidden></div>
-        <div class="design-create-row">
-          <input id="design-file-path" type="text" value="design.md" autocomplete="off" spellcheck="false" />
-          <button id="design-create-btn" type="button">Create file</button>
-        </div>
-        <p id="design-create-error" class="attach-image-error" hidden></p>
-      </div>
-    `;
-
-    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#design-description")!;
-    descriptionInput.value = this.designDescription;
-    descriptionInput.addEventListener("input", () => {
-      this.designDescription = descriptionInput.value;
-    });
-
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#design-source");
-    sourceEl?.addEventListener("input", () => {
-      this.designDoc = sourceEl.value;
-    });
-
-    this.querySelector("#workspace-back-btn")?.addEventListener("click", () => {
-      // One level back - to Design's own Architecture/Wireframes list,
-      // not all the way out to the Workspace overview (that back button,
-      // in the generic function-list view above, handles that level).
-      this.showDesignGenerator = false;
-      this.renderView();
-    });
-    this.querySelector("#design-generate-btn")?.addEventListener("click", () => void this.handleGenerateDesignDoc());
-    this.querySelector("#design-mode-edit-btn")?.addEventListener("click", () => void this.setDesignViewMode("edit"));
-    this.querySelector("#design-mode-preview-btn")?.addEventListener("click", () => void this.setDesignViewMode("preview"));
-    this.querySelector("#design-create-btn")?.addEventListener("click", () => this.handleCreateDesignFile());
-
-    this.applyDesignViewMode();
-  }
-
-  private async handleGenerateDesignDoc(): Promise<void> {
-    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#design-description");
-    const generateBtn = this.querySelector<HTMLButtonElement>("#design-generate-btn");
-    const resultBox = this.querySelector<HTMLElement>("#design-result");
-    if (!descriptionInput || !generateBtn || !resultBox) {
-      return;
+    container.innerHTML = "";
+    if (!this.designGenerator) {
+      const generator = document.createElement("control-design-generator") as DesignGeneratorControl;
+      generator.generate = async (description) => {
+        const provider = getAiAssistProvider();
+        if (!provider) {
+          throw new Error("Add an Anthropic API key in Settings to generate a design doc.");
+        }
+        return provider.generateDesignDoc({ description });
+      };
+      generator.createFile = (rawPath, content) => {
+        if (!this.store) {
+          return { ok: false, error: "Couldn't create the file." };
+        }
+        const path = normalizePath(rawPath);
+        if (!path) {
+          return { ok: false, error: "Enter a path before creating the file." };
+        }
+        const state = this.store.state.value;
+        if (pathExists(state.files, state.emptyFolders, path)) {
+          return { ok: false, error: `"${path}" already exists - choose a different path.` };
+        }
+        this.store.dispatch({ type: "CREATE_FILE", path, content, language: inferLanguage(path) });
+        navigateTo("/editor");
+        return { ok: true };
+      };
+      generator.addEventListener("back", () => {
+        // One level back - to Design's own Architecture/Wireframes list,
+        // not all the way out to the Workspace overview (that back
+        // button, in the generic function-list view above, handles
+        // that level).
+        this.showDesignGenerator = false;
+        this.renderView();
+      });
+      this.designGenerator = generator;
     }
-    const description = descriptionInput.value.trim();
-    if (!description) {
-      return;
-    }
-    const provider = getAiAssistProvider();
-    if (!provider) {
-      this.showDesignStatus("⚠️ Add an Anthropic API key in Settings to generate a design doc.");
-      return;
-    }
-    generateBtn.disabled = true;
-    resultBox.hidden = true;
-    this.showDesignStatus("Generating…");
-    try {
-      const doc = await provider.generateDesignDoc({ description });
-      this.designDoc = doc;
-      this.designViewMode = "edit";
-      const sourceEl = this.querySelector<HTMLTextAreaElement>("#design-source");
-      if (sourceEl) {
-        sourceEl.value = doc;
-      }
-      resultBox.hidden = false;
-      this.applyDesignViewMode();
-      this.hideDesignStatus();
-    } catch (e) {
-      this.showDesignStatus(`⚠️ ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      generateBtn.disabled = false;
-    }
-  }
-
-  private applyDesignViewMode(): void {
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#design-source");
-    const previewEl = this.querySelector<HTMLElement>("#design-preview");
-    const editBtn = this.querySelector<HTMLButtonElement>("#design-mode-edit-btn");
-    const previewBtn = this.querySelector<HTMLButtonElement>("#design-mode-preview-btn");
-    if (!sourceEl || !previewEl || !editBtn || !previewBtn) {
-      return;
-    }
-    const isPreview = this.designViewMode === "preview";
-    sourceEl.hidden = isPreview;
-    previewEl.hidden = !isPreview;
-    editBtn.classList.toggle("active", !isPreview);
-    previewBtn.classList.toggle("active", isPreview);
-  }
-
-  private async setDesignViewMode(mode: "edit" | "preview"): Promise<void> {
-    if (mode === "edit") {
-      this.designViewMode = "edit";
-      this.applyDesignViewMode();
-      return;
-    }
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#design-source");
-    if (!sourceEl) {
-      return;
-    }
-    this.designDoc = sourceEl.value;
-    this.designViewMode = "preview";
-    this.applyDesignViewMode();
-    const previewEl = this.querySelector<HTMLElement>("#design-preview");
-    if (previewEl) {
-      previewEl.innerHTML = `<p class="editor-status">Rendering…</p>`;
-    }
-    // The user may switch back to Edit, or even navigate away and
-    // regenerate an entirely new doc, while this async render (real
-    // Mermaid rendering can take real time) is still in flight - a
-    // token guard, not just a designViewMode check, since navigating
-    // away and back could coincidentally leave designViewMode as
-    // "preview" again by the time this resolves, for a DIFFERENT doc.
-    const token = ++this.designRenderToken;
-    const html = await renderMarkdownToHtml(this.designDoc ?? "");
-    if (token !== this.designRenderToken) {
-      return;
-    }
-    const currentPreviewEl = this.querySelector<HTMLElement>("#design-preview");
-    if (this.designViewMode === "preview" && currentPreviewEl) {
-      currentPreviewEl.innerHTML = html;
-    }
-  }
-
-  private handleCreateDesignFile(): void {
-    if (!this.store) {
-      return;
-    }
-    const pathInput = this.querySelector<HTMLInputElement>("#design-file-path");
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#design-source");
-    const errorEl = this.querySelector<HTMLElement>("#design-create-error");
-    if (!pathInput || !sourceEl || !errorEl) {
-      return;
-    }
-    const path = normalizePath(pathInput.value);
-    if (!path) {
-      errorEl.hidden = false;
-      errorEl.textContent = "Enter a path before creating the file.";
-      return;
-    }
-    const state = this.store.state.value;
-    if (pathExists(state.files, state.emptyFolders, path)) {
-      errorEl.hidden = false;
-      errorEl.textContent = `"${path}" already exists - choose a different path.`;
-      return;
-    }
-    errorEl.hidden = true;
-    this.store.dispatch({ type: "CREATE_FILE", path, content: sourceEl.value, language: inferLanguage(path) });
-    navigateTo("/editor");
-  }
-
-  private showDesignStatus(text: string): void {
-    const el = this.querySelector<HTMLElement>("#design-status");
-    if (!el) {
-      return;
-    }
-    el.hidden = false;
-    el.textContent = text;
-  }
-
-  private hideDesignStatus(): void {
-    const el = this.querySelector<HTMLElement>("#design-status");
-    if (el) {
-      el.hidden = true;
-    }
+    container.appendChild(this.designGenerator);
   }
 
   // ---- Deployment: Cloud providers (opened from Cloud above) ----
@@ -1577,235 +1429,41 @@ export class WorkspaceElement extends HTMLElement {
   // ---- Presentation: AI-generated slide deck (opened from Slides above) ----
 
   private renderPresentationGenerator(container: Element): void {
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="workspace-back-btn" class="dash-back-btn" type="button">← Presentation</button>
-        <h2 class="workspace-stage-title">📽️ Generate</h2>
-      </div>
-      <div class="design-form">
-        <label class="field">
-          <span class="field-label">Describe the presentation</span>
-          <textarea id="slides-description" rows="4" placeholder="e.g. pitch this app to a new team"></textarea>
-        </label>
-        <button id="slides-generate-btn" type="button">Generate</button>
-      </div>
-      <p id="slides-status" class="editor-status" hidden></p>
-      <div id="slides-result" class="design-result" ${this.slidesDoc ? "" : "hidden"}>
-        <div class="design-mode-toggle">
-          <button id="slides-mode-edit-btn" type="button" class="design-mode-btn active">Edit</button>
-          <button id="slides-mode-preview-btn" type="button" class="design-mode-btn">Preview</button>
-        </div>
-        <textarea id="slides-source" class="design-source" rows="10">${this.slidesDoc ? escapeHtml(this.slidesDoc) : ""}</textarea>
-        <div id="slides-preview-wrap" class="slides-preview-wrap" hidden>
-          <div class="slides-nav">
-            <button id="slides-prev-btn" type="button" class="slides-nav-btn">◀ Prev</button>
-            <span id="slides-indicator" class="slides-indicator"></span>
-            <button id="slides-next-btn" type="button" class="slides-nav-btn">Next ▶</button>
-          </div>
-          <div id="slides-preview" class="design-preview slides-preview"></div>
-        </div>
-        <div class="design-create-row">
-          <input id="slides-file-path" type="text" value="slides.md" autocomplete="off" spellcheck="false" />
-          <button id="slides-create-btn" type="button">Create file</button>
-        </div>
-        <p id="slides-create-error" class="attach-image-error" hidden></p>
-      </div>
-    `;
-
-    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#slides-description")!;
-    descriptionInput.value = this.presentationDescription;
-    descriptionInput.addEventListener("input", () => {
-      this.presentationDescription = descriptionInput.value;
-    });
-
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
-    sourceEl?.addEventListener("input", () => {
-      this.slidesDoc = sourceEl.value;
-    });
-
-    this.querySelector("#workspace-back-btn")?.addEventListener("click", () => {
-      // One level back - to Presentation's own function list, not all
-      // the way out to the Workspace overview.
-      this.showPresentationGenerator = false;
-      this.renderView();
-    });
-    this.querySelector("#slides-generate-btn")?.addEventListener("click", () => void this.handleGenerateSlides());
-    this.querySelector("#slides-mode-edit-btn")?.addEventListener("click", () => void this.setPresentationViewMode("edit"));
-    this.querySelector("#slides-mode-preview-btn")?.addEventListener("click", () => void this.setPresentationViewMode("preview"));
-    this.querySelector("#slides-prev-btn")?.addEventListener("click", () => this.goToSlide(-1));
-    this.querySelector("#slides-next-btn")?.addEventListener("click", () => this.goToSlide(1));
-    this.querySelector("#slides-create-btn")?.addEventListener("click", () => this.handleCreateSlidesFile());
-
-    this.applyPresentationViewMode();
-    this.updateSlidesNavUI();
-  }
-
-  private async handleGenerateSlides(): Promise<void> {
-    const descriptionInput = this.querySelector<HTMLTextAreaElement>("#slides-description");
-    const generateBtn = this.querySelector<HTMLButtonElement>("#slides-generate-btn");
-    const resultBox = this.querySelector<HTMLElement>("#slides-result");
-    if (!descriptionInput || !generateBtn || !resultBox) {
-      return;
+    container.innerHTML = "";
+    if (!this.presentationGenerator) {
+      const generator = document.createElement("control-presentation-generator") as PresentationGeneratorControl;
+      generator.generate = async (description) => {
+        const provider = getAiAssistProvider();
+        if (!provider) {
+          throw new Error("Add an Anthropic API key in Settings to generate a presentation.");
+        }
+        return provider.generateSlides({ description });
+      };
+      generator.createFile = (rawPath, content) => {
+        if (!this.store) {
+          return { ok: false, error: "Couldn't create the file." };
+        }
+        const path = normalizePath(rawPath);
+        if (!path) {
+          return { ok: false, error: "Enter a path before creating the file." };
+        }
+        const state = this.store.state.value;
+        if (pathExists(state.files, state.emptyFolders, path)) {
+          return { ok: false, error: `"${path}" already exists - choose a different path.` };
+        }
+        this.store.dispatch({ type: "CREATE_FILE", path, content, language: inferLanguage(path) });
+        navigateTo("/editor");
+        return { ok: true };
+      };
+      generator.addEventListener("back", () => {
+        // One level back - to Presentation's own function list, not all
+        // the way out to the Workspace overview.
+        this.showPresentationGenerator = false;
+        this.renderView();
+      });
+      this.presentationGenerator = generator;
     }
-    const description = descriptionInput.value.trim();
-    if (!description) {
-      return;
-    }
-    const provider = getAiAssistProvider();
-    if (!provider) {
-      this.showPresentationStatus("⚠️ Add an Anthropic API key in Settings to generate a presentation.");
-      return;
-    }
-    generateBtn.disabled = true;
-    resultBox.hidden = true;
-    this.showPresentationStatus("Generating…");
-    try {
-      const doc = await provider.generateSlides({ description });
-      this.slidesDoc = doc;
-      this.slideChunks = splitMarkdownSlides(doc);
-      this.currentSlideIndex = 0;
-      this.slidesViewMode = "edit";
-      const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
-      if (sourceEl) {
-        sourceEl.value = doc;
-      }
-      resultBox.hidden = false;
-      this.applyPresentationViewMode();
-      this.updateSlidesNavUI();
-      this.hidePresentationStatus();
-    } catch (e) {
-      this.showPresentationStatus(`⚠️ ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      generateBtn.disabled = false;
-    }
-  }
-
-  private applyPresentationViewMode(): void {
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
-    const previewWrapEl = this.querySelector<HTMLElement>("#slides-preview-wrap");
-    const editBtn = this.querySelector<HTMLButtonElement>("#slides-mode-edit-btn");
-    const previewBtn = this.querySelector<HTMLButtonElement>("#slides-mode-preview-btn");
-    if (!sourceEl || !previewWrapEl || !editBtn || !previewBtn) {
-      return;
-    }
-    const isPreview = this.slidesViewMode === "preview";
-    sourceEl.hidden = isPreview;
-    previewWrapEl.hidden = !isPreview;
-    editBtn.classList.toggle("active", !isPreview);
-    previewBtn.classList.toggle("active", isPreview);
-  }
-
-  private async setPresentationViewMode(mode: "edit" | "preview"): Promise<void> {
-    if (mode === "edit") {
-      this.slidesViewMode = "edit";
-      this.applyPresentationViewMode();
-      return;
-    }
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
-    if (!sourceEl) {
-      return;
-    }
-    // Re-sync from the textarea and recompute slides first - an edit may
-    // have changed the slide count entirely, so the previous
-    // currentSlideIndex can't be trusted to still point at the same
-    // logical slide.
-    this.slidesDoc = sourceEl.value;
-    this.slideChunks = splitMarkdownSlides(this.slidesDoc);
-    this.currentSlideIndex = 0;
-    this.slidesViewMode = "preview";
-    this.applyPresentationViewMode();
-    this.updateSlidesNavUI();
-    await this.renderCurrentSlide();
-  }
-
-  private goToSlide(delta: number): void {
-    const nextIndex = this.currentSlideIndex + delta;
-    if (nextIndex < 0 || nextIndex >= this.slideChunks.length) {
-      return;
-    }
-    this.currentSlideIndex = nextIndex;
-    this.updateSlidesNavUI();
-    void this.renderCurrentSlide();
-  }
-
-  private updateSlidesNavUI(): void {
-    const indicator = this.querySelector<HTMLElement>("#slides-indicator");
-    const prevBtn = this.querySelector<HTMLButtonElement>("#slides-prev-btn");
-    const nextBtn = this.querySelector<HTMLButtonElement>("#slides-next-btn");
-    const total = this.slideChunks.length;
-    if (indicator) {
-      indicator.textContent = total > 0 ? `Slide ${this.currentSlideIndex + 1} of ${total}` : "";
-    }
-    if (prevBtn) {
-      prevBtn.disabled = this.currentSlideIndex <= 0;
-    }
-    if (nextBtn) {
-      nextBtn.disabled = this.currentSlideIndex >= total - 1;
-    }
-  }
-
-  private async renderCurrentSlide(): Promise<void> {
-    const previewEl = this.querySelector<HTMLElement>("#slides-preview");
-    if (previewEl) {
-      previewEl.innerHTML = `<p class="editor-status">Rendering…</p>`;
-    }
-    // Same token-guard reasoning as Design's setDesignViewMode() - the
-    // user can tap Next/Prev again, or even regenerate an entirely new
-    // deck, while a real Mermaid render for the PREVIOUS slide is still
-    // in flight.
-    const token = ++this.slidesRenderToken;
-    const slide = this.slideChunks[this.currentSlideIndex] ?? "";
-    const html = await renderMarkdownToHtml(slide);
-    if (token !== this.slidesRenderToken) {
-      return;
-    }
-    const currentPreviewEl = this.querySelector<HTMLElement>("#slides-preview");
-    if (this.slidesViewMode === "preview" && currentPreviewEl) {
-      currentPreviewEl.innerHTML = html;
-    }
-  }
-
-  private handleCreateSlidesFile(): void {
-    if (!this.store) {
-      return;
-    }
-    const pathInput = this.querySelector<HTMLInputElement>("#slides-file-path");
-    const sourceEl = this.querySelector<HTMLTextAreaElement>("#slides-source");
-    const errorEl = this.querySelector<HTMLElement>("#slides-create-error");
-    if (!pathInput || !sourceEl || !errorEl) {
-      return;
-    }
-    const path = normalizePath(pathInput.value);
-    if (!path) {
-      errorEl.hidden = false;
-      errorEl.textContent = "Enter a path before creating the file.";
-      return;
-    }
-    const state = this.store.state.value;
-    if (pathExists(state.files, state.emptyFolders, path)) {
-      errorEl.hidden = false;
-      errorEl.textContent = `"${path}" already exists - choose a different path.`;
-      return;
-    }
-    errorEl.hidden = true;
-    this.store.dispatch({ type: "CREATE_FILE", path, content: sourceEl.value, language: inferLanguage(path) });
-    navigateTo("/editor");
-  }
-
-  private showPresentationStatus(text: string): void {
-    const el = this.querySelector<HTMLElement>("#slides-status");
-    if (!el) {
-      return;
-    }
-    el.hidden = false;
-    el.textContent = text;
-  }
-
-  private hidePresentationStatus(): void {
-    const el = this.querySelector<HTMLElement>("#slides-status");
-    if (el) {
-      el.hidden = true;
-    }
+    container.appendChild(this.presentationGenerator);
   }
 
   // ---- Development: virtual-filesystem CLI (opened from CLI above) ----

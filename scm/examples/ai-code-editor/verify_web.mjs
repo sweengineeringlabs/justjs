@@ -584,7 +584,14 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 clickWorkspaceOverviewTile("design");
 await sleep(20);
-assert(document.querySelector("#design-description") === null, "Design opens its own Architecture/Wireframes list first, not straight into the generator");
+
+// control-design-generator (justjs#123) owns its own Shadow DOM - every
+// #design-* lookup below goes through its shadowRoot instead of the
+// light DOM the original hand-rolled markup used.
+function designShadow() {
+  return document.querySelector("control-design-generator")?.shadowRoot ?? null;
+}
+assert(designShadow() === null, "Design opens its own Architecture/Wireframes list first, not straight into the generator");
 const designFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
   designFunctions.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Architecture,Wireframes",
@@ -594,13 +601,13 @@ assert(document.querySelector("#mount-workspace .workspace-function-stub") === n
 
 designFunctions[0].click(); // Architecture
 await sleep(20);
-assert(document.querySelector("#design-description") !== null, "tapping Architecture opens the real generator");
+assert(designShadow() !== null, "tapping Architecture opens the real generator");
 
-document.querySelector("#design-description").value = "the auth flow for this app";
-document.querySelector("#design-generate-btn").click();
+designShadow().querySelector("#description").value = "the auth flow for this app";
+designShadow().querySelector("#generate-btn").click();
 await sleep(20);
-assert(document.querySelector("#design-status").textContent.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
-assert(document.getElementById("design-result").hidden, "no result panel is shown when generation never ran");
+assert(designShadow().querySelector("#status").text.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
+assert(designShadow().querySelector("#result").hidden, "no result panel is shown when generation never ran");
 
 window.localStorage.setItem("justjs:ai-editor:api-key", "sk-ant-test-fake-key-not-real");
 const originalFetch = globalThis.fetch;
@@ -612,17 +619,17 @@ globalThis.fetch = async () =>
     headers: { "content-type": "application/json" },
   });
 
-document.querySelector("#design-generate-btn").click();
+designShadow().querySelector("#generate-btn").click();
 await sleep(50);
-assert(!document.getElementById("design-result").hidden, "a successful generate shows the result panel");
-assert(document.querySelector("#design-source").value === fakeDesignDoc, "the raw Markdown+Mermaid source is shown in Edit mode by default");
-assert(document.querySelector("#design-mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
+assert(!designShadow().querySelector("#result").hidden, "a successful generate shows the result panel");
+assert(designShadow().querySelector("#source").value === fakeDesignDoc, "the raw Markdown+Mermaid source is shown in Edit mode by default");
+assert(designShadow().querySelector("#mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
 
-document.querySelector("#design-mode-preview-btn").click();
-assert(document.querySelector("#design-mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
-const finishedRendering = await waitUntil(() => !document.querySelector("#design-preview").innerHTML.includes("Rendering…"));
+designShadow().querySelector("#mode-preview-btn").click();
+assert(designShadow().querySelector("#mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
+const finishedRendering = await waitUntil(() => !designShadow().querySelector(".preview").innerHTML.includes("Rendering…"));
 assert(finishedRendering, "the real dynamic import(\"mermaid\") plus attempted render (falling back in this environment) completes within a reasonable time, not hung");
-const previewHtml = document.querySelector("#design-preview").innerHTML;
+const previewHtml = designShadow().querySelector(".preview").innerHTML;
 assert(previewHtml.includes("<h1>Auth Flow</h1>"), "the Markdown heading renders as real HTML, not raw escaped text");
 assert(
   previewHtml.includes("mermaid-fallback") && previewHtml.includes("couldn"),
@@ -630,31 +637,48 @@ assert(
 );
 assert(previewHtml.includes("sequenceDiagram"), "the raw mermaid source is still visible inside the fallback, not discarded");
 
-document.querySelector("#design-mode-edit-btn").click();
+designShadow().querySelector("#mode-edit-btn").click();
 await sleep(20);
-assert(document.querySelector("#design-mode-edit-btn").classList.contains("active"), "toggling back to Edit works");
+assert(designShadow().querySelector("#mode-edit-btn").classList.contains("active"), "toggling back to Edit works");
+
+// control-design-generator (justjs#123) is cached on WorkspaceElement,
+// same reasoning as control-cli-terminal (justjs#122) - a real
+// keep-alive router (justjs#94) tab switch never touches that subtree
+// at all, so this proves the extraction didn't regress the generator's
+// own real, non-store-backed doc state.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+await sleep(20);
+assert(
+  designShadow() !== null && designShadow().querySelector("#source").value === fakeDesignDoc,
+  "switching away from and back to Workspace preserves the Design generator's real in-progress doc - the cached control-design-generator instance survives, not recreated"
+);
 
 // "← Design" backs out one level to the Architecture/Wireframes list,
 // not all the way to the Workspace overview - and Wireframes opens the
 // SAME generator (same in-progress doc still there), proving both
 // entries are genuinely backed by the one capability, not two separate
-// half-built ones.
-document.querySelector("#workspace-back-btn").click();
+// half-built ones. The back button lives inside <view-nav-header>'s own
+// nested Shadow DOM (control-design-generator composes it, justjs#123)
+// - double shadow traversal to reach the real .back-btn.
+designShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-assert(document.querySelector("#design-description") === null, "the generator's own back button returns to Design's function list, not the Workspace overview");
+assert(designShadow() === null, "the generator's own back button returns to Design's function list, not the Workspace overview");
 const designFunctionsAgain = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(designFunctionsAgain.length === 2, "Architecture and Wireframes are both still there after backing out");
 designFunctionsAgain[1].click(); // Wireframes
 await sleep(20);
-assert(document.querySelector("#design-source").value.includes("Auth Flow"), "Wireframes opens the same generator with the same in-progress doc, not a separate/reset one");
+assert(designShadow().querySelector("#source").value.includes("Auth Flow"), "Wireframes opens the same generator with the same in-progress doc, not a separate/reset one");
 
-document.querySelector("#design-file-path").value = "src/main.js";
-document.querySelector("#design-create-btn").click();
+designShadow().querySelector("#file-path").value = "src/main.js";
+designShadow().querySelector("#create-btn").click();
 await sleep(20);
-assert(document.querySelector("#design-create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Scaffold's");
+assert(designShadow().querySelector("#create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Scaffold's");
 
-document.querySelector("#design-file-path").value = "design.md";
-document.querySelector("#design-create-btn").click();
+designShadow().querySelector("#file-path").value = "design.md";
+designShadow().querySelector("#create-btn").click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "a successful Create file navigates to the Editor tab");
 assert(document.querySelector("#editor-textarea").value.includes("Auth Flow"), "the created file's real generated content is now open in the editor");
@@ -670,7 +694,9 @@ document.querySelector('.nav-btn[data-route="/workspace"]').click();
 // Workspace kept its own internal drill-down state from section 1c
 // (still mid-generator, showing Wireframes) - two levels back: generator
 // -> Design's Architecture/Wireframes list -> the Workspace overview.
-document.querySelector("#workspace-back-btn").click();
+// The first back click hits Design's generator - its own Shadow DOM
+// back button (justjs#123), same double-traversal as above.
+designShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
@@ -683,16 +709,21 @@ assert(
 );
 assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Slides is real, not a stub");
 
+// control-presentation-generator (justjs#123) owns its own Shadow DOM
+// too - same #slides-* -> shadowRoot traversal as Design above.
+function presentationShadow() {
+  return document.querySelector("control-presentation-generator")?.shadowRoot ?? null;
+}
 presentationFunctions[0].click();
 await sleep(20);
-assert(document.querySelector("#slides-description") !== null, "tapping Slides opens the real generator directly - no intermediate list, unlike Design's two-entry shape");
+assert(presentationShadow() !== null, "tapping Slides opens the real generator directly - no intermediate list, unlike Design's two-entry shape");
 
 window.localStorage.removeItem("justjs:ai-editor:api-key");
-document.querySelector("#slides-description").value = "pitch this app to a new team";
-document.querySelector("#slides-generate-btn").click();
+presentationShadow().querySelector("#description").value = "pitch this app to a new team";
+presentationShadow().querySelector("#generate-btn").click();
 await sleep(20);
-assert(document.querySelector("#slides-status").textContent.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
-assert(document.getElementById("slides-result").hidden, "no result panel is shown when generation never ran");
+assert(presentationShadow().querySelector("#status").text.includes("Add an Anthropic API key"), "Generate with no key shows the same actionable error as every other AI action");
+assert(presentationShadow().querySelector("#result").hidden, "no result panel is shown when generation never ran");
 
 window.localStorage.setItem("justjs:ai-editor:api-key", "sk-ant-test-fake-key-not-real");
 // Three slides, two different mermaid diagram types, deliberately:
@@ -711,57 +742,70 @@ globalThis.fetch = async () =>
     headers: { "content-type": "application/json" },
   });
 
-document.querySelector("#slides-generate-btn").click();
+presentationShadow().querySelector("#generate-btn").click();
 await sleep(50);
-assert(!document.getElementById("slides-result").hidden, "a successful generate shows the result panel");
-assert(document.querySelector("#slides-source").value === fakeSlidesDoc, "the raw Markdown deck source is shown in Edit mode by default");
-assert(document.querySelector("#slides-mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
-assert(document.getElementById("slides-preview-wrap").hidden, "the preview/nav area is hidden while in Edit mode");
+assert(!presentationShadow().querySelector("#result").hidden, "a successful generate shows the result panel");
+assert(presentationShadow().querySelector("#source").value === fakeSlidesDoc, "the raw Markdown deck source is shown in Edit mode by default");
+assert(presentationShadow().querySelector("#mode-edit-btn").classList.contains("active"), "Edit is the default view mode after generating");
+assert(presentationShadow().querySelector("#preview-area").hidden, "the preview/nav area is hidden while in Edit mode");
 
-document.querySelector("#slides-mode-preview-btn").click();
-assert(document.querySelector("#slides-mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
-const finishedRenderingSlide1 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+presentationShadow().querySelector("#mode-preview-btn").click();
+assert(presentationShadow().querySelector("#mode-preview-btn").classList.contains("active"), "Preview becomes the active mode immediately, before rendering finishes");
+const finishedRenderingSlide1 = await waitUntil(() => !presentationShadow().querySelector(".preview").innerHTML.includes("Rendering…"));
 assert(finishedRenderingSlide1, "the real per-slide render completes within a reasonable time for slide 1 (no mermaid fence on this one)");
-const slide1Html = document.querySelector("#slides-preview").innerHTML;
+const slide1Html = presentationShadow().querySelector(".preview").innerHTML;
 assert(slide1Html.includes("<h1>Welcome</h1>"), "slide 1's own heading renders as real HTML");
 assert(!slide1Html.includes("Architecture"), "slide 2's content is NOT shown while on slide 1 - real slide-by-slide splitting, not one continuous scroll");
-assert(document.querySelector("#slides-indicator").textContent === "Slide 1 of 3", "the nav indicator reflects the real slide count and position");
-assert(document.querySelector("#slides-prev-btn").disabled, "Prev is disabled on the first slide");
-assert(!document.querySelector("#slides-next-btn").disabled, "Next is enabled - there are more slides");
+assert(presentationShadow().querySelector("#indicator").textContent === "Slide 1 of 3", "the nav indicator reflects the real slide count and position");
+assert(presentationShadow().querySelector("#prev-btn").disabled, "Prev is disabled on the first slide");
+assert(!presentationShadow().querySelector("#next-btn").disabled, "Next is enabled - there are more slides");
 
-document.querySelector("#slides-next-btn").click();
-const finishedRenderingSlide2 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+presentationShadow().querySelector("#next-btn").click();
+const finishedRenderingSlide2 = await waitUntil(() => !presentationShadow().querySelector(".preview").innerHTML.includes("Rendering…"));
 assert(finishedRenderingSlide2, "the real dynamic import(\"mermaid\") plus attempted render (falling back in this environment) completes within a reasonable time on slide 2, not hung");
-const slide2Html = document.querySelector("#slides-preview").innerHTML;
+const slide2Html = presentationShadow().querySelector(".preview").innerHTML;
 assert(slide2Html.includes("<h1>Architecture</h1>"), "slide 2's own heading renders now that Next was tapped");
 assert(
   slide2Html.includes("mermaid-fallback") && slide2Html.includes("couldn"),
   "happy-dom genuinely cannot render a sequenceDiagram here either (getBBox() unsupported, throws directly) - the real per-slide fallback path renders, same reasoning as Design's"
 );
-assert(document.querySelector("#slides-indicator").textContent === "Slide 2 of 3", "the indicator advances with Next");
-assert(!document.querySelector("#slides-prev-btn").disabled, "Prev is enabled once past the first slide");
-assert(!document.querySelector("#slides-next-btn").disabled, "Next is still enabled - there's a third slide");
+assert(presentationShadow().querySelector("#indicator").textContent === "Slide 2 of 3", "the indicator advances with Next");
+assert(!presentationShadow().querySelector("#prev-btn").disabled, "Prev is enabled once past the first slide");
+assert(!presentationShadow().querySelector("#next-btn").disabled, "Next is still enabled - there's a third slide");
 
-document.querySelector("#slides-next-btn").click();
-const finishedRenderingSlide3 = await waitUntil(() => !document.querySelector("#slides-preview").innerHTML.includes("Rendering…"));
+presentationShadow().querySelector("#next-btn").click();
+const finishedRenderingSlide3 = await waitUntil(() => !presentationShadow().querySelector(".preview").innerHTML.includes("Rendering…"));
 assert(finishedRenderingSlide3, "the real attempted render for slide 3's flowchart completes within a reasonable time, not hung");
-const slide3Html = document.querySelector("#slides-preview").innerHTML;
+const slide3Html = presentationShadow().querySelector(".preview").innerHTML;
 assert(slide3Html.includes("<h1>Flowchart</h1>"), "slide 3's own heading renders now that Next was tapped again");
 assert(
   slide3Html.includes("mermaid-fallback") && slide3Html.includes("couldn"),
   "the flowchart case is now caught too - mermaid.render() resolves here instead of throwing, but isWellFormedSvg() (core/markdown.ts) rejects the malformed result and routes into the same real fallback, not broken/partial markup"
 );
-assert(document.querySelector("#slides-indicator").textContent === "Slide 3 of 3", "the indicator advances again");
-assert(!document.querySelector("#slides-prev-btn").disabled, "Prev is enabled on the last slide");
-assert(document.querySelector("#slides-next-btn").disabled, "Next is disabled on the true last slide");
+assert(presentationShadow().querySelector("#indicator").textContent === "Slide 3 of 3", "the indicator advances again");
+assert(!presentationShadow().querySelector("#prev-btn").disabled, "Prev is enabled on the last slide");
+assert(presentationShadow().querySelector("#next-btn").disabled, "Next is disabled on the true last slide");
 
-document.querySelector("#slides-file-path").value = "src/main.js";
-document.querySelector("#slides-create-btn").click();
+// control-presentation-generator (justjs#123) is cached the same way -
+// proves its own slide position/doc state also survives a real
+// keep-alive router tab switch.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
-assert(document.querySelector("#slides-create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Design's");
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
+await sleep(20);
+assert(
+  presentationShadow() !== null && presentationShadow().querySelector("#indicator").textContent === "Slide 3 of 3",
+  "switching away from and back to Workspace preserves the Presentation generator's real slide position - the cached control-presentation-generator instance survives, not recreated"
+);
 
-document.querySelector("#slides-file-path").value = "slides.md";
-document.querySelector("#slides-create-btn").click();
+presentationShadow().querySelector("#file-path").value = "src/main.js";
+presentationShadow().querySelector("#create-btn").click();
+await sleep(20);
+assert(presentationShadow().querySelector("#create-error").textContent.includes("already exists"), "Create file reuses the real pathExists() collision check, same as Design's");
+
+presentationShadow().querySelector("#file-path").value = "slides.md";
+presentationShadow().querySelector("#create-btn").click();
 await sleep(20);
 assert(document.querySelector('.nav-btn[data-route="/editor"]').classList.contains("active"), "a successful Create file navigates to the Editor tab");
 assert(document.querySelector("#editor-textarea").value.includes("Welcome"), "the created file's real generated content is now open in the editor");
@@ -782,8 +826,10 @@ await sleep(20);
 document.querySelector('.nav-btn[data-route="/workspace"]').click();
 // Workspace kept its own internal drill-down state from section 1d
 // (still showing the Slides generator) - two levels back: generator ->
-// Presentation's function list -> the Workspace overview.
-document.querySelector("#workspace-back-btn").click();
+// Presentation's function list -> the Workspace overview. The first
+// back click hits Presentation's own Shadow DOM back button
+// (justjs#123), same double-traversal as Design's above.
+presentationShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 document.querySelector("#workspace-back-btn").click();
 await sleep(20);
