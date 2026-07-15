@@ -406,91 +406,107 @@ assert(
 
 // Cloud providers: a real, recognizable catalog (not a free-text "type
 // any name" list) - tapping a card opens that provider's own real
-// connect screen. No API key is set anywhere in this run, so every
+// connect screen. Migrated onto <control-cloud-connector> (justjs#126,
+// app-local sibling to <control-provider-connector>), so every lookup
+// below traverses into its own Shadow DOM (and, for the provider grid,
+// the further-nested <view-grid>'s own shadow root, same 3-level
+// nesting as SCM/PM). No API key is set anywhere in this run, so every
 // provider proves its real "not connected"/"paste a token first" path -
 // same fast-path philosophy as the Anthropic key's "no key configured"
 // tests above, not a live external network call.
+function cloudConnectorShadow() {
+  return document.querySelector("control-cloud-connector")?.shadowRoot ?? null;
+}
+function cloudGridShadow() {
+  return cloudConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
+}
 deploymentFunctions[0].click();
 await sleep(20);
-const providerCards = [...document.querySelectorAll("#mount-workspace .provider-card")];
-const providerNames = providerCards.map((el) => el.querySelector(".provider-name").textContent);
+const providerTiles = [...cloudGridShadow().querySelectorAll(".tile")];
+const providerNames = providerTiles.map((el) => el.querySelector(".tile-label").textContent);
 assert(
   providerNames.includes("AWS") && providerNames.includes("Microsoft Azure") && providerNames.includes("Google Cloud"),
   `Cloud opens a real catalog of actual, recognizable providers (found ${providerNames.join(", ")})`
 );
-assert(providerCards.every((el) => !el.classList.contains("selected")), "no provider shows as Connected before any token is ever saved");
+assert(providerTiles.every((el) => !el.classList.contains("selected")), "no provider shows as Connected before any token is ever saved");
 
-const digitalOceanCard = document.querySelector('[data-provider-id="digitalocean"]');
-digitalOceanCard.click();
+cloudGridShadow().querySelector('[data-id="digitalocean"]').click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("DigitalOcean"),
+  cloudConnectorShadow().querySelector("view-nav-header").textContent.includes("DigitalOcean"),
   "tapping a provider card opens that provider's own connect screen"
 );
-assert(document.getElementById("cloud-connect-token") !== null, "a bearer-token provider shows a single token input");
+let cloudForm = cloudConnectorShadow().querySelector("view-form");
+assert(cloudForm.shadowRoot.querySelector('[data-field-id="token"]') !== null, "a bearer-token provider shows a single token input");
 assert(
-  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("Stored only on this device"),
+  cloudConnectorShadow().querySelector(".settings-disclosure").textContent.includes("Stored only on this device"),
   "the connect screen discloses where the token is stored/sent, same tone as the Anthropic key's settings sheet"
 );
-document.getElementById("cloud-connect-btn").click();
+cloudForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("cloud-connect-status").textContent.includes("Paste a token first"),
+  cloudConnectorShadow().querySelector("view-status-line").text.includes("Paste a token first"),
   "connecting with an empty token shows a real, actionable error, not a silent no-op"
 );
-assert(document.querySelector("#mount-workspace .resource-list") === null, "no resource list renders without a real successful connect");
+assert(cloudConnectorShadow().querySelector("#main-list") === null, "no resource list renders without a real successful connect");
 
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Cloud Providers"),
-  "a provider's own back button returns to the Cloud Providers grid, not all the way to Deployment"
-);
+assert(document.getElementById("cloud-header").title === "Cloud Providers", "a provider's own back button returns to the Cloud Providers grid, not all the way to Deployment");
 
-const awsCard = document.querySelector('[data-provider-id="aws"]');
-awsCard.click();
+cloudGridShadow().querySelector('[data-id="aws"]').click();
 await sleep(20);
+cloudForm = cloudConnectorShadow().querySelector("view-form");
 assert(
-  document.getElementById("cloud-connect-access-key") !== null && document.getElementById("cloud-connect-secret-key") !== null,
+  cloudForm.shadowRoot.querySelector('[data-field-id="accessKeyId"]') !== null && cloudForm.shadowRoot.querySelector('[data-field-id="secretAccessKey"]') !== null,
   "AWS shows two real fields (access key ID + secret access key), not a single token input"
 );
 assert(
-  document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("SigV4") &&
-    document.querySelector("#mount-workspace .settings-disclosure").textContent.includes("temporary"),
+  cloudConnectorShadow().querySelector(".settings-disclosure").textContent.includes("SigV4") &&
+    cloudConnectorShadow().querySelector(".settings-disclosure").textContent.includes("temporary"),
   "AWS's disclosure mentions real SigV4 signing and AWS's own temporary-credentials guidance, not the generic bearer-token copy"
 );
-document.getElementById("cloud-connect-btn").click();
+cloudForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(20);
 assert(
-  document.getElementById("cloud-connect-status").textContent.includes("Enter both"),
+  cloudConnectorShadow().querySelector("view-status-line").text.includes("Enter both"),
   "connecting AWS with empty fields shows a real, actionable error naming what's missing"
 );
 
-document.getElementById("cloud-provider-back-btn").click();
+// cloudScreen (justjs#126) is cached the same way as scmScreen/
+// pmScreen - a real keep-alive router tab switch never touches
+// #mount-workspace's subtree, so AWS's still-open detail screen (with
+// its error still shown) should survive switching away and back.
+document.querySelector('.nav-btn[data-route="/editor"]').click();
 await sleep(20);
-const azureCard = document.querySelector('[data-provider-id="azure"]');
-azureCard.click();
+assert(document.getElementById("mount-editor").classList.contains("active"), "switched away from Workspace to Editor");
+document.querySelector('.nav-btn[data-route="/workspace"]').click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .connect-hint").textContent.includes("az account get-access-token"),
+  cloudConnectorShadow().querySelector("view-nav-header")?.textContent.includes("AWS"),
+  "switching away from and back to Workspace preserves the Cloud provider detail screen - the cached control-cloud-connector instance survives, not recreated"
+);
+
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
+await sleep(20);
+cloudGridShadow().querySelector('[data-id="azure"]').click();
+await sleep(20);
+assert(
+  cloudConnectorShadow().querySelector(".connect-hint").textContent.includes("az account get-access-token"),
   "Azure's connect screen shows the real CLI command to get a token, not a hidden requirement"
 );
 
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const cloudflareCard = document.querySelector('[data-provider-id="cloudflare"]');
-cloudflareCard.click();
+cloudGridShadow().querySelector('[data-id="cloudflare"]').click();
 await sleep(20);
+assert(cloudConnectorShadow().querySelector("view-form") === null, "Cloudflare shows no connect form at all - no confirmed CORS access, not a form that would silently fail");
 assert(
-  document.getElementById("cloud-connect-token") === null && document.getElementById("cloud-connect-btn") === null,
-  "Cloudflare shows no connect form at all - no confirmed CORS access, not a form that would silently fail"
-);
-assert(
-  document.querySelector("#mount-workspace .connect-hint").textContent.includes("did not return CORS headers"),
+  cloudConnectorShadow().querySelector(".connect-hint").textContent.includes("did not return CORS headers"),
   "Cloudflare's screen states honestly why it can't connect, not a generic disabled state"
 );
 
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 
 // Real "Deploy this project" proof (Netlify) - a mocked-fetch, real-
@@ -502,14 +518,13 @@ await sleep(20);
 // (3) a full deploy really drives the real create-site/manifest/upload/
 // poll sequence end to end, landing on a real clickable result link.
 assert(
-  document.querySelector("#mount-workspace .resource-list") === null,
+  cloudConnectorShadow().querySelector("#main-list") === null,
   "sanity check: DigitalOcean above never got a successful connect in this run, so no deploy button could have shown for it either"
 );
 
-const netlifyCard = document.querySelector('[data-provider-id="netlify"]');
-netlifyCard.click();
+cloudGridShadow().querySelector('[data-id="netlify"]').click();
 await sleep(20);
-assert(document.querySelector("#mount-workspace .resource-list") === null, "no Deploy button before any successful connect - it's gated the same way AWS's List EC2 Instances is");
+assert(cloudConnectorShadow().querySelector("#deploy-btn") === null, "no Deploy button before any successful connect - it's gated the same way AWS's List EC2 Instances is");
 
 const netlifyOriginalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
@@ -535,16 +550,17 @@ globalThis.fetch = async (input, init) => {
   throw new Error(`verify_web.mjs: unexpected fetch in the Netlify deploy mock: ${method} ${url}`);
 };
 
-document.getElementById("cloud-connect-token").value = "fake-netlify-token";
-document.getElementById("cloud-connect-btn").click();
+cloudForm = cloudConnectorShadow().querySelector("view-form");
+cloudForm.shadowRoot.querySelector('[data-field-id="token"]').value = "fake-netlify-token";
+cloudForm.shadowRoot.querySelector(".connect-btn").click();
 await sleep(30);
-assert(document.querySelector("#mount-workspace .resource-list") !== null, "a real successful connect now shows the real site list");
-assert(document.getElementById("cloud-deploy-btn") !== null, "Netlify (a real deploy-capable provider) now shows a real 'Deploy this project' button");
+assert(cloudConnectorShadow().querySelector("#main-list") !== null, "a real successful connect now shows the real site list");
+assert(cloudConnectorShadow().querySelector("#deploy-btn") !== null, "Netlify (a real deploy-capable provider) now shows a real 'Deploy this project' button");
 
-document.getElementById("cloud-deploy-btn").click();
+cloudConnectorShadow().querySelector("#deploy-btn").click();
 await sleep(300);
 assert(
-  document.querySelector('#mount-workspace a[href="https://new-site-1.netlify.app"]') !== null,
+  cloudConnectorShadow().querySelector('#deploy-result a[href="https://new-site-1.netlify.app"]') !== null,
   "a real successful deploy renders the real live URL the mocked API returned, as a real clickable link"
 );
 assert(
@@ -553,21 +569,19 @@ assert(
 );
 
 globalThis.fetch = netlifyOriginalFetch;
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 
-const vercelCard = document.querySelector('[data-provider-id="vercel"]');
-vercelCard.click();
+cloudGridShadow().querySelector('[data-id="vercel"]').click();
 await sleep(20);
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const herokuCard = document.querySelector('[data-provider-id="heroku"]');
-herokuCard.click();
+cloudGridShadow().querySelector('[data-id="heroku"]').click();
 await sleep(20);
-document.getElementById("cloud-provider-back-btn").click();
+cloudConnectorShadow().querySelector("view-nav-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 
-document.getElementById("cloud-back-btn").click();
+document.getElementById("cloud-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
   document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Cloud"),

@@ -65,7 +65,7 @@ import {
 import { connectLinear, connectAsana, connectTrello, connectJira, beginJiraConnect } from "../core/pm_connect.js";
 import type { PmResource } from "../core/pm_connect.js";
 import "@justjs/component-view";
-import type { BadgeView, GridView, NavHeaderView } from "@justjs/component-view";
+import type { BadgeView, GridView, NavHeaderView, FormField } from "@justjs/component-view";
 import "@justjs/provider-connect";
 import type { ProviderCatalogItem, ProviderConnectorControl } from "@justjs/provider-connect";
 import "./cli_terminal.js";
@@ -74,6 +74,8 @@ import "./doc_generator_control.js";
 import type { DesignGeneratorControl } from "./doc_generator_control.js";
 import "./presentation_generator_control.js";
 import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
+import "./cloud_connector.js";
+import type { CloudCatalogItem, CloudConnectorControl } from "./cloud_connector.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -206,6 +208,127 @@ const BEARER_CONNECTORS: Record<string, (token: string) => Promise<CloudResource
   netlify: connectNetlify,
   heroku: connectHeroku,
 };
+
+// <control-cloud-connector> (justjs#126, app-local sibling to
+// <control-provider-connector> - Cloud's real extra actions don't fit
+// the shared package's own scope, see cloud_connector.ts's own doc
+// comment) covers this shape. CloudResource{id,name,status} already
+// matches ListItem's shape exactly, same precedent SCM/PM's own real
+// usage established.
+function isCloudProviderConnected(p: CloudProvider): boolean {
+  return p.kind === "aws" ? getStoredAwsCredentials() !== null : getStoredCloudToken(p.id).length > 0;
+}
+
+function toCloudCatalogItem(p: CloudProvider): CloudCatalogItem {
+  if (p.kind === "unsupported") {
+    return {
+      id: p.id,
+      name: p.name,
+      icon: p.icon,
+      color: p.color,
+      ...(p.logo !== undefined ? { logo: p.logo } : {}),
+      connected: false,
+      fields: [],
+      unsupportedMessage: `⚠️ ${p.name}'s API did not return CORS headers when checked directly from a browser - connecting here isn't confirmed possible without a backend proxy, which this app doesn't have. Left as a local-list-only entry rather than a connect form that might silently fail.`,
+    };
+  }
+  const disclosure =
+    p.kind === "aws"
+      ? `Stored only on this device. Signed (AWS SigV4) and sent directly to AWS when you connect - never proxied. AWS's own guidance: prefer short-lived/temporary credentials over a long-term access key pair like this one; only paste a key you're comfortable having live in browser storage.`
+      : `Stored only on this device. Sent directly to ${p.name} when you connect.`;
+  const fields: FormField[] =
+    p.kind === "aws"
+      ? [
+          { id: "accessKeyId", type: "text", placeholder: "AWS access key ID" },
+          { id: "secretAccessKey", type: "password", placeholder: "AWS secret access key" },
+        ]
+      : [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }];
+  return {
+    id: p.id,
+    name: p.name,
+    icon: p.icon,
+    color: p.color,
+    ...(p.logo !== undefined ? { logo: p.logo } : {}),
+    connected: isCloudProviderConnected(p),
+    fields,
+    disclosure,
+    ...(p.tokenHint !== undefined ? { tokenHint: p.tokenHint } : {}),
+    resourceListLabel: p.kind === "aws" ? "Identity" : "Resources",
+    ...(p.kind === "aws" ? { hasListInstances: true } : {}),
+    ...(p.supportsDeploy ? { hasDeploy: true } : {}),
+  };
+}
+
+async function handleCloudConnect(providerId: string, values: Readonly<Record<string, string>>): Promise<CloudResource[]> {
+  const provider = CLOUD_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    throw new Error(`Unknown provider: ${providerId}`);
+  }
+  if (provider.kind === "aws") {
+    const accessKeyId = (values["accessKeyId"] ?? "").trim() || getStoredAwsCredentials()?.accessKeyId || "";
+    const secretAccessKey = (values["secretAccessKey"] ?? "").trim() || getStoredAwsCredentials()?.secretAccessKey || "";
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error("Enter both the access key ID and secret access key.");
+    }
+    const resources = await connectAwsIdentity(accessKeyId, secretAccessKey);
+    setStoredAwsCredentials({ accessKeyId, secretAccessKey });
+    return resources;
+  }
+  const token = (values["token"] ?? "").trim() || getStoredCloudToken(providerId);
+  if (!token) {
+    throw new Error("Paste a token first.");
+  }
+  const resources = await BEARER_CONNECTORS[providerId]!(token);
+  setStoredCloudToken(providerId, token);
+  return resources;
+}
+
+async function handleCloudList(_providerId: string, session: unknown): Promise<CloudResource[]> {
+  return session as CloudResource[];
+}
+
+function handleCloudDisconnect(providerId: string): void {
+  const provider = CLOUD_PROVIDER_CATALOG.find((p) => p.id === providerId);
+  if (!provider) {
+    return;
+  }
+  if (provider.kind === "aws") {
+    setStoredAwsCredentials(null);
+  } else {
+    setStoredCloudToken(providerId, "");
+  }
+}
+
+// AWS DescribeInstances is a separate, opt-in call after
+// GetCallerIdentity succeeds (see cloud_connect.ts) - needs the real
+// ec2:DescribeInstances permission, unlike GetCallerIdentity.
+async function handleCloudListInstances(providerId: string): Promise<CloudResource[]> {
+  if (providerId !== "aws") {
+    throw new Error(`List Instances is AWS-only: ${providerId}`);
+  }
+  const creds = getStoredAwsCredentials();
+  if (!creds) {
+    return [];
+  }
+  return connectAwsInstances(creds.accessKeyId, creds.secretAccessKey);
+}
+
+// Real "Deploy this project" action (Netlify/Vercel/Heroku only) - the
+// caller (workspace.ts) owns the store, so it's the one that reads the
+// current real file tree, dispatches nothing (a deploy doesn't mutate
+// AppState), and persists the returned targetId for a later redeploy to
+// reuse the same site/app instead of creating a new one each time.
+async function handleCloudDeploy(providerId: string, store: FeatureStore<AppState, AppAction> | undefined): Promise<{ url: string }> {
+  if (!store) {
+    throw new Error("Couldn't deploy - no project loaded.");
+  }
+  const files = Object.entries(store.state.value.files).map(([path, node]) => ({ path, content: node.content }));
+  const token = getStoredCloudToken(providerId);
+  const existingTargetId = getStoredCloudDeployTarget(providerId);
+  const result = await CLOUD_DEPLOYERS[providerId]!(token, files, existingTargetId ?? undefined);
+  setStoredCloudDeployTarget(providerId, result.targetId);
+  return result;
+}
 
 interface ScmProvider {
   readonly id: string;
@@ -539,31 +662,15 @@ export class WorkspaceElement extends HTMLElement {
   // the third level's on/off switch.
   private showDesignGenerator = false;
 
-  // Deployment's Cloud providers - a real, recognizable catalog (see
-  // CLOUD_PROVIDER_CATALOG). Real connections now: a real token/
-  // credential pair persists via core/cloud_credentials.ts (localStorage,
-  // same posture as the Anthropic key); the fetched resource list itself
-  // is component-local and re-fetched per visit, not cached.
+  // Deployment's Cloud providers - migrated onto
+  // <control-cloud-connector> (justjs#126, an app-local sibling to
+  // <control-provider-connector> since AWS's List EC2 Instances and 3
+  // providers' Deploy don't fit the shared package's own scope - see
+  // cloud_connector.ts's own doc comment). Same
+  // caching/reset-on-stage-switch/no-public-reset-API reasoning as
+  // scmScreen/pmScreen.
   private showCloudProviders = false;
-  // Which provider's own connect/detail view is open - a 4th drill-down
-  // level (Workspace -> Deployment -> Cloud Providers grid -> this).
-  private selectedCloudProviderId: string | null = null;
-  private cloudResources: CloudResource[] | null = null;
-  private cloudConnectError: string | null = null;
-  private cloudConnecting = false;
-  // AWS DescribeInstances is a separate, opt-in call after
-  // GetCallerIdentity succeeds (see cloud_connect.ts) - needs the real
-  // ec2:DescribeInstances permission, unlike GetCallerIdentity.
-  private awsInstances: CloudResource[] | null = null;
-  private awsInstancesError: string | null = null;
-  private awsInstancesLoading = false;
-  // Real "Deploy this project" action (Netlify/Vercel/Heroku only) -
-  // same separate, opt-in-after-a-successful-connect shape as AWS's
-  // List EC2 Instances above. cloudDeployResult holds the real live
-  // URL a successful deploy resolves to.
-  private cloudDeployResult: CloudDeployResult | null = null;
-  private cloudDeployError: string | null = null;
-  private cloudDeploying = false;
+  private cloudScreen: HTMLElement | undefined;
 
   // Development's Repository - migrated onto <control-provider-connector>
   // (justjs#124), which owns which-provider-is-selected/fetched-resources
@@ -646,13 +753,9 @@ export class WorkspaceElement extends HTMLElement {
       // mid-generator/mid-provider-list from a previous visit.
       this.showDesignGenerator = false;
       this.showCloudProviders = false;
-      this.selectedCloudProviderId = null;
-      this.cloudResources = null;
-      this.cloudConnectError = null;
-      this.awsInstances = null;
-      this.awsInstancesError = null;
-      this.cloudDeployResult = null;
-      this.cloudDeployError = null;
+      // No public reset API on CloudConnectorControl either - same
+      // discard-and-recreate reasoning as scmScreen/pmScreen.
+      this.cloudScreen = undefined;
       this.showScmConnect = false;
       // No public reset API on ProviderConnectorControl - discarding the
       // cached wrapper is the only way to force a fresh grid view
@@ -824,328 +927,39 @@ export class WorkspaceElement extends HTMLElement {
     container.appendChild(this.designGenerator);
   }
 
-  // ---- Deployment: Cloud providers (opened from Cloud above) ----
-
-  private isCloudProviderConnected(p: CloudProvider): boolean {
-    return p.kind === "aws" ? getStoredAwsCredentials() !== null : getStoredCloudToken(p.id).length > 0;
-  }
+  // ---- Deployment: Cloud providers (opened from Cloud above) - migrated
+  // onto <control-cloud-connector> (justjs#126). ----
 
   private renderCloudProviders(container: Element): void {
-    if (this.selectedCloudProviderId) {
-      const provider = CLOUD_PROVIDER_CATALOG.find((p) => p.id === this.selectedCloudProviderId);
-      if (provider) {
-        this.renderCloudProviderDetail(container, provider);
-        return;
-      }
-      this.selectedCloudProviderId = null;
-    }
-
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="cloud-back-btn" class="dash-back-btn" type="button">← Deployment</button>
-        <h2 class="workspace-stage-title">🚀 Cloud Providers</h2>
-      </div>
-      <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
-      <div class="provider-grid">
-        ${CLOUD_PROVIDER_CATALOG.map((p) => {
-          const connected = this.isCloudProviderConnected(p);
-          return `
-            <button type="button" class="provider-card${connected ? " selected" : ""}" data-provider-id="${p.id}">
-              <view-badge data-badge-for="${p.id}"></view-badge>
-              <span class="provider-name">${escapeHtml(p.name)}</span>
-              <span class="provider-check">${connected ? "✓ Connected" : ""}</span>
-            </button>
-          `;
-        }).join("")}
-      </div>
-    `;
-
-    this.querySelector("#cloud-back-btn")?.addEventListener("click", () => {
-      // One level back - to Deployment's own function list, not all the
-      // way out to the Workspace overview.
-      this.showCloudProviders = false;
-      this.renderView();
-    });
-
-    container.querySelectorAll<HTMLButtonElement>("[data-provider-id]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.providerId;
-        if (!id) {
-          return;
-        }
-        this.selectedCloudProviderId = id;
-        this.cloudResources = null;
-        this.cloudConnectError = null;
-        this.awsInstances = null;
-        this.awsInstancesError = null;
-        this.cloudDeployResult = null;
-        this.cloudDeployError = null;
+    container.innerHTML = "";
+    if (!this.cloudScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <view-nav-header id="cloud-header"></view-nav-header>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
+        <control-cloud-connector id="cloud-connector"></control-cloud-connector>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#cloud-header")!;
+      header.icon = "🚀";
+      header.title = "Cloud Providers";
+      header.backLabel = "Deployment";
+      header.addEventListener("nav-back", () => {
+        // One level back - to Deployment's own function list, not all
+        // the way out to the Workspace overview.
+        this.showCloudProviders = false;
         this.renderView();
       });
-    });
-    container.querySelectorAll<Element>("view-badge[data-badge-for]").forEach((el) => {
-      const provider = CLOUD_PROVIDER_CATALOG.find((p) => p.id === (el as HTMLElement).dataset.badgeFor);
-      if (provider) {
-        setBadgeProps(el, provider);
-      }
-    });
-  }
-
-  // ---- Deployment: a single provider's own connect screen (opened from the grid above) ----
-
-  private renderCloudProviderDetail(container: Element, provider: CloudProvider): void {
-    const connected = this.isCloudProviderConnected(provider);
-    container.innerHTML = `
-      <div class="dash-subnav">
-        <button id="cloud-provider-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
-        <h2 class="workspace-stage-title"><view-badge id="cloud-header-badge"></view-badge> ${escapeHtml(provider.name)}</h2>
-      </div>
-      ${this.renderCloudProviderBody(provider, connected)}
-    `;
-    setBadgeProps(container.querySelector("#cloud-header-badge"), provider);
-
-    this.querySelector("#cloud-provider-back-btn")?.addEventListener("click", () => {
-      this.selectedCloudProviderId = null;
-      this.renderView();
-    });
-
-    if (provider.kind === "unsupported") {
-      return;
+      const connector = screen.querySelector<CloudConnectorControl>("#cloud-connector")!;
+      connector.providers = CLOUD_PROVIDER_CATALOG.map(toCloudCatalogItem);
+      connector.connect = handleCloudConnect;
+      connector.list = handleCloudList;
+      connector.disconnect = handleCloudDisconnect;
+      connector.listInstances = handleCloudListInstances;
+      connector.deploy = (providerId) => handleCloudDeploy(providerId, this.store);
+      connector.catalogLabel = "Cloud Providers";
+      this.cloudScreen = screen;
     }
-
-    this.querySelector("#cloud-connect-btn")?.addEventListener("click", () => {
-      void this.handleCloudConnect(provider);
-    });
-    this.querySelector("#cloud-disconnect-btn")?.addEventListener("click", () => {
-      if (provider.kind === "aws") {
-        setStoredAwsCredentials(null);
-      } else {
-        setStoredCloudToken(provider.id, "");
-      }
-      this.cloudResources = null;
-      this.cloudConnectError = null;
-      this.awsInstances = null;
-      this.awsInstancesError = null;
-      this.cloudDeployResult = null;
-      this.cloudDeployError = null;
-      this.renderView();
-    });
-    this.querySelector("#aws-list-instances-btn")?.addEventListener("click", () => {
-      void this.handleAwsListInstances();
-    });
-    this.querySelector("#cloud-deploy-btn")?.addEventListener("click", () => {
-      void this.handleCloudDeploy(provider);
-    });
-
-    // Already connected (a token/credential pair was saved in a
-    // previous session) and nothing fetched yet this visit - fetch
-    // automatically rather than making the user re-click Connect for a
-    // credential that's already there. Mirrors ai_assist.ts's own
-    // "re-reads localStorage on every call" lazy-validation posture.
-    if (connected && !this.cloudResources && !this.cloudConnectError && !this.cloudConnecting) {
-      void this.handleCloudConnect(provider);
-    }
-  }
-
-  private renderCloudProviderBody(provider: CloudProvider, connected: boolean): string {
-    if (provider.kind === "unsupported") {
-      return `
-        <p class="connect-hint">⚠️ ${escapeHtml(provider.name)}'s API did not return CORS headers when checked directly from a browser - connecting here isn't confirmed possible without a backend proxy, which this app doesn't have. Left as a local-list-only entry rather than a connect form that might silently fail.</p>
-      `;
-    }
-
-    const disclosure =
-      provider.kind === "aws"
-        ? `Stored only on this device. Signed (AWS SigV4) and sent directly to AWS when you connect - never proxied. AWS's own guidance: prefer short-lived/temporary credentials over a long-term access key pair like this one; only paste a key you're comfortable having live in browser storage.`
-        : `Stored only on this device. Sent directly to ${escapeHtml(provider.name)} when you connect.`;
-
-    const tokenHint = provider.tokenHint
-      ? `<p class="connect-hint">Get a real token: <code>${escapeHtml(provider.tokenHint.command)}</code> - expires in ${escapeHtml(provider.tokenHint.expiry)}, re-run and reconnect once it does.</p>`
-      : "";
-
-    const form =
-      provider.kind === "aws"
-        ? `
-          <input id="cloud-connect-access-key" type="text" placeholder="AWS access key ID" autocomplete="off" spellcheck="false" />
-          <input id="cloud-connect-secret-key" type="password" placeholder="AWS secret access key" autocomplete="off" spellcheck="false" />
-        `
-        : `<input id="cloud-connect-token" type="password" placeholder="Paste your ${escapeHtml(provider.name)} token" autocomplete="off" spellcheck="false" />`;
-
-    return `
-      <p class="settings-disclosure">${disclosure}</p>
-      ${tokenHint}
-      <div class="connect-form">
-        ${form}
-        <div class="connect-actions">
-          <button id="cloud-connect-btn" type="button">${connected ? "Reconnect" : "Connect"}</button>
-          ${connected ? `<button id="cloud-disconnect-btn" type="button" class="btn-secondary">Disconnect</button>` : ""}
-        </div>
-        <p id="cloud-connect-status" class="connect-status${this.cloudConnectError ? " connect-status-error" : ""}">${this.cloudConnecting ? "Connecting…" : this.cloudConnectError ? `⚠️ ${escapeHtml(this.cloudConnectError)}` : ""}</p>
-      </div>
-      ${this.renderCloudResourceList(provider)}
-    `;
-  }
-
-  private renderCloudResourceList(provider: CloudProvider): string {
-    if (!this.cloudResources) {
-      return "";
-    }
-    const listLabel = provider.kind === "aws" ? "Identity" : "Resources";
-    const rows =
-      this.cloudResources.length === 0
-        ? `<p class="connect-hint">Connected - no resources found on this account.</p>`
-        : `<ul class="resource-list">
-            ${this.cloudResources
-              .map(
-                (r) => `
-                  <li class="resource-row">
-                    <span class="resource-name">${escapeHtml(r.name)}</span>
-                    <span class="resource-status">${escapeHtml(r.status)}</span>
-                  </li>
-                `,
-              )
-              .join("")}
-          </ul>`;
-    const awsInstancesSection =
-      provider.kind === "aws"
-        ? `
-          <div class="connect-actions">
-            <button id="aws-list-instances-btn" type="button" class="btn-secondary">${this.awsInstancesLoading ? "Loading…" : "List EC2 Instances (needs ec2:DescribeInstances)"}</button>
-          </div>
-          <p class="connect-status${this.awsInstancesError ? " connect-status-error" : ""}">${this.awsInstancesError ? `⚠️ ${escapeHtml(this.awsInstancesError)}` : ""}</p>
-          ${
-            this.awsInstances
-              ? this.awsInstances.length === 0
-                ? `<p class="connect-hint">No EC2 instances found in us-east-1.</p>`
-                : `<ul class="resource-list">
-                    ${this.awsInstances
-                      .map(
-                        (r) => `
-                          <li class="resource-row">
-                            <span class="resource-name">${escapeHtml(r.name)}</span>
-                            <span class="resource-status">${escapeHtml(r.status)}</span>
-                          </li>
-                        `,
-                      )
-                      .join("")}
-                  </ul>`
-                : ""
-          }
-        `
-        : "";
-    const deploySection = provider.supportsDeploy
-      ? `
-          <div class="connect-actions">
-            <button id="cloud-deploy-btn" type="button" class="btn-secondary">${this.cloudDeploying ? "Deploying…" : "Deploy this project"}</button>
-          </div>
-          <p class="connect-status${this.cloudDeployError ? " connect-status-error" : ""}">${this.cloudDeployError ? `⚠️ ${escapeHtml(this.cloudDeployError)}` : ""}</p>
-          ${
-            this.cloudDeployResult
-              ? `<p class="connect-hint">✓ Deployed - <a href="${escapeHtml(this.cloudDeployResult.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(this.cloudDeployResult.url)}</a></p>`
-              : ""
-          }
-        `
-      : "";
-    return `<h3 class="resource-list-label">${listLabel}</h3>${rows}${awsInstancesSection}${deploySection}`;
-  }
-
-  private async handleCloudConnect(provider: CloudProvider): Promise<void> {
-    const statusEl = this.querySelector<HTMLElement>("#cloud-connect-status");
-    const connectBtn = this.querySelector<HTMLButtonElement>("#cloud-connect-btn");
-
-    let awsCreds: { accessKeyId: string; secretAccessKey: string } | null = null;
-    let token = "";
-    if (provider.kind === "aws") {
-      const accessKeyInput = this.querySelector<HTMLInputElement>("#cloud-connect-access-key");
-      const secretKeyInput = this.querySelector<HTMLInputElement>("#cloud-connect-secret-key");
-      const accessKeyId = accessKeyInput?.value.trim() || getStoredAwsCredentials()?.accessKeyId || "";
-      const secretAccessKey = secretKeyInput?.value.trim() || getStoredAwsCredentials()?.secretAccessKey || "";
-      if (!accessKeyId || !secretAccessKey) {
-        this.cloudConnectError = "Enter both the access key ID and secret access key.";
-        this.renderView();
-        return;
-      }
-      awsCreds = { accessKeyId, secretAccessKey };
-    } else {
-      const tokenInput = this.querySelector<HTMLInputElement>("#cloud-connect-token");
-      token = tokenInput?.value.trim() || getStoredCloudToken(provider.id);
-      if (!token) {
-        this.cloudConnectError = "Paste a token first.";
-        this.renderView();
-        return;
-      }
-    }
-
-    this.cloudConnecting = true;
-    this.cloudConnectError = null;
-    if (connectBtn) {
-      connectBtn.disabled = true;
-    }
-    if (statusEl) {
-      statusEl.textContent = "Connecting…";
-    }
-    try {
-      const resources =
-        provider.kind === "aws" && awsCreds
-          ? await connectAwsIdentity(awsCreds.accessKeyId, awsCreds.secretAccessKey)
-          : await BEARER_CONNECTORS[provider.id](token);
-      if (provider.kind === "aws" && awsCreds) {
-        setStoredAwsCredentials(awsCreds);
-      } else {
-        setStoredCloudToken(provider.id, token);
-      }
-      this.cloudResources = resources;
-      this.cloudConnectError = null;
-    } catch (e) {
-      this.cloudConnectError = e instanceof Error ? e.message : String(e);
-      this.cloudResources = null;
-    } finally {
-      this.cloudConnecting = false;
-      this.renderView();
-    }
-  }
-
-  private async handleAwsListInstances(): Promise<void> {
-    const creds = getStoredAwsCredentials();
-    if (!creds) {
-      return;
-    }
-    this.awsInstancesLoading = true;
-    this.awsInstancesError = null;
-    this.renderView();
-    try {
-      this.awsInstances = await connectAwsInstances(creds.accessKeyId, creds.secretAccessKey);
-    } catch (e) {
-      this.awsInstancesError = e instanceof Error ? e.message : String(e);
-      this.awsInstances = null;
-    } finally {
-      this.awsInstancesLoading = false;
-      this.renderView();
-    }
-  }
-
-  private async handleCloudDeploy(provider: CloudProvider): Promise<void> {
-    if (!this.store) {
-      return;
-    }
-    this.cloudDeploying = true;
-    this.cloudDeployError = null;
-    this.renderView();
-    try {
-      const files = Object.entries(this.store.state.value.files).map(([path, node]) => ({ path, content: node.content }));
-      const token = getStoredCloudToken(provider.id);
-      const existingTargetId = getStoredCloudDeployTarget(provider.id);
-      const result = await CLOUD_DEPLOYERS[provider.id]!(token, files, existingTargetId ?? undefined);
-      setStoredCloudDeployTarget(provider.id, result.targetId);
-      this.cloudDeployResult = result;
-      this.cloudDeployError = null;
-    } catch (e) {
-      this.cloudDeployError = e instanceof Error ? e.message : String(e);
-      this.cloudDeployResult = null;
-    } finally {
-      this.cloudDeploying = false;
-      this.renderView();
-    }
+    container.appendChild(this.cloudScreen);
   }
 
   // ---- Development: source-control connections (opened from Repository
