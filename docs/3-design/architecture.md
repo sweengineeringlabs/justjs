@@ -348,4 +348,4 @@ Interfaces are organised by the workspace they belong to. Each workspace's `api/
 
 | Interface | File |
 |---|---|
-| `ThemeContext` | `api/theming.ts` |
+| `UIThemingContext`, `ThemingProviderConfig`, `ThemingAspect`, `ThemingProvider` | `api/provider.ts` |
