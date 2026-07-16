@@ -1,5 +1,41 @@
 name: workspace
 version: 1
+# ── Styles ────────────────────────────────────────────────────────
+# justjs#96: real csslens-generated BEM CSS for the 3 elements with
+# their own dedicated, statically-addressable styling (back-btn,
+# stage-title, function-list). Reproduces the exact property values
+# app.css's hand-written .dash-back-btn/.workspace-stage-title/
+# .workspace-function-list rules already had - a like-for-like swap,
+# not a redesign. The [data-stage="..."] --stage-color cascade (set on
+# #workspace-view directly by workspace.ts's renderStage()) and the
+# dynamically-rendered function-list *row* classes
+# (.workspace-function/.workspace-function-arrow/etc - injected via
+# innerHTML at runtime, not fixed dom.elements) stay hand-written in
+# app.css - parts: only covers addressable dom.elements, and these
+# rows have no fixed address to attach a part style to.
+styles:
+  parts:
+    back-btn:
+      base:
+        properties:
+          flex: "0 0 auto"
+          padding: "8px 14px"
+          font-size: "13px"
+          background: "color-mix(in srgb, var(--stage-color, var(--accent)) 16%, var(--surface-alt))"
+          color: "var(--text)"
+    stage-title:
+      base:
+        properties:
+          margin: "0"
+          font-size: "16px"
+          padding-left: "10px"
+          border-left: "3px solid var(--stage-color, var(--accent))"
+    function-list:
+      base:
+        properties:
+          display: "flex"
+          flex-direction: "column"
+          gap: "8px"
 dom:
   tag: x-workspace
   builtinStates: false

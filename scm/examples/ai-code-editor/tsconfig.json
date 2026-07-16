@@ -10,5 +10,6 @@
       "@browser/*": ["./src/shared/browser-sdk/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["**/*_test.ts"]
 }

@@ -738,10 +738,14 @@ export class WorkspaceElement extends WorkspaceBase {
         <view-grid id="workspace-overview-grid" data-part="overview-grid" hidden></view-grid>
         <div id="workspace-function-list-view" data-part="function-list-view" hidden>
           <div class="dash-subnav">
-            <button id="workspace-back-btn" data-part="back-btn" class="dash-back-btn" type="button">← Workspace</button>
-            <h2 class="workspace-stage-title" data-part="stage-title"></h2>
+            <!-- justjs#96: real csslens-generated BEM CSS (workspace_component.gen.css)
+                 for these 3 elements, replacing the .dash-back-btn/.workspace-stage-title/
+                 .workspace-function-list classes communication.ts/cartoon.ts's own detail
+                 screens still use unchanged (a separate, shared hand-written pattern). -->
+            <button id="workspace-back-btn" data-part="back-btn" class="workspace__back-btn" type="button">← Workspace</button>
+            <h2 class="workspace__stage-title" data-part="stage-title"></h2>
           </div>
-          <div class="workspace-function-list" data-part="function-list"></div>
+          <div class="workspace__function-list" data-part="function-list"></div>
         </div>
         <div id="workspace-subscreen-view" data-part="subscreen-view" hidden></div>
       </div>

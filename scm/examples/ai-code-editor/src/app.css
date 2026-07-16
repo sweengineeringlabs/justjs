@@ -1,3 +1,18 @@
+/* justjs#96: establishes the real cascade-layer order up front, with
+   "legacy" ordered before the layers csslens-generated CSS declares
+   (workspace_component.gen.css's own `@layer tokens, component, theme,
+   override;`). Per the CSS Cascade Layers spec, ANY layered rule loses
+   to ANY unlayered rule regardless of specificity - without this, this
+   file's plain `button { ... }` rule (unlayered) would always beat a
+   generated `@layer component { .workspace__back-btn { ... } }` rule,
+   silently no-op'ing the whole point of adopting generated CSS for any
+   element this file's own broad base-element selectors also match.
+   Only the specific rules that actually collide (the generic
+   button/.btn block below) are moved into @layer legacy - the rest of
+   this file stays exactly as it was, unlayered/highest-priority, since
+   nothing else here currently competes with generated component CSS. */
+@layer legacy, tokens, component, theme, override;
+
 :root {
   --bg: #f2f2f7;
   --surface: #ffffff;
@@ -347,21 +362,32 @@ body {
 }
 
 /* Buttons */
-button {
-  font-family: inherit;
-}
+/* justjs#96: base button reset/sizing moved into @layer legacy (see the
+   @layer statement at the top of this file) - specifically the 2 rules
+   that collide with generated component CSS (e.g.
+   workspace_component.gen.css's .workspace__back-btn), so a component
+   that opts into real generated styling for one of its own buttons
+   isn't silently overridden by this file's own unlayered defaults.
+   :active/:disabled/:hover/:focus-visible below stay unlayered/as-is -
+   nothing generated defines its own state styling yet, so there's
+   nothing for them to lose to. */
+@layer legacy {
+  button {
+    font-family: inherit;
+  }
 
-.btn,
-button {
-  padding: 10px 18px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--accent-text);
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  transition: opacity 0.15s ease, transform 0.05s ease;
+  .btn,
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: var(--accent-text);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+  }
 }
 
 button:active {
@@ -1256,7 +1282,18 @@ textarea:focus {
    overview already set (see workspace.ts's renderStage(), which now
    stamps data-stage on #workspace-view - the [data-stage="..."] rules
    above cascade down to everything here via custom-property
-   inheritance, no per-stage duplication needed). */
+   inheritance, no per-stage duplication needed).
+
+   .dash-back-btn/.workspace-stage-title/.workspace-function-list stay
+   here, unchanged - communication.ts and cartoon.ts's own detail
+   screens reuse these same 3 classes for the identical visual pattern
+   (justjs#96 found this while adding real csslens-generated BEM CSS
+   for x-workspace specifically: features/workspace/
+   workspace_component.gen.css's .workspace__back-btn/
+   .workspace__stage-title/.workspace__function-list). workspace.ts's
+   own markup now sets both the old shared class AND the new
+   component-scoped one on the same elements - communication/cartoon
+   keep using only the shared classes below, entirely unaffected. */
 .dash-back-btn {
   flex: 0 0 auto;
   padding: 8px 14px;

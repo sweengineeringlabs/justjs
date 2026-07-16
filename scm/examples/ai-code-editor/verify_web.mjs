@@ -223,7 +223,7 @@ assert(
 clickWorkspaceOverviewTile("requirement");
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Requirement"),
+  document.querySelector("#mount-workspace .workspace__stage-title").textContent.includes("Requirement"),
   "drilling into Requirement shows its own detail view"
 );
 const requirementLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
@@ -381,7 +381,7 @@ await sleep(20);
 clickWorkspaceOverviewTile("presentation");
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Presentation"),
+  document.querySelector("#mount-workspace .workspace__stage-title").textContent.includes("Presentation"),
   "Presentation drills into its own detail view like every other widget"
 );
 assert(
@@ -394,7 +394,7 @@ await sleep(20);
 clickWorkspaceOverviewTile("deployment");
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-stage-title").textContent.includes("Deployment"),
+  document.querySelector("#mount-workspace .workspace__stage-title").textContent.includes("Deployment"),
   "drilling into a widget shows that stage's detail view"
 );
 assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Deployment has no stubs left - Git moved to Development's Repository, and Cloud is now real");
