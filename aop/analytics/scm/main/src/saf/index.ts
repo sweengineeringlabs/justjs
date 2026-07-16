@@ -1,6 +1,12 @@
 export type { UIAnalyticsContext, AnalyticsProviderConfig, AnalyticsAspect, AnalyticsProvider } from "../api/provider.js"
 export { NoopAnalyticsContext } from "../api/provider.js"
 
+// justjs#91 fix: importing this module's own spi/index.js for its side
+// effect means the common case (`import { createAnalyticsProvider } from
+// "@justjs/aop-analytics"`) genuinely self-registers the "noop" strategy,
+// matching @justjs/memory's own saf/index.ts pattern.
+import "../spi/index.js"
+
 import type { AnalyticsProvider } from "../api/provider.js"
 import { DefaultAnalyticsProvider } from "../core/default_analytics.js"
 

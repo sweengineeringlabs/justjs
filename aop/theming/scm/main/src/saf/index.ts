@@ -1,6 +1,12 @@
 export type { UIThemingContext, ThemingProviderConfig, ThemingAspect, ThemingProvider } from "../api/provider.js"
 export { NoopThemingContext } from "../api/provider.js"
 
+// justjs#91 fix: importing this module's own spi/index.js for its side
+// effect means the common case (`import { createThemingProvider } from
+// "@justjs/aop-theming"`) genuinely self-registers the "noop" strategy,
+// matching @justjs/memory's own saf/index.ts pattern.
+import "../spi/index.js"
+
 import type { ThemingProvider } from "../api/provider.js"
 import { DefaultThemingProvider } from "../core/default_theming.js"
 

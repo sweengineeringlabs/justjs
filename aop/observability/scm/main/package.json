@@ -7,6 +7,10 @@
     ".": {
       "import": "./dist/saf/index.js",
       "types": "./dist/saf/index.d.ts"
+    },
+    "./spi": {
+      "import": "./dist/spi/index.js",
+      "types": "./dist/spi/index.d.ts"
     }
   },
   "scripts": {

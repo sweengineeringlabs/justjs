@@ -1,6 +1,12 @@
 export type { UIObserverContext, ObservabilityProviderConfig, ObservabilityAspect, ObservabilityProvider } from "../api/provider.js"
 export { NoopObserverContext } from "../api/provider.js"
 
+// justjs#91 fix: importing this module's own spi/index.js for its side
+// effect means the common case (`import { createObservabilityProvider }
+// from "@justjs/aop-observability"`) genuinely self-registers the "noop"
+// strategy, matching @justjs/memory's own saf/index.ts pattern.
+import "../spi/index.js"
+
 import type { ObservabilityProvider } from "../api/provider.js"
 import { DefaultObservabilityProvider } from "../core/default_observability.js"
 

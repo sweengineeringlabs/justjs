@@ -1,6 +1,12 @@
 export type { UIi18nContext, I18nProviderConfig, I18nAspect, I18nProvider } from "../api/provider.js"
 export { NoopI18nContext } from "../api/provider.js"
 
+// justjs#91 fix: importing this module's own spi/index.js for its side
+// effect means the common case (`import { createI18nProvider } from
+// "@justjs/aop-i18n"`) genuinely self-registers the "noop" strategy,
+// matching @justjs/memory's own saf/index.ts pattern.
+import "../spi/index.js"
+
 import type { I18nProvider } from "../api/provider.js"
 import { DefaultI18nProvider } from "../core/default_i18n.js"
 
