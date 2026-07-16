@@ -141,13 +141,16 @@ function showRoute(path: string): void {
 // for every navigation after that - leaving Router.currentPath() stuck on
 // whichever route was last in that boot loop, and ADR-0004's reactive
 // re-render subscription wired to that same stale route instead of
-// whichever tab the user actually has open. Calling navigate() for real
-// here does not lose any component state: each route resolves to its own
-// distinct DDAS container, and adaptCustomElementRegistry()'s render()
-// reuses the existing custom-element instance (container.firstElementChild
-// instanceof ElementCtor) rather than recreating it - RuntimeAdapter.mount()
-// being a no-op on both targets (same finding as cross-target-demo/
-// agentic-memory-demo) means nothing here is destructive.
+// whichever tab the user actually has open.
+//
+// Calling navigate() for real here does not lose any component state
+// because every route entry above sets keepAlive: true (justjs#94):
+// DefaultRouter never unmounts a keep-alive route on navigating away, and
+// never remounts it on returning - only rerender()'s it. This is the real,
+// supported mechanism now, not an accident of RuntimeAdapter.mount() being
+// a no-op on this target (a prior version of this comment cited that as
+// the reason - it was true incidentally, but would not have held under a
+// real RuntimeAdapter, e.g. Android; keepAlive: true holds regardless).
 function goToRoute(path: string): void {
   justjs.router!.navigate(path)
     .then(() => showRoute(path))
@@ -272,8 +275,17 @@ async function main(): Promise<void> {
 
     await justjs.boot({
       routes: [...ROUTES],
+      // keepAlive: true (justjs#94, shipped on dev/test - RouteRegistryEntry.keepAlive)
+      // replaces the incidental keep-alive this app relied on before: a
+      // no-op RuntimeAdapter plus adaptCustomElementRegistry()'s instance
+      // reuse happened to make repeated unmount+remount look harmless, but
+      // would genuinely destroy/recreate state under a real RuntimeAdapter
+      // (e.g. Android). Every tab needs its state to survive a switch away
+      // and back (an in-progress file edit, the CLI's history, a drill-down
+      // screen) - the real supported mechanism now guarantees that instead
+      // of depending on which RuntimeAdapter happens to be wired up.
       registry: Object.fromEntries(
-        RESOLVED_ROUTES.map((r) => [r.tag, { path: r.path, component: r.tag }]),
+        RESOLVED_ROUTES.map((r) => [r.tag, { path: r.path, component: r.tag, keepAlive: true }]),
       ),
       componentRegistry: Object.fromEntries(
         RESOLVED_ROUTES.map((r) => [
