@@ -10,16 +10,15 @@
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
-import { createSecurityProvider } from "@justjs/aop-security";
-import { createObservabilityProvider } from "@justjs/aop-observability";
-import { createFlagsProvider } from "@justjs/aop-flags";
-import { createAnalyticsProvider } from "@justjs/aop-analytics";
-import { createThemingProvider } from "@justjs/aop-theming";
-import { createI18nProvider } from "@justjs/aop-i18n";
-// @justjs/memory's own saf/index.ts imports its spi/index.ts for this
-// side effect (justjs#91 fixed in this package, not repeated) - a bare
-// import is genuinely enough to self-register the "dummy" strategy,
-// unlike the six aop-* packages below.
+// justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
+// own spi/index.js for the self-registration side effect, same pattern
+// @justjs/memory already used - a bare import is genuinely enough.
+import "@justjs/aop-security";
+import "@justjs/aop-observability";
+import "@justjs/aop-flags";
+import "@justjs/aop-analytics";
+import "@justjs/aop-theming";
+import "@justjs/aop-i18n";
 import "@justjs/memory";
 import "./components/chat.js";
 import "./components/dashboard.js";
@@ -40,29 +39,6 @@ import {
 // system-default theme while boot() runs.
 applyStoredTheme();
 
-// justjs#91: a bare side-effect import of @justjs/aop-* does NOT actually
-// register the strategy - the SPI module that does isn't reachable
-// through the package's exports map, confirmed directly (not assumed) by
-// checking justjs.providers.has() after such an import returned false.
-// Registering manually via each package's public create*Provider()
-// factory instead, until that's fixed upstream (see cross-target-demo's
-// app.ts for the same workaround, first applied there).
-const aspectFactories = {
-  security: createSecurityProvider,
-  observability: createObservabilityProvider,
-  flags: createFlagsProvider,
-  analytics: createAnalyticsProvider,
-  theming: createThemingProvider,
-  i18n: createI18nProvider,
-} as const;
-for (const [concern, factory] of Object.entries(aspectFactories)) {
-  const provider = factory();
-  justjs.providers.register({
-    concern,
-    strategy: provider.strategy,
-    factory: (config?: unknown) => provider.factory(config),
-  });
-}
 
 const store = createFeatureStore(
   { ...initialState, userId: getOrCreateDeviceUserId() },

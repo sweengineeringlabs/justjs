@@ -17,42 +17,19 @@
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
-import { createSecurityProvider } from "@justjs/aop-security";
-import { createObservabilityProvider } from "@justjs/aop-observability";
-import { createFlagsProvider } from "@justjs/aop-flags";
-import { createAnalyticsProvider } from "@justjs/aop-analytics";
-import { createThemingProvider } from "@justjs/aop-theming";
-import { createI18nProvider } from "@justjs/aop-i18n";
+// justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
+// own spi/index.js for the self-registration side effect - a bare
+// import is genuinely enough, no manual register() workaround needed.
+import "@justjs/aop-security";
+import "@justjs/aop-observability";
+import "@justjs/aop-flags";
+import "@justjs/aop-analytics";
+import "@justjs/aop-theming";
+import "@justjs/aop-i18n";
 import "./components/counter.js";
 import "./components/fetch-demo.js";
 import "./components/login.js";
 import { initialState, reducer } from "./core/state.js";
-
-// justjs#91: a bare side-effect import of @justjs/aop-* does NOT actually
-// register the strategy - the SPI module that does isn't reachable
-// through the package's exports map, confirmed directly (not assumed) by
-// checking justjs.providers.has() after such an import returned false.
-// Registering manually via each package's public create*Provider()
-// factory instead, until that's fixed upstream.
-const aspectFactories = {
-  security: createSecurityProvider,
-  observability: createObservabilityProvider,
-  flags: createFlagsProvider,
-  analytics: createAnalyticsProvider,
-  theming: createThemingProvider,
-  i18n: createI18nProvider,
-} as const;
-for (const [concern, factory] of Object.entries(aspectFactories)) {
-  const provider = factory();
-  // provider.factory(config) constructs the actual Aspect (context()/weave()) -
-  // the provider object itself only has the one method, matching what
-  // spi/index.ts does internally (`factory: (config) => provider.factory(config)`).
-  justjs.providers.register({
-    concern,
-    strategy: provider.strategy,
-    factory: (config?: unknown) => provider.factory(config),
-  });
-}
 
 const store = createFeatureStore(initialState, reducer);
 

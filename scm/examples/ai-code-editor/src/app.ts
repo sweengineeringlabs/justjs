@@ -12,12 +12,16 @@
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
 import { stampMounts } from "./mounts.gen.js";
-import { createSecurityProvider } from "@justjs/aop-security";
-import { createObservabilityProvider } from "@justjs/aop-observability";
-import { createFlagsProvider } from "@justjs/aop-flags";
-import { createAnalyticsProvider } from "@justjs/aop-analytics";
-import { createThemingProvider } from "@justjs/aop-theming";
-import { createI18nProvider } from "@justjs/aop-i18n";
+// justjs#91 (fixed): each aop-* package's saf/index.ts now imports its
+// own spi/index.js for the self-registration side effect, so a bare
+// import is genuinely enough - no manual createXProvider()/register()
+// workaround needed anymore.
+import "@justjs/aop-security";
+import "@justjs/aop-observability";
+import "@justjs/aop-flags";
+import "@justjs/aop-analytics";
+import "@justjs/aop-theming";
+import "@justjs/aop-i18n";
 import "./components/editor.js";
 import "./components/chat.js";
 import "./components/review.js";
@@ -36,28 +40,6 @@ import type { NavigateEventDetail } from "./core/navigation.js";
 // Applied before boot (not inside main()'s try block) so a stored
 // override takes effect on the very first paint.
 applyStoredTheme();
-
-// justjs#91: a bare side-effect import of @justjs/aop-* does NOT actually
-// register the strategy - the SPI module that does isn't reachable
-// through the package's exports map. Registering manually via each
-// package's public create*Provider() factory instead, same workaround as
-// agentic-memory-demo/src/app.ts (first applied in cross-target-demo).
-const aspectFactories = {
-  security: createSecurityProvider,
-  observability: createObservabilityProvider,
-  flags: createFlagsProvider,
-  analytics: createAnalyticsProvider,
-  theming: createThemingProvider,
-  i18n: createI18nProvider,
-} as const;
-for (const [concern, factory] of Object.entries(aspectFactories)) {
-  const provider = factory();
-  justjs.providers.register({
-    concern,
-    strategy: provider.strategy,
-    factory: (config?: unknown) => provider.factory(config),
-  });
-}
 
 const store = createFeatureStore(loadInitialState(), reducer);
 
