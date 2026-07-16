@@ -8,7 +8,8 @@
     "codegen": "bun run scripts/codegen.js",
     "dev": "bun run codegen && vite",
     "build": "bun run codegen && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "bun run codegen && tsc --noEmit"
   },
   "dependencies": {
     "@justjs/application": "^0.1.0",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@justjs/vite": "^0.1.0",
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "typescript": "^5.5.0"
   }
 }
