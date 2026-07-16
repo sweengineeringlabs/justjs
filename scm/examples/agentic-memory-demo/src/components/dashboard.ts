@@ -393,22 +393,16 @@ export class DashboardElement extends HTMLElement {
     const text = this.querySelector<HTMLInputElement>("#dashboard-filter-text")?.value.trim() ?? "";
     const semantic = this.querySelector<HTMLInputElement>("#dashboard-filter-semantic")?.checked ?? false;
 
-    const query: MemoryQuery = { userId };
-    if (kind !== "any") {
-      query.kind = kind as MemoryKind;
-    }
-    if (tags.length > 0) {
-      query.tags = tags;
-    }
-    if (text) {
-      if (semantic) {
-        query.embedding = computeFakeEmbedding(text);
-        query.minScore = 0;
-      } else {
-        query.text = text;
-      }
-    }
-    return query;
+    return {
+      userId,
+      ...(kind !== "any" ? { kind: kind as MemoryKind } : {}),
+      ...(tags.length > 0 ? { tags } : {}),
+      ...(text
+        ? semantic
+          ? { embedding: computeFakeEmbedding(text), minScore: 0 }
+          : { text }
+        : {}),
+    };
   }
 
   private async runSearch(): Promise<void> {
