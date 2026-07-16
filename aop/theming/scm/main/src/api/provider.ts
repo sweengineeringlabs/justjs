@@ -9,6 +9,10 @@ export interface UIThemingContext {
 export interface ThemingProviderConfig {
   defaultTheme?: string
   themes?: Record<string, Record<string, string>>
+  /** URL to fetch additional themes (same shape as `themes`) from at boot.
+   *  Entries in `themes` win over fetched ones on a name conflict. A failed
+   *  fetch fails soft — the context stays usable on `themes` alone. */
+  tokensUrl?: string
 }
 
 export interface ThemingAspect extends JustJSAspect {
