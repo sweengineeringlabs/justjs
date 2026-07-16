@@ -155,8 +155,14 @@ export class ReviewElement extends ReviewBase {
     // dataContext (ADR-0004) can be set on a freshly-constructed element
     // before it's ever appended to the DOM (justjs#115's real bug,
     // guarding proactively here) - meaning this can run before
-    // connectedCallback() ever binds this.findings/etc.
-    if (!this.findings) {
+    // connectedCallback() ever binds this.findings/etc. Checking
+    // this.isConnected, not this.findings - ReviewBase's bound-element
+    // getters now throw if read before _bindElements() has run
+    // (justweb#83), so the old `!this.findings` guard would crash on
+    // the exact read it was meant to skip. isConnected is a native Node
+    // property, always safe to read, and false for exactly this
+    // pre-connectedCallback window.
+    if (!this.isConnected) {
       return;
     }
     const container = this.findings;

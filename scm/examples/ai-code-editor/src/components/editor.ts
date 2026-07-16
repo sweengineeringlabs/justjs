@@ -200,13 +200,18 @@ export class EditorElement extends EditorBase {
     // before it's ever appended to the DOM (@justjs/application's own
     // render adapter assigns it ahead of container.replaceChildren() -
     // component_registry_adapter.ts) - meaning this can run before
-    // connectedCallback() ever binds this.textarea/etc. EditorBase's own
-    // `!` definite-assignment types don't reflect that at compile time;
-    // this runtime check does. connectedCallback() calls this again once
-    // real, so no-oping here isn't a missed update, matching the
-    // original hand-written querySelector-and-null-check pattern every
-    // other tab's own not-yet-migrated dataContext setter still uses.
-    if (!this.store || !this.textarea) {
+    // connectedCallback() ever binds this.textarea/etc.
+    // connectedCallback() calls this again once real, so no-oping here
+    // isn't a missed update, matching the original hand-written
+    // querySelector-and-null-check pattern every other tab's own
+    // not-yet-migrated dataContext setter still uses. Checking
+    // this.isConnected, not this.textarea - EditorBase's bound-element
+    // getters now throw if read before _bindElements() has run
+    // (justweb#83), so the old `!this.textarea` guard would crash on
+    // the exact read it was meant to skip. isConnected is a native Node
+    // property, always safe to read, and false for exactly this
+    // pre-connectedCallback window.
+    if (!this.store || !this.isConnected) {
       return;
     }
     this.renderSidebar();

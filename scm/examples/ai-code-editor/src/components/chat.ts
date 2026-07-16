@@ -201,9 +201,15 @@ export class ChatElement extends ChatBase {
     // component_registry_adapter.ts) - meaning this can run before
     // connectedCallback() ever binds this.messages/etc (real bug found
     // and fixed in justjs#115's editor.ts migration; guarding
-    // proactively here). connectedCallback() calls this again once
-    // real, so no-oping here isn't a missed update.
-    if (!this.messages) {
+    // proactively here). Checking this.isConnected, not this.messages -
+    // ChatBase's bound-element getters now throw if read before
+    // _bindElements() has run (justweb#83), so the old `!this.messages`
+    // guard would crash on the exact read it was meant to skip.
+    // isConnected is a native Node property, always safe to read, and
+    // false for exactly this pre-connectedCallback window.
+    // connectedCallback() calls this again once real, so no-oping here
+    // isn't a missed update.
+    if (!this.isConnected) {
       return;
     }
     const state = this.store?.state.value;
