@@ -31,7 +31,7 @@ import "./components/communication.js";
 import "./components/socials.js";
 import "./components/cartoon.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
-import { applyStoredTheme, currentTheme, toggleTheme } from "./core/theme.js";
+import { applyStoredTheme, currentTheme, toggleTheme, THEMES } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";
 import { completeJiraOAuthCallback } from "./core/pm_connect.js";
 import { NAVIGATE_EVENT } from "./core/navigation.js";
@@ -302,7 +302,13 @@ async function main(): Promise<void> {
         observability: { strategy: "noop" },
         flags: { strategy: "noop" },
         analytics: { strategy: "noop" },
-        theming: { strategy: "noop" },
+        // The real working context (core/theme.ts) is constructed directly
+        // via createTokensThemingProvider(), same reason as aiAssist below -
+        // boot()'s weave loop never keeps the resolved aspect object around,
+        // so there's no path to retrieve a live context from this config.
+        // Declared here anyway so strategy "tokens" is validated/discoverable
+        // like every other real aspect declaration.
+        theming: { strategy: "tokens", config: { defaultTheme: currentTheme(), themes: THEMES } },
         i18n: { strategy: "noop" },
         // "aiAssist" deliberately NOT listed here - boot() can now forward
         // aspects[concern].config to the strategy's factory() for real
