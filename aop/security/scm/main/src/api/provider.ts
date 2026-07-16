@@ -17,6 +17,8 @@ export interface UISecurityContext {
 export interface SecurityProviderConfig {
   tokenEndpoint?: string
   loginUrl?: string
+  /** localStorage key the bearer JWT is read from. Default: "justjs:bearer-token" */
+  tokenStorageKey?: string
 }
 
 export interface SecurityAspect extends JustJSAspect {

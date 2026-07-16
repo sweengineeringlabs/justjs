@@ -19,7 +19,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@justjs/application": "^0.1.0"
+    "@justjs/application": "^0.1.0",
+    "@justjs/transport": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.0"
