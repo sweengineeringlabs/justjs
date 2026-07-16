@@ -56,40 +56,20 @@
   }
 }
 
-/* Explicit in-app toggle (src/core/theme.ts) overrides the system
-   prefers-color-scheme signal above - :root[data-theme] has higher
-   specificity than the plain :root inside the media query. No attribute
-   means "follow the system", which is the default until toggled. */
-:root[data-theme="light"] {
-  --bg: #f2f2f7;
-  --surface: #ffffff;
-  --surface-alt: #f5f5f8;
-  --text: #1c1c1e;
-  --text-muted: #6e6e73;
-  --border: #e2e2e6;
-  --accent: #667eea;
-  --accent-strong: #5a4fcf;
-  --accent-text: #ffffff;
-  --danger: #e5484d;
-  --success: #1a7f37;
-  --warning: #b8860b;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
-}
-
-:root[data-theme="dark"] {
-  --bg: #000000;
-  --surface: #1c1c1e;
-  --surface-alt: #242426;
-  --text: #f2f2f7;
-  --text-muted: #9a9aa0;
-  --border: #2e2e30;
-  --accent: #7b8cf0;
-  --accent-strong: #8f7ef5;
-  --accent-text: #ffffff;
-  --danger: #ff6b6f;
-  --success: #3dd56d;
-  --warning: #e0b23c;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 8px rgba(0, 0, 0, 0.3);
+/* justjs#93/#131: explicit in-app toggle (src/core/theme.ts) used to
+   override the system prefers-color-scheme signal above via these same
+   :root[data-theme="..."] variable blocks (higher specificity than the
+   plain :root inside the media query). That's now handled for real by
+   @justjs/aop-theming's "tokens" strategy instead - theme.ts's
+   applyStoredTheme()/toggleTheme() call the real TokensThemingContext's
+   setTheme(), which applies each CSS variable as an inline style on
+   document.documentElement - inline always wins over these attribute-
+   selector rules regardless of specificity, so keeping this block here
+   too was dead code. The data-theme attribute itself is still set by
+   theme.ts (see below) - .tok-keyword/.tok-string/.tok-number still key
+   off it directly, a separate concern outside the theming aspect's
+   CSS-variable-only contract. No attribute means "follow the system",
+   which is the default until toggled. */
 }
 
 * {

@@ -5,13 +5,16 @@ export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "justjs:ai-editor:theme";
 
-// Same CSS variable values as app.css's :root[data-theme="light"/"dark"]
-// blocks - real usage of the justjs#131 tokens theming strategy, not just
-// unit-tested in isolation. Built directly (never through boot()'s
-// `aspects` config) for the same reason core/ai_assist.ts is: boot()'s
-// weave loop resolves each aspect's factory() and calls weave() on it,
-// but never keeps the resulting object around, so there is currently no
-// way to retrieve a live context back out of boot() - see
+// Real usage of the justjs#131 tokens theming strategy, not just
+// unit-tested in isolation - these are the same values app.css's
+// :root[data-theme="light"/"dark"] blocks used to hardcode before this
+// landed (justjs#93); that CSS is gone now, superseded by setTheme()
+// applying these as real inline custom properties. Built directly
+// (never through boot()'s `aspects` config) for the same reason
+// core/ai_assist.ts is: boot()'s weave loop resolves each aspect's
+// factory() and calls weave() on it, but never keeps the resulting
+// object around, so there is currently no way to retrieve a live
+// context back out of boot() - see
 // application/scm/main/src/core/boot.ts's boot() method.
 export const THEMES: Record<Theme, Record<string, string>> = {
   light: {
@@ -79,6 +82,10 @@ export function currentTheme(): Theme {
 export function applyStoredTheme(): void {
   const stored = readStoredTheme();
   if (stored) {
+    // Still needed for app.css's .tok-keyword/.tok-string/.tok-number
+    // syntax-highlight rules, which key directly off this attribute - a
+    // separate concern from THEMES' CSS variables, outside the theming
+    // aspect's UIThemingContext contract.
     document.documentElement.setAttribute("data-theme", stored);
     themingContext().setTheme(stored);
   }
