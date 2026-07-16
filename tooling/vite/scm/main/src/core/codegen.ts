@@ -178,11 +178,12 @@ export function generateCodeWithStrategies(
 
 ${importsStr}
 import { justjs } from "@justjs/application"
+import type { BootConfig } from "@justjs/application"
 // import { COMPONENT_REGISTRY } from "./registry.gen"
 // import { ROUTES } from "./routes.gen"
 // import { DOM_ADDRESS_MAP } from "./dom-address-map.gen"
 
-export async function boot(config) {
+export async function boot(config?: Partial<BootConfig>) {
   await justjs.boot({
     // routes: ROUTES,
     // registry: COMPONENT_REGISTRY,

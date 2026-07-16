@@ -119,7 +119,8 @@ describe("codegen", () => {
       const output = generateCodeWithStrategies(config, mockStrategies)
 
       expect(output.code).toContain('import { justjs } from "@justjs/application"')
-      expect(output.code).toContain('export async function boot(config)')
+      expect(output.code).toContain('import type { BootConfig } from "@justjs/application"')
+      expect(output.code).toContain('export async function boot(config?: Partial<BootConfig>)')
       expect(output.code).toContain('justjs.boot(')
     })
 
