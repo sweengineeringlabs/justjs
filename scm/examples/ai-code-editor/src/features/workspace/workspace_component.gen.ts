@@ -7,22 +7,67 @@ export class WorkspaceBase extends HTMLElement {
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
 
-  // ── Element references ──────────────────────────────────
-  protected root!: HTMLElement;
-  protected backBtn!: HTMLButtonElement;
-  protected functionList!: HTMLDivElement;
-  protected functionListView!: HTMLDivElement;
-  protected overviewGrid!: HTMLElement;
-  protected stageTitle!: HTMLHeadingElement;
-  protected subscreenView!: HTMLDivElement;
-  protected workspaceView!: HTMLDivElement;
+  // ── Element references (private; read-only externally, ADR-0012) ──────────────────────────────────
+  #root!: HTMLElement;
+  get root(): HTMLElement { return this.#root; }
+  #backBtn!: HTMLButtonElement;
+  get backBtn(): HTMLButtonElement {
+    if (!this.#backBtn) {
+      throw new Error(`[justweb] 'backBtn' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#backBtn;
+  }
+  #functionList!: HTMLDivElement;
+  get functionList(): HTMLDivElement {
+    if (!this.#functionList) {
+      throw new Error(`[justweb] 'functionList' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#functionList;
+  }
+  #functionListView!: HTMLDivElement;
+  get functionListView(): HTMLDivElement {
+    if (!this.#functionListView) {
+      throw new Error(`[justweb] 'functionListView' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#functionListView;
+  }
+  #overviewGrid!: HTMLElement;
+  get overviewGrid(): HTMLElement {
+    if (!this.#overviewGrid) {
+      throw new Error(`[justweb] 'overviewGrid' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#overviewGrid;
+  }
+  #stageTitle!: HTMLHeadingElement;
+  get stageTitle(): HTMLHeadingElement {
+    if (!this.#stageTitle) {
+      throw new Error(`[justweb] 'stageTitle' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#stageTitle;
+  }
+  #subscreenView!: HTMLDivElement;
+  get subscreenView(): HTMLDivElement {
+    if (!this.#subscreenView) {
+      throw new Error(`[justweb] 'subscreenView' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#subscreenView;
+  }
+  #workspaceView!: HTMLDivElement;
+  get workspaceView(): HTMLDivElement {
+    if (!this.#workspaceView) {
+      throw new Error(`[justweb] 'workspaceView' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#workspaceView;
+  }
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
+  // ── DDAS integrity observer (ADR-0012) ──────────────
+  private _ddasIntegrityObserver: MutationObserver | null = null;
 
   connectedCallback(): void {
     // Element setup
-    this.root = this as unknown as HTMLElement;
+    this.#root = this as unknown as HTMLElement;
     this.classList.add('workspace');
 
     // Bind light-DOM children + DDAS stamps.
@@ -33,9 +78,12 @@ export class WorkspaceBase extends HTMLElement {
         if (this._hasAllElements() && this._lightDomObserver) {
           this._lightDomObserver.disconnect();
           this._lightDomObserver = null;
+          this._watchDdasIntegrity();
         }
       });
       this._lightDomObserver.observe(this, { childList: true, subtree: true });
+    } else {
+      this._watchDdasIntegrity();
     }
   }
 
@@ -46,6 +94,10 @@ export class WorkspaceBase extends HTMLElement {
       this._lightDomObserver.disconnect();
       this._lightDomObserver = null;
     }
+    if (this._ddasIntegrityObserver) {
+      this._ddasIntegrityObserver.disconnect();
+      this._ddasIntegrityObserver = null;
+    }
   }
 
   public refresh(): void {
@@ -53,59 +105,76 @@ export class WorkspaceBase extends HTMLElement {
   }
 
   private _bindElements(): void {
-    if (!this.backBtn) {
+    if (!this.#backBtn) {
       const __el = this.querySelector('[data-part="back-btn"]') as HTMLButtonElement | null;
       if (__el) {
-        this.backBtn = __el;
+        this.#backBtn = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:back-btn');
       }
     }
-    if (!this.functionList) {
+    if (!this.#functionList) {
       const __el = this.querySelector('[data-part="function-list"]') as HTMLDivElement | null;
       if (__el) {
-        this.functionList = __el;
+        this.#functionList = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:function-list');
       }
     }
-    if (!this.functionListView) {
+    if (!this.#functionListView) {
       const __el = this.querySelector('[data-part="function-list-view"]') as HTMLDivElement | null;
       if (__el) {
-        this.functionListView = __el;
+        this.#functionListView = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:function-list-view');
       }
     }
-    if (!this.overviewGrid) {
+    if (!this.#overviewGrid) {
       const __el = this.querySelector('[data-part="overview-grid"]') as HTMLElement | null;
       if (__el) {
-        this.overviewGrid = __el;
+        this.#overviewGrid = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:overview-grid');
       }
     }
-    if (!this.stageTitle) {
+    if (!this.#stageTitle) {
       const __el = this.querySelector('[data-part="stage-title"]') as HTMLHeadingElement | null;
       if (__el) {
-        this.stageTitle = __el;
+        this.#stageTitle = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:stage-title');
       }
     }
-    if (!this.subscreenView) {
+    if (!this.#subscreenView) {
       const __el = this.querySelector('[data-part="subscreen-view"]') as HTMLDivElement | null;
       if (__el) {
-        this.subscreenView = __el;
+        this.#subscreenView = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:subscreen-view');
       }
     }
-    if (!this.workspaceView) {
+    if (!this.#workspaceView) {
       const __el = this.querySelector('[data-part="workspace-view"]') as HTMLDivElement | null;
       if (__el) {
-        this.workspaceView = __el;
+        this.#workspaceView = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:workspace-view');
       }
     }
   }
 
   private _hasAllElements(): boolean {
-    return !!this.backBtn && !!this.functionList && !!this.functionListView && !!this.overviewGrid && !!this.stageTitle && !!this.subscreenView && !!this.workspaceView;
+    return !!this.#backBtn && !!this.#functionList && !!this.#functionListView && !!this.#overviewGrid && !!this.#stageTitle && !!this.#subscreenView && !!this.#workspaceView;
+  }
+
+  private _watchDdasIntegrity(): void {
+    const __strict: boolean = (globalThis as { __justwebRegistryStrict__?: boolean }).__justwebRegistryStrict__ === true;
+    const __observer = new MutationObserver((records) => {
+      for (const rec of records) {
+        if (rec.type !== 'attributes' || rec.attributeName !== 'data-ddas-id') continue;
+        const __target = rec.target as Element;
+        const __current = __target.getAttribute('data-ddas-id');
+        if (__current === rec.oldValue) continue;
+        const __msg = `[justweb] data-ddas-id mutated or removed on <${__target.tagName.toLowerCase()}> (was '${rec.oldValue}', now '${__current}')`;
+        if (__strict) { throw new Error(__msg); }
+        console.warn(__msg);
+      }
+    });
+    __observer.observe(this, { attributes: true, attributeFilter: ['data-ddas-id'], subtree: true, attributeOldValue: true });
+    this._ddasIntegrityObserver = __observer;
   }
 }
 

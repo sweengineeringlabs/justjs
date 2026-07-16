@@ -64,6 +64,622 @@
       "scope": "public",
       "tag": "x-workspace",
       "type": "div"
+    },
+    "ai-code-editor:cartoon:cartoon:back-btn": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "button"
+    },
+    "ai-code-editor:cartoon:cartoon:connect-btn": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "button"
+    },
+    "ai-code-editor:cartoon:cartoon:connect-disclosure": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "p"
+    },
+    "ai-code-editor:cartoon:cartoon:connect-status": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "p"
+    },
+    "ai-code-editor:cartoon:cartoon:connect-token": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "input"
+    },
+    "ai-code-editor:cartoon:cartoon:detail-view": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "div"
+    },
+    "ai-code-editor:cartoon:cartoon:disconnect-btn": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "button"
+    },
+    "ai-code-editor:cartoon:cartoon:generate-btn": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "button"
+    },
+    "ai-code-editor:cartoon:cartoon:generate-disclosure": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "p"
+    },
+    "ai-code-editor:cartoon:cartoon:generate-section": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "div"
+    },
+    "ai-code-editor:cartoon:cartoon:generate-status": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "p"
+    },
+    "ai-code-editor:cartoon:cartoon:generated-image": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "img"
+    },
+    "ai-code-editor:cartoon:cartoon:grid-view": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "div"
+    },
+    "ai-code-editor:cartoon:cartoon:header-badge": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "view-badge"
+    },
+    "ai-code-editor:cartoon:cartoon:header-name": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "span"
+    },
+    "ai-code-editor:cartoon:cartoon:prompt": {
+      "component": "cartoon",
+      "feature": "cartoon",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-cartoon",
+      "type": "view-prompt-field"
+    },
+    "ai-code-editor:chat:chat:context-label": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "p"
+    },
+    "ai-code-editor:chat:chat:image-error": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "p"
+    },
+    "ai-code-editor:chat:chat:image-input": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "input"
+    },
+    "ai-code-editor:chat:chat:image-preview": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "div"
+    },
+    "ai-code-editor:chat:chat:image-thumb": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "img"
+    },
+    "ai-code-editor:chat:chat:message-input": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "input"
+    },
+    "ai-code-editor:chat:chat:messages": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "div"
+    },
+    "ai-code-editor:communication:communication:connector": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "control-comms-connector"
+    },
+    "ai-code-editor:communication:communication:main-view": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "div"
+    },
+    "ai-code-editor:communication:communication:setting-auto-read": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "input"
+    },
+    "ai-code-editor:communication:communication:setting-default-provider": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "select"
+    },
+    "ai-code-editor:communication:communication:setting-hide-archived": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "input"
+    },
+    "ai-code-editor:communication:communication:setting-refresh-interval": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "select"
+    },
+    "ai-code-editor:communication:communication:settings-back-btn": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "button"
+    },
+    "ai-code-editor:communication:communication:settings-btn": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "button"
+    },
+    "ai-code-editor:communication:communication:settings-view": {
+      "component": "communication",
+      "feature": "communication",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-communication",
+      "type": "div"
+    },
+    "ai-code-editor:editor:editor:gutter": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "div"
+    },
+    "ai-code-editor:editor:editor:highlight": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "pre"
+    },
+    "ai-code-editor:editor:editor:highlight-code": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "code"
+    },
+    "ai-code-editor:editor:editor:language-select": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "select"
+    },
+    "ai-code-editor:editor:editor:review-btn": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "button"
+    },
+    "ai-code-editor:editor:editor:sidebar-error": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "p"
+    },
+    "ai-code-editor:editor:editor:sidebar-tree": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "div"
+    },
+    "ai-code-editor:editor:editor:status": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "view-status-line"
+    },
+    "ai-code-editor:editor:editor:suggest-btn": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "button"
+    },
+    "ai-code-editor:editor:editor:surface": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "div"
+    },
+    "ai-code-editor:editor:editor:textarea": {
+      "component": "editor",
+      "feature": "editor",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-editor",
+      "type": "textarea"
+    },
+    "ai-code-editor:review:review:findings": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "div"
+    },
+    "ai-code-editor:review:review:image-attach": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "view-image-attach"
+    },
+    "ai-code-editor:review:review:image-picker": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "view-image-picker"
+    },
+    "ai-code-editor:review:review:reviewed-label": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "p"
+    },
+    "ai-code-editor:review:review:run-btn": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "button"
+    },
+    "ai-code-editor:review:review:status": {
+      "component": "review",
+      "feature": "review",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-review",
+      "type": "p"
+    },
+    "ai-code-editor:scaffold:scaffold:code": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "pre"
+    },
+    "ai-code-editor:scaffold:scaffold:description": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "textarea"
+    },
+    "ai-code-editor:scaffold:scaffold:file-mode": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:file-path": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "input"
+    },
+    "ai-code-editor:scaffold:scaffold:generate-btn": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "button"
+    },
+    "ai-code-editor:scaffold:scaffold:generate-project-btn": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "button"
+    },
+    "ai-code-editor:scaffold:scaffold:mode-toggle": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "view-toggle"
+    },
+    "ai-code-editor:scaffold:scaffold:project-description": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "textarea"
+    },
+    "ai-code-editor:scaffold:scaffold:project-files": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:project-image-error": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "p"
+    },
+    "ai-code-editor:scaffold:scaffold:project-image-input": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "input"
+    },
+    "ai-code-editor:scaffold:scaffold:project-image-preview": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:project-image-thumb": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "img"
+    },
+    "ai-code-editor:scaffold:scaffold:project-mode": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:project-result": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:replace-confirm": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:replace-message": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "p"
+    },
+    "ai-code-editor:scaffold:scaffold:result": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "div"
+    },
+    "ai-code-editor:scaffold:scaffold:status": {
+      "component": "scaffold",
+      "feature": "scaffold",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-scaffold",
+      "type": "p"
+    },
+    "ai-code-editor:socials:socials:connector": {
+      "component": "socials",
+      "feature": "socials",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-socials",
+      "type": "control-provider-connector"
+    },
+    "ai-code-editor:socials:socials:page-header": {
+      "component": "socials",
+      "feature": "socials",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-socials",
+      "type": "view-nav-header"
+    },
+    "ai-code-editor:workspace:workspace:back-btn": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "button"
+    },
+    "ai-code-editor:workspace:workspace:function-list": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "div"
+    },
+    "ai-code-editor:workspace:workspace:function-list-view": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "div"
+    },
+    "ai-code-editor:workspace:workspace:overview-grid": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "view-grid"
+    },
+    "ai-code-editor:workspace:workspace:stage-title": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "h2"
+    },
+    "ai-code-editor:workspace:workspace:subscreen-view": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "div"
+    },
+    "ai-code-editor:workspace:workspace:workspace-view": {
+      "component": "workspace",
+      "feature": "workspace",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-workspace",
+      "type": "div"
     }
   },
   "mounts": {
