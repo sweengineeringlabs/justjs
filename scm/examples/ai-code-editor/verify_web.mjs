@@ -87,8 +87,12 @@ document.body.innerHTML = `
       </div>
     </header>
     <nav class="nav">
+      <div class="nav-group" data-group="home">
+        <button class="nav-btn active" data-route="/home">Home</button>
+      </div>
+      <div class="nav-divider"></div>
       <div class="nav-group" data-group="develop">
-        <button class="nav-btn active" data-route="/editor">Editor</button>
+        <button class="nav-btn" data-route="/editor">Editor</button>
         <button class="nav-btn" data-route="/chat">Chat</button>
         <button class="nav-btn" data-route="/review">Review</button>
         <button class="nav-btn" data-route="/scaffold">Scaffold</button>
@@ -107,7 +111,8 @@ document.body.innerHTML = `
     <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
          call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
          matches index.html, see justjs#95. -->
-    <div id="mount-editor" class="page active"></div>
+    <div id="mount-home" class="page active"></div>
+    <div id="mount-editor" class="page"></div>
     <div id="mount-chat" class="page"></div>
     <div id="mount-review" class="page"></div>
     <div id="mount-scaffold" class="page"></div>
@@ -189,6 +194,7 @@ function treeRow(path) {
 
 // 1. Boot proof
 assert(document.title === "ai-code-editor: mounted", `document.title is "${document.title}"`);
+assert(document.getElementById("mount-home").innerHTML.length > 0, "home mount has content");
 assert(document.getElementById("mount-editor").innerHTML.length > 0, "editor mount has content");
 assert(document.getElementById("mount-chat").innerHTML.length > 0, "chat mount has content");
 assert(document.getElementById("mount-review").innerHTML.length > 0, "review mount has content");
@@ -197,6 +203,38 @@ assert(document.getElementById("mount-workspace").innerHTML.length > 0, "workspa
 assert(document.getElementById("mount-communication").innerHTML.length > 0, "communication mount has content");
 assert(document.getElementById("mount-socials").innerHTML.length > 0, "socials mount has content");
 assert(document.getElementById("mount-cartoon").innerHTML.length > 0, "cartoon mount has content");
+
+// 1a. Home page proof - a real landing page, not a re-skinned Editor
+// (justjs#132). No localStorage last-route is set yet in this fresh
+// session, so a first-time visitor lands here by default.
+assert(document.getElementById("mount-home").classList.contains("active"), "a first-time visitor (no stored last-route) lands on Home, not Editor");
+assert(document.querySelector('.nav-btn[data-route="/home"]').classList.contains("active"), "the Home nav tab reflects the real landing route");
+const homeHero = document.querySelector("#mount-home .home-hero-title");
+assert(homeHero && homeHero.textContent === "AI Code Editor", "Home's hero renders the real app title");
+const homeCards = [...document.querySelectorAll("#mount-home .home-card")];
+assert(homeCards.length === 3, `Home has exactly 3 quick-access cards (found ${homeCards.length})`);
+assert(
+  homeCards.map((c) => c.dataset.route).join(",") === "/editor,/workspace,/communication",
+  "Home's cards point at the 3 real feature groups (Develop/Workspace/Connect)"
+);
+
+// Every navigation here - card clicks (navigateTo(), a dispatched
+// custom event) and direct nav-bar clicks alike - goes through the
+// same async goToRoute().navigate().then() chain, same reason
+// developmentLive[0].click() above needs await sleep(20).
+homeCards[1].click();
+await sleep(20);
+assert(document.getElementById("mount-workspace").classList.contains("active"), "clicking the Workspace card navigates for real, not just a link that looks clickable");
+assert(document.querySelector('.nav-btn[data-route="/workspace"]').classList.contains("active"), "the Workspace nav tab reflects the card-driven navigation");
+
+document.querySelector('.nav-btn[data-route="/home"]').click();
+await sleep(20);
+assert(document.getElementById("mount-home").classList.contains("active"), "the Home nav tab navigates back to Home");
+document.querySelector("#mount-home .home-card").click();
+await sleep(20);
+assert(document.getElementById("mount-editor").classList.contains("active"), "clicking the Develop card (first card) navigates to Editor");
+
+document.querySelector('.nav-btn[data-route="/home"]').click();
 
 // 1b. Workspace hub proof - the widget-grid-then-drill-down SDLC hub.
 // Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
@@ -1902,7 +1940,7 @@ themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
 assert(document.documentElement.getAttribute("data-theme") === nextTheme, "changing the select applies the new theme's data-theme attribute for real");
 assert(window.localStorage.getItem("justjs:ai-editor:theme") === nextTheme, "changing the select persists the new theme, same key toggleTheme() uses");
 assert(
-  document.documentElement.style.getPropertyValue("--bg") === (nextTheme === "dark" ? "#000000" : "#f2f2f7"),
+  document.documentElement.style.getPropertyValue("--bg") === (nextTheme === "dark" ? "#0a0e16" : "#f7f8fa"),
   "changing the select applies the real tokens theming strategy's CSS custom properties, not just the attribute"
 );
 assert(

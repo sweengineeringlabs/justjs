@@ -13,47 +13,64 @@
    nothing else here currently competes with generated component CSS. */
 @layer legacy, tokens, component, theme, override;
 
+/* justjs#132: design v2. The first corporate pass (commit 1e3c654)
+   painted one saturated blue onto nearly every surface - header rule,
+   nav rule, active-tab background, brand mark, every button - which
+   reads as generic/heavy-handed rather than premium. This palette
+   keeps the accent (now a deeper, more distinctive indigo, not flat
+   blue) reserved for primary actions/state only; --accent-soft exists
+   specifically so most usages can be a restrained tint instead of a
+   full solid wash. --accent-2 is a sparing warm counterpoint (Home
+   hero, badges) - the "creative" half of "professional yet creative". */
 :root {
-  --bg: #f2f2f7;
+  --bg: #f7f8fa;
   --surface: #ffffff;
-  --surface-alt: #f5f5f8;
-  --text: #1c1c1e;
-  --text-muted: #6e6e73;
-  --border: #e2e2e6;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
+  --surface-alt: #eef0f4;
+  --text: #12151c;
+  --text-muted: #5b6472;
+  --border: #e2e5eb;
+  --accent: #4f46e5;
+  --accent-strong: #4338ca;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-2: #d97706;
   --accent-text: #ffffff;
   --danger: #e5484d;
   --success: #1a7f37;
   --warning: #b8860b;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 10px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.06);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Not theme-dependent - lives here once, not repeated in the
-     dark/light override blocks below. Tightened for a flatter,
-     less-rounded corporate look (was 6/12/18). */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+     dark/light override blocks below. Softened from the first pass's
+     too-tight 4/6/10px - friendlier without losing precision. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
   --radius-pill: 999px;
   --radius-circle: 50%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --surface: #1c1c1e;
-    --surface-alt: #242426;
-    --text: #f2f2f7;
-    --text-muted: #9a9aa0;
-    --border: #2e2e30;
-    --accent: #3b82f6;
-    --accent-strong: #2563eb;
+    /* Deep navy-black, not pure #000000 - reads more premium/considered,
+       same reasoning as most established dev-tool dark themes. */
+    --bg: #0a0e16;
+    --surface: #131826;
+    --surface-alt: #1a2033;
+    --text: #eef1f6;
+    --text-muted: #8b93a8;
+    --border: #242c3d;
+    --accent: #6366f1;
+    --accent-strong: #818cf8;
+    --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+    --accent-2: #f59e0b;
     --accent-text: #ffffff;
     --danger: #ff6b6f;
     --success: #3dd56d;
     --warning: #e0b23c;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -107,24 +124,17 @@ body {
   overflow: hidden;
 }
 
+/* justjs#132: no accent rule here (the first pass's flat 3px line was
+   itself still "paint the accent onto the chrome"). The brand mark is
+   the header's one deliberate splash of color - everything else is
+   neutral, matching this system's "accent is reserved for primary
+   actions/state, not decoration" rule. */
 .app-header {
   position: relative;
   flex: 0 0 auto;
   padding: calc(var(--safe-top) + 14px) 16px 14px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-}
-
-/* A flat 3px accent rule replaces the old diagonal gradient wedge - a
-   single deliberate line of brand color instead of a decorative shape. */
-.app-header::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 3px;
-  background: var(--accent);
 }
 
 .brand {
@@ -143,6 +153,7 @@ body {
   justify-content: center;
   background: var(--accent);
   color: var(--accent-text);
+  box-shadow: var(--shadow);
 }
 
 .brand-mark svg {
@@ -316,9 +327,138 @@ body {
   min-height: 0;
 }
 
-/* Bottom tab bar - grouped into develop/workspace/connect clusters
-   (justjs feature-grouping pass), separated by .nav-divider rather than
-   one flat run of 8 equally-weighted buttons. */
+/* justjs#132: Home - a real landing page, not a re-skinned Editor. The
+   mesh animation is the "SWE corporate" flourish: slow, low-key,
+   professional rather than a marketing-site spectacle - respects
+   prefers-reduced-motion below. */
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  border-radius: var(--radius-lg);
+  padding: 32px 20px;
+  margin-bottom: 16px;
+  background: var(--surface-alt);
+  text-align: center;
+}
+
+.home-hero-mesh {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--accent) 35%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--accent-2) 30%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 50% 80%, color-mix(in srgb, var(--accent) 25%, transparent) 0%, transparent 50%);
+  filter: blur(40px);
+  animation: home-mesh-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes home-mesh-drift {
+  0% { transform: translate(-4%, -2%) scale(1); }
+  100% { transform: translate(4%, 3%) scale(1.08); }
+}
+
+.home-hero-title {
+  position: relative;
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.home-hero-tagline {
+  position: relative;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.home-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.home-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  opacity: 0;
+  animation: home-card-in 0.4s ease forwards;
+  animation-delay: var(--card-delay, 0ms);
+  transition: border-color 0.15s ease;
+}
+
+@keyframes home-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.home-card:hover,
+.home-card:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.home-card-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.home-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.home-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.home-card-description {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-mesh {
+    animation: none;
+  }
+  .home-card {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Bottom tab bar - Home standalone/leading, then develop/workspace/connect
+   clusters (justjs feature-grouping pass), separated by .nav-divider
+   rather than one flat run of equally-weighted buttons. justjs#132: no
+   accent rule on the bar itself - the active tab's own underline is the
+   only accent here, restraint over decoration. */
 .nav {
   position: relative;
   flex: 0 0 auto;
@@ -327,19 +467,7 @@ body {
   gap: 2px;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding: 10px 4px calc(6px + var(--safe-bottom));
-}
-
-/* A flat 3px accent rule at the top edge, mirroring .app-header::after -
-   replaces the old diagonal gradient wedge. */
-.nav::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -1px;
-  height: 3px;
-  background: var(--accent);
+  padding: 8px 4px calc(6px + var(--safe-bottom));
 }
 
 .nav-group {
@@ -347,9 +475,10 @@ body {
   gap: 2px;
 }
 
-/* Proportional to each group's button count (develop:4, workspace:1,
-   connect:3) so tabs stay roughly equal width across groups, same as
-   the old flat 8-button layout. */
+/* Proportional to each group's button count (home:1, develop:4,
+   workspace:1, connect:3) so tabs stay roughly equal width across
+   groups. */
+.nav-group[data-group="home"] { flex: 1; }
 .nav-group[data-group="develop"] { flex: 4; }
 .nav-group[data-group="workspace"] { flex: 1; }
 .nav-group[data-group="connect"] { flex: 3; }
@@ -363,6 +492,7 @@ body {
 }
 
 .nav-btn {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -377,7 +507,7 @@ body {
   cursor: pointer;
   font-weight: 600;
   font-size: 11px;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .nav-btn .nav-icon {
@@ -386,9 +516,28 @@ body {
   line-height: 1;
 }
 
+/* A small underline indicator, not a full background wash - the
+   restrained active-state treatment justjs#132 replaces the first
+   pass's color-mix() background fill with. */
+.nav-btn::after {
+  content: "";
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transform: translateX(-50%);
+  transition: width 0.15s ease;
+}
+
 .nav-btn.active {
   color: var(--accent-strong);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.nav-btn.active::after {
+  width: 20px;
 }
 
 /* Buttons */

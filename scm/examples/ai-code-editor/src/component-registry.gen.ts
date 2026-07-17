@@ -8,6 +8,7 @@ export const COMPONENT_REGISTRY: Record<string, () => Promise<CustomElementConst
   'js-chat': () => import('./features/chat/chat_component.gen').then(m => m.ChatBase),
   'js-communication': () => import('./features/communication/communication_component.gen').then(m => m.CommunicationBase),
   'js-editor': () => import('./features/editor/editor_component.gen').then(m => m.EditorBase),
+  'js-home': () => import('./features/home/home_component.gen').then(m => m.HomeBase),
   'js-review': () => import('./features/review/review_component.gen').then(m => m.ReviewBase),
   'js-scaffold': () => import('./features/scaffold/scaffold_component.gen').then(m => m.ScaffoldBase),
   'js-socials': () => import('./features/socials/socials_component.gen').then(m => m.SocialsBase),

@@ -15,6 +15,11 @@ interface ResolvedRoute {
 
 const ROUTES: ResolvedRoute[] = [
   {
+    "path": "/home",
+    "tag": "js-home",
+    "children": "       <div data-part=\"content\"></div>\n"
+  },
+  {
     "path": "/editor",
     "tag": "js-editor",
     "children": "       <div data-part=\"gutter\"></div>\n       <pre data-part=\"highlight\"></pre>\n       <code data-part=\"highlight-code\"></code>\n       <select data-part=\"language-select\"></select>\n       <button data-part=\"review-btn\"></button>\n       <p data-part=\"sidebar-error\"></p>\n       <div data-part=\"sidebar-tree\"></div>\n       <view-status-line data-part=\"status\"></view-status-line>\n       <button data-part=\"suggest-btn\"></button>\n       <div data-part=\"surface\"></div>\n       <textarea data-part=\"textarea\"></textarea>\n"

@@ -33,6 +33,14 @@
       "tag": "x-editor",
       "type": "div"
     },
+    "ai-code-editor:app:shell:mount-home": {
+      "component": "home",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-home",
+      "type": "div"
+    },
     "ai-code-editor:app:shell:mount-review": {
       "component": "review",
       "feature": "app",
@@ -409,6 +417,14 @@
       "tag": "js-editor",
       "type": "textarea"
     },
+    "ai-code-editor:home:home:content": {
+      "component": "home",
+      "feature": "home",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-home",
+      "type": "div"
+    },
     "ai-code-editor:review:review:findings": {
       "component": "review",
       "feature": "review",
@@ -702,6 +718,10 @@
     "mount-editor": {
       "id": "ai-code-editor:app:shell:mount-editor",
       "selector": "#mount-editor"
+    },
+    "mount-home": {
+      "id": "ai-code-editor:app:shell:mount-home",
+      "selector": "#mount-home"
     },
     "mount-review": {
       "id": "ai-code-editor:app:shell:mount-review",

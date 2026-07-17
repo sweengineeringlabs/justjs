@@ -22,6 +22,7 @@ import "@justjs/aop-flags";
 import "@justjs/aop-analytics";
 import "@justjs/aop-theming";
 import "@justjs/aop-i18n";
+import "./components/home.js";
 import "./components/editor.js";
 import "./components/chat.js";
 import "./components/review.js";
@@ -293,7 +294,11 @@ async function main(): Promise<void> {
     // Completes the token exchange, then cleans the URL via
     // history.replaceState (no reload) so a later page refresh doesn't
     // try to redeem the same one-time code again.
-    let landingRoute = "/editor";
+    // justjs#132: a real Home is the default now, not Editor - "always
+    // land on the code editor regardless of what you were doing" never
+    // made sense as a home. remember-last-route below still wins for
+    // returning visitors; this is only the untouched first-visit default.
+    let landingRoute = "/home";
     const oauthParams = new URLSearchParams(window.location.search);
     const jiraCode = oauthParams.get("code");
     const jiraState = oauthParams.get("state");
@@ -319,12 +324,12 @@ async function main(): Promise<void> {
     MOUNT_ID_FOR_ROUTE = Object.fromEntries(routes.map((r) => [r.path, r.mountElementId]));
     DOM_ADDRESS_ELEMENTS = elements;
 
-    // Only overrides the untouched "/editor" default - Jira's OAuth
+    // Only overrides the untouched "/home" default - Jira's OAuth
     // landing above already set something more specific, and must win.
     // Validated against the real resolved route list, never trusted blind
     // (a stale localStorage value from a route that no longer exists
     // would otherwise navigate() into a real error).
-    if (landingRoute === "/editor") {
+    if (landingRoute === "/home") {
       const lastRoute = readStoredLastRoute();
       if (lastRoute && ROUTES.includes(lastRoute)) {
         landingRoute = lastRoute;

@@ -25,7 +25,8 @@
     <main class="page-container">
       <!-- data-ddas-id is stamped at runtime by stampMounts() (src/mounts.gen.ts,
            justweb.toml's [mounts]) - not hand-authored here, see justjs#95. -->
-      <div id="mount-editor" class="page active"></div>
+      <div id="mount-home" class="page active"></div>
+      <div id="mount-editor" class="page"></div>
       <div id="mount-chat" class="page"></div>
       <div id="mount-review" class="page"></div>
       <div id="mount-scaffold" class="page"></div>
@@ -35,8 +36,12 @@
       <div id="mount-cartoon" class="page"></div>
     </main>
     <nav class="nav">
+      <div class="nav-group" data-group="home">
+        <button class="nav-btn active" data-route="/home"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 10 3l7 6.5"/><path d="M5 8v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8"/><path d="M8 17v-5h4v5"/></svg></span><span class="nav-label">Home</span></button>
+      </div>
+      <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group" data-group="develop">
-        <button class="nav-btn active" data-route="/editor"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 5 2 10 7 15"/><polyline points="13 5 18 10 13 15"/></svg></span><span class="nav-label">Editor</span></button>
+        <button class="nav-btn" data-route="/editor"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 5 2 10 7 15"/><polyline points="13 5 18 10 13 15"/></svg></span><span class="nav-label">Editor</span></button>
         <button class="nav-btn" data-route="/chat"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h14a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H8l-4 3v-3H3a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"/></svg></span><span class="nav-label">Chat</span></button>
         <button class="nav-btn" data-route="/review"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><line x1="17" y1="17" x2="13" y2="13"/></svg></span><span class="nav-label">Review</span></button>
         <button class="nav-btn" data-route="/scaffold"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5h6l4 4V17a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"/><line x1="10" y1="9.5" x2="10" y2="14.5"/><line x1="7.5" y1="12" x2="12.5" y2="12"/></svg></span><span class="nav-label">Scaffold</span></button>

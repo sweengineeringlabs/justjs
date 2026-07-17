@@ -1,0 +1,13 @@
+name: home
+version: 1
+dom:
+  tag: x-home
+  builtinStates: false
+  # No customElement.tagName override here - same reason as every other
+  # feature (socials_component.yaml has the full explanation): HomeBase
+  # self-registers under its own harmless default, HomeElement (home.ts)
+  # does the real customElements.define("x-home", HomeElement) itself.
+  elements:
+    content:
+      tag: div
+      address: true

@@ -1,6 +1,12 @@
 {
   "routes": [
     {
+      "component": "home",
+      "feature": "home",
+      "path": "/home",
+      "tag": "js-home"
+    },
+    {
       "component": "editor",
       "feature": "editor",
       "path": "/editor",

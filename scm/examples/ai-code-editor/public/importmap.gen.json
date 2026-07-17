@@ -18,6 +18,8 @@
     "@justjs/provider-connect": "/node_modules/@justjs/provider-connect/dist/saf/index.js",
     "@justjs/scm-connect": "/node_modules/@justjs/scm-connect/dist/saf/index.js",
     "@justjs/social-connect": "/node_modules/@justjs/social-connect/dist/saf/index.js",
-    "@justjs/transport": "/node_modules/@justjs/transport/dist/saf/index.js"
+    "@justjs/transport": "/node_modules/@justjs/transport/dist/saf/index.js",
+    "mermaid": "/node_modules/mermaid/dist/mermaid.core.mjs",
+    "simple-icons": "/node_modules/simple-icons/index.mjs"
   }
 }

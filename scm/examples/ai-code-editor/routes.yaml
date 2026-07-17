@@ -1,4 +1,7 @@
 routes:
+  - path: /home
+    feature: home
+    component: home
   - path: /editor
     feature: editor
     component: editor
