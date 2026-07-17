@@ -152,9 +152,34 @@ function showRoute(path: string): void {
 // a no-op on this target (a prior version of this comment cited that as
 // the reason - it was true incidentally, but would not have held under a
 // real RuntimeAdapter, e.g. Android; keepAlive: true holds regardless).
+const LAST_ROUTE_KEY = "justjs:ai-editor:last-route";
+
+// Feature-grouping pass: Editor is no longer an unconditional home - a
+// returning user lands back on whatever tab they were last using instead
+// of always being bounced to Editor. main() only trusts this against the
+// real, resolved ROUTES list (never blindly navigates to a stale/removed
+// path), and Jira's OAuth-callback landing route still takes precedence
+// (see main()'s landingRoute logic) since that's a more specific context
+// than "wherever the user happened to be last".
+function readStoredLastRoute(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(LAST_ROUTE_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function goToRoute(path: string): void {
   justjs.router!.navigate(path)
-    .then(() => showRoute(path))
+    .then(() => {
+      showRoute(path);
+      try {
+        globalThis.localStorage?.setItem(LAST_ROUTE_KEY, path);
+      } catch {
+        // Best-effort only - navigation still works for this session even
+        // if persistence fails (storage disabled/full).
+      }
+    })
     .catch((error: unknown) => console.error(`Error navigating to "${path}":`, error));
 }
 
@@ -171,7 +196,9 @@ document.addEventListener(NAVIGATE_EVENT, (e) => {
 function syncThemeUI(): void {
   const btn = document.getElementById("theme-toggle-btn");
   if (btn) {
-    btn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+    const isDark = currentTheme() === "dark";
+    btn.querySelector(".icon-sun")?.toggleAttribute("hidden", !isDark);
+    btn.querySelector(".icon-moon")?.toggleAttribute("hidden", isDark);
   }
   const select = document.getElementById("settings-theme-select") as HTMLSelectElement | null;
   if (select) {
@@ -291,6 +318,18 @@ async function main(): Promise<void> {
     ROUTES = routes.map((r) => r.path);
     MOUNT_ID_FOR_ROUTE = Object.fromEntries(routes.map((r) => [r.path, r.mountElementId]));
     DOM_ADDRESS_ELEMENTS = elements;
+
+    // Only overrides the untouched "/editor" default - Jira's OAuth
+    // landing above already set something more specific, and must win.
+    // Validated against the real resolved route list, never trusted blind
+    // (a stale localStorage value from a route that no longer exists
+    // would otherwise navigate() into a real error).
+    if (landingRoute === "/editor") {
+      const lastRoute = readStoredLastRoute();
+      if (lastRoute && ROUTES.includes(lastRoute)) {
+        landingRoute = lastRoute;
+      }
+    }
 
     // Stamps each real generated DDAS id (justweb.toml's [mounts]) onto
     // its container before boot, so MountStep's first resolveDdasAddressesForTag()

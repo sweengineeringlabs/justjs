@@ -20,8 +20,8 @@
   --text: #1c1c1e;
   --text-muted: #6e6e73;
   --border: #e2e2e6;
-  --accent: #667eea;
-  --accent-strong: #5a4fcf;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
   --accent-text: #ffffff;
   --danger: #e5484d;
   --success: #1a7f37;
@@ -30,10 +30,11 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Not theme-dependent - lives here once, not repeated in the
-     dark/light override blocks below. */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+     dark/light override blocks below. Tightened for a flatter,
+     less-rounded corporate look (was 6/12/18). */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
   --radius-pill: 999px;
   --radius-circle: 50%;
 }
@@ -46,8 +47,8 @@
     --text: #f2f2f7;
     --text-muted: #9a9aa0;
     --border: #2e2e30;
-    --accent: #7b8cf0;
-    --accent-strong: #8f7ef5;
+    --accent: #3b82f6;
+    --accent-strong: #2563eb;
     --accent-text: #ffffff;
     --danger: #ff6b6f;
     --success: #3dd56d;
@@ -109,25 +110,21 @@ body {
 .app-header {
   position: relative;
   flex: 0 0 auto;
-  padding: calc(var(--safe-top) + 14px) 16px 22px;
-  /* Was flat var(--surface) - a diagonal fade gives it real depth. 22%
-     keeps --text comfortably readable in both themes. Angled (135deg,
-     not straight-down) so it reads as a fade, not a flat tinted panel. */
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)) 0%, var(--surface) 75%);
+  padding: calc(var(--safe-top) + 14px) 16px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
-/* Replaces the old flat 1px border-bottom with an angled accent strip -
-   the "wedge" edge look. Sits inside the header's own box (bottom: 0,
-   14px tall), not overflowing it. */
+/* A flat 3px accent rule replaces the old diagonal gradient wedge - a
+   single deliberate line of brand color instead of a decorative shape. */
 .app-header::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 14px;
-  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-  clip-path: polygon(0 100%, 100% 40%, 100% 100%);
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
 }
 
 .brand {
@@ -138,15 +135,19 @@ body {
 
 .brand-mark {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  background: radial-gradient(circle at 30% 25%, #7d8ef2 0%, #667eea 42%, #6a4fc4 78%, #5a3fb0 100%);
-  box-shadow: 0 4px 10px rgba(90, 79, 207, 0.35);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.brand-mark svg {
+  width: 20px;
+  height: 20px;
 }
 
 .brand-text {
@@ -175,11 +176,16 @@ body {
   border-radius: var(--radius-circle);
   background: var(--surface-alt);
   color: var(--text);
-  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: none;
+}
+
+#settings-btn svg,
+#theme-toggle-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 #settings-btn {
@@ -310,28 +316,50 @@ body {
   min-height: 0;
 }
 
-/* Bottom tab bar */
+/* Bottom tab bar - grouped into develop/workspace/connect clusters
+   (justjs feature-grouping pass), separated by .nav-divider rather than
+   one flat run of 8 equally-weighted buttons. */
 .nav {
   position: relative;
   flex: 0 0 auto;
   display: flex;
+  align-items: stretch;
   gap: 2px;
-  /* Mirrors .app-header's diagonal fade from the opposite edge/angle. */
-  background: linear-gradient(315deg, color-mix(in srgb, var(--accent) 22%, var(--surface)) 0%, var(--surface) 75%);
-  padding: 20px 4px calc(6px + var(--safe-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 4px calc(6px + var(--safe-bottom));
 }
 
-/* Mirrors .app-header::after at the opposite edge/angle - replaces the
-   old flat 1px border-top with the same wedge accent look. */
+/* A flat 3px accent rule at the top edge, mirroring .app-header::after -
+   replaces the old diagonal gradient wedge. */
 .nav::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  top: 0;
-  height: 14px;
-  background: linear-gradient(315deg, var(--accent) 0%, var(--accent-strong) 100%);
-  clip-path: polygon(0 0, 100% 0, 100% 60%, 0 100%);
+  top: -1px;
+  height: 3px;
+  background: var(--accent);
+}
+
+.nav-group {
+  display: flex;
+  gap: 2px;
+}
+
+/* Proportional to each group's button count (develop:4, workspace:1,
+   connect:3) so tabs stay roughly equal width across groups, same as
+   the old flat 8-button layout. */
+.nav-group[data-group="develop"] { flex: 4; }
+.nav-group[data-group="workspace"] { flex: 1; }
+.nav-group[data-group="connect"] { flex: 3; }
+
+.nav-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  align-self: center;
+  height: 32px;
+  background: var(--border);
 }
 
 .nav-btn {
@@ -353,7 +381,8 @@ body {
 }
 
 .nav-btn .nav-icon {
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
   line-height: 1;
 }
 

@@ -80,18 +80,29 @@ document.body.innerHTML = `
       <div class="brand">
         <h1>AI Code Editor</h1>
         <button id="settings-btn" type="button">Settings</button>
-        <button id="theme-toggle-btn" type="button"></button>
+        <button id="theme-toggle-btn" type="button">
+          <span class="icon-sun" hidden></span>
+          <span class="icon-moon"></span>
+        </button>
       </div>
     </header>
     <nav class="nav">
-      <button class="nav-btn active" data-route="/editor">Editor</button>
-      <button class="nav-btn" data-route="/chat">Chat</button>
-      <button class="nav-btn" data-route="/review">Review</button>
-      <button class="nav-btn" data-route="/scaffold">Scaffold</button>
-      <button class="nav-btn" data-route="/workspace">Workspace</button>
-      <button class="nav-btn" data-route="/communication">Comms</button>
-      <button class="nav-btn" data-route="/socials">Socials</button>
-      <button class="nav-btn" data-route="/cartoon">Cartoon</button>
+      <div class="nav-group" data-group="develop">
+        <button class="nav-btn active" data-route="/editor">Editor</button>
+        <button class="nav-btn" data-route="/chat">Chat</button>
+        <button class="nav-btn" data-route="/review">Review</button>
+        <button class="nav-btn" data-route="/scaffold">Scaffold</button>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-group" data-group="workspace">
+        <button class="nav-btn" data-route="/workspace">Workspace</button>
+      </div>
+      <div class="nav-divider"></div>
+      <div class="nav-group" data-group="connect">
+        <button class="nav-btn" data-route="/communication">Comms</button>
+        <button class="nav-btn" data-route="/socials">Socials</button>
+        <button class="nav-btn" data-route="/cartoon">Cartoon</button>
+      </div>
     </nav>
     <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
          call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
@@ -1895,7 +1906,8 @@ assert(
   "changing the select applies the real tokens theming strategy's CSS custom properties, not just the attribute"
 );
 assert(
-  document.getElementById("theme-toggle-btn").textContent === (nextTheme === "dark" ? "☀️" : "🌙"),
+  document.querySelector("#theme-toggle-btn .icon-sun").hidden === (nextTheme !== "dark") &&
+  document.querySelector("#theme-toggle-btn .icon-moon").hidden === (nextTheme === "dark"),
   "the nav bar's toggle icon stays in sync when the theme is changed from Settings instead"
 );
 

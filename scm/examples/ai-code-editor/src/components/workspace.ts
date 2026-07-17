@@ -82,16 +82,19 @@ import { WorkspaceBase } from "../features/workspace/workspace_component.gen.js"
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
 // (see grid_view.ts's accentColor doc), so each stage's hue now travels
 // as real per-item data instead, the same colors unchanged.
+// Muted/desaturated (Tailwind "700"-ish) rather than the original bright
+// 500-level rainbow - keeps 9 distinct hues for wayfinding, reads as
+// corporate/professional instead of playful.
 const STAGE_COLORS: Record<string, string> = {
-  ideation: "#f5a524",
-  requirement: "#3b82f6",
-  planning: "#14b8a6",
-  design: "#a855f7",
-  development: "#6366f1",
-  testing: "#f43f5e",
-  deployment: "#f97316",
-  operations: "#06b6d4",
-  presentation: "#d946ef",
+  ideation: "#b45309",
+  requirement: "#1d4ed8",
+  planning: "#0f766e",
+  design: "#7e22ce",
+  development: "#4338ca",
+  testing: "#be123c",
+  deployment: "#c2410c",
+  operations: "#0e7490",
+  presentation: "#a21caf",
 };
 
 interface SdlcFunction {
