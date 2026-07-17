@@ -45,16 +45,23 @@
       <div id="settings-backdrop" class="settings-backdrop"></div>
       <div class="settings-sheet">
         <div class="settings-sheet-header">
-          <h2>Anthropic API key</h2>
+          <h2>Settings</h2>
           <button id="settings-close-btn" type="button" aria-label="Close settings">✕</button>
         </div>
-        <p class="settings-disclosure">Stored only on this device. Sent directly to Anthropic when you use AI features.</p>
-        <input id="settings-api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
-        <div class="settings-api-key-actions">
-          <button id="settings-api-key-save" type="button">Save</button>
-          <button id="settings-api-key-clear" type="button" class="btn-secondary">Clear</button>
+        <div class="settings-section">
+          <h3>Theme</h3>
+          <select id="settings-theme-select"></select>
         </div>
-        <p id="settings-api-key-status" class="settings-api-key-status"></p>
+        <div class="settings-section">
+          <h3>Anthropic API key</h3>
+          <p class="settings-disclosure">Stored only on this device. Sent directly to Anthropic when you use AI features.</p>
+          <input id="settings-api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+          <div class="settings-api-key-actions">
+            <button id="settings-api-key-save" type="button">Save</button>
+            <button id="settings-api-key-clear" type="button" class="btn-secondary">Clear</button>
+          </div>
+          <p id="settings-api-key-status" class="settings-api-key-status"></p>
+        </div>
       </div>
     </div>
   </div>

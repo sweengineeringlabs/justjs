@@ -108,9 +108,10 @@ document.body.innerHTML = `
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">
         <div class="settings-sheet-header">
-          <h2>Anthropic API key</h2>
+          <h2>Settings</h2>
           <button id="settings-close-btn" type="button">close</button>
         </div>
+        <select id="settings-theme-select"></select>
         <input id="settings-api-key" type="password" />
         <button id="settings-api-key-save" type="button">Save</button>
         <button id="settings-api-key-clear" type="button">Clear</button>
@@ -1871,6 +1872,40 @@ assert(document.querySelector("#settings-api-key-status").textContent.includes("
 
 document.querySelector("#settings-api-key-clear").click();
 assert(window.localStorage.getItem("justjs:ai-editor:api-key") === null, "Clear removes the persisted key from localStorage");
+
+// 12b. Runtime theme switching from Settings (justjs#131 follow-up) - a
+// real <select> change, not just calling setTheme() directly, proving
+// the actual UI control works end-to-end.
+const themeSelect = document.querySelector("#settings-theme-select");
+assert(
+  [...themeSelect.options].map((o) => o.value).sort().join(",") === "dark,light",
+  "the theme select is populated with both real themes, not hardcoded/empty"
+);
+const initialThemeOption = themeSelect.value;
+assert(initialThemeOption === "light" || initialThemeOption === "dark", "the select opens showing the actual current theme, not a blank/default option");
+
+const nextTheme = initialThemeOption === "dark" ? "light" : "dark";
+themeSelect.value = nextTheme;
+themeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+assert(document.documentElement.getAttribute("data-theme") === nextTheme, "changing the select applies the new theme's data-theme attribute for real");
+assert(window.localStorage.getItem("justjs:ai-editor:theme") === nextTheme, "changing the select persists the new theme, same key toggleTheme() uses");
+assert(
+  document.documentElement.style.getPropertyValue("--bg") === (nextTheme === "dark" ? "#000000" : "#f2f2f7"),
+  "changing the select applies the real tokens theming strategy's CSS custom properties, not just the attribute"
+);
+assert(
+  document.getElementById("theme-toggle-btn").textContent === (nextTheme === "dark" ? "☀️" : "🌙"),
+  "the nav bar's toggle icon stays in sync when the theme is changed from Settings instead"
+);
+
+// Nav toggle changing the theme must sync the select back, the reverse
+// direction of the same two-controls-one-state proof.
+document.getElementById("theme-toggle-btn").click();
+const afterToggleTheme = document.documentElement.getAttribute("data-theme");
+assert(afterToggleTheme === initialThemeOption, "the nav toggle flips back to the original theme");
+assert(themeSelect.value === afterToggleTheme, "the Settings select reflects a theme change made from the nav toggle, not just its own changes");
+
 document.querySelector("#settings-close-btn").click();
 assert(document.getElementById("settings-panel").hidden, "close button hides the settings sheet");
 

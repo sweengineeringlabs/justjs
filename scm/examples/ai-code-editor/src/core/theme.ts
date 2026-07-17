@@ -82,24 +82,34 @@ export function currentTheme(): Theme {
 export function applyStoredTheme(): void {
   const stored = readStoredTheme();
   if (stored) {
-    // Still needed for app.css's .tok-keyword/.tok-string/.tok-number
-    // syntax-highlight rules, which key directly off this attribute - a
-    // separate concern from THEMES' CSS variables, outside the theming
-    // aspect's UIThemingContext contract.
-    document.documentElement.setAttribute("data-theme", stored);
-    themingContext().setTheme(stored);
+    applyTheme(stored);
   }
+}
+
+function applyTheme(theme: Theme): void {
+  // Still needed for app.css's .tok-keyword/.tok-string/.tok-number
+  // syntax-highlight rules, which key directly off this attribute - a
+  // separate concern from THEMES' CSS variables, outside the theming
+  // aspect's UIThemingContext contract.
+  document.documentElement.setAttribute("data-theme", theme);
+  themingContext().setTheme(theme);
+  try {
+    globalThis.localStorage?.setItem(STORAGE_KEY, theme);
+  } catch {
+    // Best-effort only - the change still applies for this session even
+    // if persistence fails (storage disabled/full).
+  }
+}
+
+// Sets a specific theme directly - used by the runtime theme selector in
+// Settings (justjs#131 follow-up). toggleTheme() below is the nav bar's
+// binary flip; this is the general case a selector with >2 options needs.
+export function setTheme(theme: Theme): void {
+  applyTheme(theme);
 }
 
 export function toggleTheme(): Theme {
   const next: Theme = currentTheme() === "dark" ? "light" : "dark";
-  document.documentElement.setAttribute("data-theme", next);
-  themingContext().setTheme(next);
-  try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, next);
-  } catch {
-    // Best-effort only - the toggle still applies for this session even
-    // if persistence fails (storage disabled/full).
-  }
+  applyTheme(next);
   return next;
 }

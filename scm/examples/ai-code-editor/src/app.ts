@@ -31,7 +31,8 @@ import "./components/communication.js";
 import "./components/socials.js";
 import "./components/cartoon.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
-import { applyStoredTheme, currentTheme, toggleTheme, THEMES } from "./core/theme.js";
+import { applyStoredTheme, currentTheme, setTheme, toggleTheme, THEMES } from "./core/theme.js";
+import type { Theme } from "./core/theme.js";
 import { getStoredApiKey, setStoredApiKey } from "./core/ai_assist.js";
 import { completeJiraOAuthCallback } from "./core/pm_connect.js";
 import { NAVIGATE_EVENT } from "./core/navigation.js";
@@ -164,20 +165,44 @@ document.addEventListener(NAVIGATE_EVENT, (e) => {
   goToRoute((e as CustomEvent<NavigateEventDetail>).detail.route);
 });
 
-function updateThemeToggleIcon(): void {
+// Two controls read/write the same theme state (the nav bar's binary
+// toggle and Settings' select, added for runtime theme switching) - kept
+// in sync with each other regardless of which one triggers a change.
+function syncThemeUI(): void {
   const btn = document.getElementById("theme-toggle-btn");
-  if (!btn) {
-    return;
+  if (btn) {
+    btn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
   }
-  btn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+  const select = document.getElementById("settings-theme-select") as HTMLSelectElement | null;
+  if (select) {
+    select.value = currentTheme();
+  }
 }
 
 function setupThemeToggle(): void {
   const btn = document.getElementById("theme-toggle-btn");
-  updateThemeToggleIcon();
+  syncThemeUI();
   btn?.addEventListener("click", () => {
     toggleTheme();
-    updateThemeToggleIcon();
+    syncThemeUI();
+  });
+}
+
+function setupThemeSelect(): void {
+  const select = document.getElementById("settings-theme-select") as HTMLSelectElement | null;
+  if (!select) {
+    return;
+  }
+  for (const theme of Object.keys(THEMES) as Theme[]) {
+    const option = document.createElement("option");
+    option.value = theme;
+    option.textContent = theme === "dark" ? "Dark" : "Light";
+    select.appendChild(option);
+  }
+  select.value = currentTheme();
+  select.addEventListener("change", () => {
+    setTheme(select.value as Theme);
+    syncThemeUI();
   });
 }
 
@@ -333,6 +358,7 @@ async function main(): Promise<void> {
     });
 
     setupThemeToggle();
+    setupThemeSelect();
     setupSettingsPanel();
 
     document.title = "ai-code-editor: mounted";

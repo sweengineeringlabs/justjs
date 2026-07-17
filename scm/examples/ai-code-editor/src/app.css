@@ -237,6 +237,28 @@ body {
   font-size: 14px;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+#settings-theme-select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text);
+  font-size: 14px;
+}
+
 .settings-disclosure {
   margin: 0;
   font-size: 12px;
