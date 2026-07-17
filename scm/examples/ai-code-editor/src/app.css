@@ -70,7 +70,6 @@
    off it directly, a separate concern outside the theming aspect's
    CSS-variable-only contract. No attribute means "follow the system",
    which is the default until toggled. */
-}
 
 * {
   box-sizing: border-box;
