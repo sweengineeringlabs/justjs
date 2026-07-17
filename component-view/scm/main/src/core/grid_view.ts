@@ -61,8 +61,8 @@ export class GridView extends HTMLElement {
           min-height: 92px;
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow);
-          background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--surface)) 0%, var(--surface) 70%);
-          border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 25%, var(--border));
+          background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 8%, var(--surface)) 0%, var(--surface) 70%);
+          border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 18%, var(--border));
         }
         .tile::before {
           content: "";
@@ -73,7 +73,7 @@ export class GridView extends HTMLElement {
           height: 34px;
           background: var(--stage-color, var(--accent));
           clip-path: polygon(100% 0, 100% 100%, 0 0);
-          opacity: 0.4;
+          opacity: 0.25;
         }
         .tile.selected {
           border-color: var(--accent-strong, var(--accent));
@@ -93,7 +93,7 @@ export class GridView extends HTMLElement {
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-md);
-          background: color-mix(in srgb, var(--stage-color, var(--accent)) 35%, transparent);
+          background: color-mix(in srgb, var(--stage-color, var(--accent)) 20%, transparent);
         }
         .tile-label {
           font-size: 13px;
