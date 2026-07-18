@@ -1467,25 +1467,35 @@ textarea:focus {
   margin-bottom: 14px;
 }
 
-/* Was flat var(--surface-alt)/--surface everywhere below - the drill-
-   down (function list + Design/Cloud/Presentation/CLI's own sub-views)
-   never picked up any of the widget grid's color treatment once you
-   actually clicked into a stage. Reuses the same --stage-color the
-   overview already set (see workspace.ts's renderStage(), which now
-   stamps data-stage on #workspace-view - the [data-stage="..."] rules
-   above cascade down to everything here via custom-property
-   inheritance, no per-stage duplication needed).
+/* Was flat var(--surface-alt)/--surface below - the drill-down
+   (Design/Cloud/Presentation/CLI's own sub-views, plus the function
+   grid itself via GridView's own --stage-color custom property) never
+   picked up any of the widget grid's color treatment once you actually
+   clicked into a stage. Reuses the same --stage-color the overview
+   already set (see workspace.ts's renderStage(), which stamps
+   data-stage on #workspace-view - the [data-stage="..."] rules above
+   cascade down via custom-property inheritance, no per-stage
+   duplication needed).
 
-   .dash-back-btn/.workspace-stage-title/.workspace-function-list stay
-   here, unchanged - communication.ts and cartoon.ts's own detail
-   screens reuse these same 3 classes for the identical visual pattern
-   (justjs#96 found this while adding real csslens-generated BEM CSS
-   for x-workspace specifically: features/workspace/
-   workspace_component.gen.css's .workspace__back-btn/
-   .workspace__stage-title/.workspace__function-list). workspace.ts's
-   own markup now sets both the old shared class AND the new
-   component-scoped one on the same elements - communication/cartoon
-   keep using only the shared classes below, entirely unaffected. */
+   .dash-back-btn/.workspace-stage-title stay here, unchanged -
+   communication.ts and cartoon.ts's own detail screens reuse these 2
+   classes for the identical visual pattern (justjs#96 found this while
+   adding real csslens-generated BEM CSS for x-workspace specifically:
+   features/workspace/workspace_component.gen.css's
+   .workspace__back-btn/.workspace__stage-title). workspace.ts's own
+   markup sets both the old shared class AND the new component-scoped
+   one on the same elements - communication/cartoon keep using only the
+   shared classes below, entirely unaffected.
+
+   The function-list row classes that used to live here
+   (.workspace-function/.workspace-function-live/etc) are gone -
+   justjs#132 follow-up ("Workspace option must remain grid widgets,
+   even after drill in") moved the function list onto the same
+   <view-grid> the overview already uses, fully self-styled inside its
+   own Shadow DOM (@justjs/component-view). .workspace-function-list
+   (the plain-list container class) had no real consumers left once
+   workspace.ts stopped applying it - confirmed via a repo-wide grep,
+   not assumed - so it's removed too, rather than left as dead CSS. */
 .dash-back-btn {
   flex: 0 0 auto;
   padding: 8px 14px;
@@ -1499,63 +1509,6 @@ textarea:focus {
   font-size: 16px;
   padding-left: 10px;
   border-left: 3px solid var(--stage-color, var(--accent));
-}
-
-.workspace-function-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.workspace-function {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 14px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 10%, var(--surface)) 0%, var(--surface) 70%);
-  border: 1px solid color-mix(in srgb, var(--stage-color, var(--accent)) 20%, var(--border));
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
-}
-
-button.workspace-function-live {
-  width: 100%;
-  color: var(--text);
-  font-weight: 400;
-  font-size: 14px;
-}
-
-.workspace-function-arrow {
-  color: var(--stage-color, var(--accent-strong));
-  font-weight: 700;
-}
-
-/* Stays deliberately flat/muted, unlike the live rows above - a real
-   visual "not clickable yet" signal, not just the opacity dip it had
-   before (which would otherwise now read as a dimmed *colored* row
-   instead of a genuinely neutral stub). */
-.workspace-function-stub {
-  opacity: 0.7;
-  background: var(--surface);
-  border-color: var(--border);
-}
-
-.workspace-function-label {
-  font-size: 14px;
-  color: var(--text);
-}
-
-.workspace-function-badge {
-  flex: 0 0 auto;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 3px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-alt);
-  color: var(--text-muted);
 }
 
 /* Design (Markdown + Mermaid doc generator) - .design-*/#design-*/

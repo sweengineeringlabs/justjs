@@ -99,6 +99,12 @@ const STAGE_COLORS: Record<string, string> = {
 
 interface SdlcFunction {
   readonly label: string;
+  // Rendered into the same GridView tile shape the overview grid
+  // already uses (justjs#132 follow-up: "Workspace option must remain
+  // grid widgets, even after drill in" - direct user request) - every
+  // function needs an icon for that tile, the same way every stage
+  // already has one.
+  readonly icon: string;
   // Present => a real, working link into one of this app's existing
   // tabs. Absent (and no `action` either) => an honestly-labeled "Coming
   // soon" stub, not a fake-functional button - this hub currently ships
@@ -598,16 +604,24 @@ function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly
 // Slides, is real (not a stub) - a real generateSlides() capability
 // (renderPresentationGenerator() below).
 const SDLC_STAGES: readonly SdlcStage[] = [
-  { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", route: "/chat" }] },
-  { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs", action: "pm-connect" }, { label: "User Stories", action: "pm-connect" }] },
-  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Project Boards", action: "pm-connect" }] },
+  { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", icon: "💬", route: "/chat" }] },
+  {
+    key: "requirement",
+    label: "Requirement",
+    icon: "📋",
+    functions: [
+      { label: "Specs", icon: "📄", action: "pm-connect" },
+      { label: "User Stories", icon: "📖", action: "pm-connect" },
+    ],
+  },
+  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Project Boards", icon: "🗂️", action: "pm-connect" }] },
   {
     key: "design",
     label: "Design",
     icon: "🎨",
     functions: [
-      { label: "Architecture", action: "design-generate" },
-      { label: "Wireframes", action: "design-generate" },
+      { label: "Architecture", icon: "🏛️", action: "design-generate" },
+      { label: "Wireframes", icon: "📐", action: "design-generate" },
     ],
   },
   {
@@ -624,11 +638,11 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     // interleaved so existing index-based assertions on CLI/Repository
     // don't shift.
     functions: [
-      { label: "Editor", route: "/editor" },
-      { label: "CLI", action: "cli" },
-      { label: "Repository", action: "scm-connect" },
-      { label: "Review", route: "/review" },
-      { label: "Scaffold", route: "/scaffold" },
+      { label: "Editor", icon: "📝", route: "/editor" },
+      { label: "CLI", icon: "⌨️", action: "cli" },
+      { label: "Repository", icon: "📦", action: "scm-connect" },
+      { label: "Review", icon: "🔍", route: "/review" },
+      { label: "Scaffold", icon: "✨", route: "/scaffold" },
     ],
   },
   { key: "testing", label: "Testing", icon: "🧪", functions: [] },
@@ -636,22 +650,24 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "deployment",
     label: "Deployment",
     icon: "🚀",
-    functions: [{ label: "Cloud", action: "cloud-providers" }],
+    functions: [{ label: "Cloud", icon: "☁️", action: "cloud-providers" }],
   },
-  { key: "operations", label: "Operations", icon: "📈", functions: [{ label: "Monitoring" }, { label: "Logs" }] },
+  {
+    key: "operations",
+    label: "Operations",
+    icon: "📈",
+    functions: [
+      { label: "Monitoring", icon: "📊" },
+      { label: "Logs", icon: "📜" },
+    ],
+  },
   {
     key: "presentation",
     label: "Presentation",
     icon: "📽️",
-    functions: [{ label: "Slides", action: "presentation-generate" }],
+    functions: [{ label: "Slides", icon: "📽️", action: "presentation-generate" }],
   },
 ];
-
-function escapeHtml(text: string): string {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 // The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
 // drilling into each stage's function list on tap - same
@@ -757,13 +773,16 @@ export class WorkspaceElement extends WorkspaceBase {
         <div id="workspace-function-list-view" data-part="function-list-view" hidden>
           <div class="dash-subnav">
             <!-- justjs#96: real csslens-generated BEM CSS (workspace_component.gen.css)
-                 for these 3 elements, replacing the .dash-back-btn/.workspace-stage-title/
-                 .workspace-function-list classes communication.ts/cartoon.ts's own detail
-                 screens still use unchanged (a separate, shared hand-written pattern). -->
+                 for these 2 elements, replacing the .dash-back-btn/.workspace-stage-title
+                 classes communication.ts/cartoon.ts's own detail screens still use
+                 unchanged (a separate, shared hand-written pattern). -->
             <button id="workspace-back-btn" data-part="back-btn" class="workspace__back-btn" type="button">← Workspace</button>
             <h2 class="workspace__stage-title" data-part="stage-title"></h2>
           </div>
-          <div class="workspace__function-list" data-part="function-list"></div>
+          <!-- justjs#132 follow-up: "Workspace option must remain grid widgets,
+               even after drill in" (direct user request) - the same <view-grid>
+               the overview above uses, not a plain button list. -->
+          <view-grid id="workspace-function-grid" data-part="function-list"></view-grid>
         </div>
         <div id="workspace-subscreen-view" data-part="subscreen-view" hidden></div>
       </div>
@@ -803,8 +822,59 @@ export class WorkspaceElement extends WorkspaceBase {
       this.showCliTerminal = false;
       this.renderView();
     });
+    // Bound once, same reasoning as overviewGrid above - the function
+    // grid is a permanent, cached element too (re-populated via .items
+    // per stage in renderStage(), not torn down and rebuilt).
+    (this.functionList as GridView).addEventListener("item-select", (e) => {
+      this.handleFunctionSelect((e as CustomEvent<{ id: string }>).detail.id);
+    });
 
     this.renderView();
+  }
+
+  // GridView's tiles are always real buttons - a stub function (neither
+  // route nor action) still fires item-select, but with nothing to do
+  // it's an intentional no-op, the same non-interactivity the old inert
+  // <div> stub conveyed, just signaled via a "Coming soon" status label
+  // on the tile instead of a different element type. Reads the current
+  // stage fresh from SDLC_STAGES/this.currentStageKey rather than
+  // closing over `stage` from renderStage(), since this listener is
+  // wired once in connectedCallback(), not per-render.
+  private handleFunctionSelect(functionLabel: string): void {
+    const stage = SDLC_STAGES.find((s) => s.key === this.currentStageKey);
+    const fn = stage?.functions.find((f) => f.label === functionLabel);
+    if (!fn) {
+      return;
+    }
+    switch (fn.action) {
+      case "design-generate":
+        this.showDesignGenerator = true;
+        this.renderView();
+        return;
+      case "cloud-providers":
+        this.showCloudProviders = true;
+        this.renderView();
+        return;
+      case "scm-connect":
+        this.showScmConnect = true;
+        this.renderView();
+        return;
+      case "pm-connect":
+        this.showPmConnect = true;
+        this.renderView();
+        return;
+      case "presentation-generate":
+        this.showPresentationGenerator = true;
+        this.renderView();
+        return;
+      case "cli":
+        this.showCliTerminal = true;
+        this.renderView();
+        return;
+    }
+    if (fn.route) {
+      navigateTo(fn.route);
+    }
   }
 
   private renderView(): void {
@@ -879,77 +949,16 @@ export class WorkspaceElement extends WorkspaceBase {
     this.subscreenView.innerHTML = "";
     this.functionListView.hidden = false;
     this.stageTitle.textContent = `${stage.icon} ${stage.label}`;
-    this.functionList.innerHTML = `
-      ${stage.functions
-        .map((f) => {
-          if (f.action) {
-            return `
-              <button class="workspace-function workspace-function-live" data-action="${f.action}" type="button">
-                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                <span class="workspace-function-arrow">→</span>
-              </button>
-            `;
-          }
-          return f.route
-            ? `
-              <button class="workspace-function workspace-function-live" data-route="${f.route}" type="button">
-                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                <span class="workspace-function-arrow">→</span>
-              </button>
-            `
-            : `
-              <div class="workspace-function workspace-function-stub">
-                <span class="workspace-function-label">${escapeHtml(f.label)}</span>
-                <span class="workspace-function-badge">Coming soon</span>
-              </div>
-            `;
-        })
-        .join("")}
-    `;
-    this.functionList.querySelectorAll<HTMLButtonElement>(".workspace-function-live[data-route]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const route = btn.dataset.route;
-        if (route) {
-          navigateTo(route);
-        }
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="design-generate"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showDesignGenerator = true;
-        this.renderView();
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cloud-providers"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showCloudProviders = true;
-        this.renderView();
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="scm-connect"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showScmConnect = true;
-        this.renderView();
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="pm-connect"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showPmConnect = true;
-        this.renderView();
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="presentation-generate"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showPresentationGenerator = true;
-        this.renderView();
-      });
-    });
-    this.functionList.querySelectorAll<HTMLButtonElement>('.workspace-function-live[data-action="cli"]').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.showCliTerminal = true;
-        this.renderView();
-      });
-    });
+    // GridView instance is permanent (bound once in connectedCallback());
+    // re-populating .items per stage is the same pattern renderOverview()
+    // already uses for the overview grid.
+    (this.functionList as GridView).items = stage.functions.map((f) => ({
+      id: f.label,
+      label: f.label,
+      icon: f.icon,
+      accentColor: STAGE_COLORS[stage.key],
+      ...(f.route === undefined && f.action === undefined ? { status: "Coming soon" } : {}),
+    }));
   }
 
   // ---- Design: Markdown + Mermaid doc generator (opened from either

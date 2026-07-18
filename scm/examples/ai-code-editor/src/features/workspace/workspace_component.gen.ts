@@ -17,8 +17,8 @@ export class WorkspaceBase extends HTMLElement {
     }
     return this.#backBtn;
   }
-  #functionList!: HTMLDivElement;
-  get functionList(): HTMLDivElement {
+  #functionList!: HTMLElement;
+  get functionList(): HTMLElement {
     if (!this.#functionList) {
       throw new Error(`[justweb] 'functionList' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
     }
@@ -113,7 +113,7 @@ export class WorkspaceBase extends HTMLElement {
       }
     }
     if (!this.#functionList) {
-      const __el = this.querySelector('[data-part="function-list"]') as HTMLDivElement | null;
+      const __el = this.querySelector('[data-part="function-list"]') as HTMLElement | null;
       if (__el) {
         this.#functionList = __el;
         __el.setAttribute('data-ddas-id', 'ai-code-editor:workspace:workspace:function-list');

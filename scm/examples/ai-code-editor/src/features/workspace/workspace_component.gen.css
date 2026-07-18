@@ -9,12 +9,6 @@
     padding: 8px 14px;
   }
 
-  .workspace__function-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
   .workspace__stage-title {
     border-left: 3px solid var(--stage-color, var(--accent));
     font-size: 16px;

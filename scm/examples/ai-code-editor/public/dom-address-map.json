@@ -655,7 +655,7 @@
       "interactive": false,
       "scope": "public",
       "tag": "js-workspace",
-      "type": "div"
+      "type": "view-grid"
     },
     "ai-code-editor:workspace:workspace:function-list-view": {
       "component": "workspace",

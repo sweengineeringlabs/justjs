@@ -42,7 +42,7 @@ const ROUTES: ResolvedRoute[] = [
   {
     "path": "/workspace",
     "tag": "js-workspace",
-    "children": "       <button data-part=\"back-btn\"></button>\n       <div data-part=\"function-list\"></div>\n       <div data-part=\"function-list-view\"></div>\n       <view-grid data-part=\"overview-grid\"></view-grid>\n       <h2 data-part=\"stage-title\"></h2>\n       <div data-part=\"subscreen-view\"></div>\n       <div data-part=\"workspace-view\"></div>\n"
+    "children": "       <button data-part=\"back-btn\"></button>\n       <view-grid data-part=\"function-list\"></view-grid>\n       <div data-part=\"function-list-view\"></div>\n       <view-grid data-part=\"overview-grid\"></view-grid>\n       <h2 data-part=\"stage-title\"></h2>\n       <div data-part=\"subscreen-view\"></div>\n       <div data-part=\"workspace-view\"></div>\n"
   },
   {
     "path": "/communication",

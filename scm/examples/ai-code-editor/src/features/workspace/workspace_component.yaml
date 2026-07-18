@@ -1,18 +1,22 @@
 name: workspace
 version: 1
 # ── Styles ────────────────────────────────────────────────────────
-# justjs#96: real csslens-generated BEM CSS for the 3 elements with
+# justjs#96: real csslens-generated BEM CSS for the 2 elements with
 # their own dedicated, statically-addressable styling (back-btn,
-# stage-title, function-list). Reproduces the exact property values
-# app.css's hand-written .dash-back-btn/.workspace-stage-title/
-# .workspace-function-list rules already had - a like-for-like swap,
-# not a redesign. The [data-stage="..."] --stage-color cascade (set on
-# #workspace-view directly by workspace.ts's renderStage()) and the
-# dynamically-rendered function-list *row* classes
-# (.workspace-function/.workspace-function-arrow/etc - injected via
-# innerHTML at runtime, not fixed dom.elements) stay hand-written in
-# app.css - parts: only covers addressable dom.elements, and these
-# rows have no fixed address to attach a part style to.
+# stage-title). Reproduces the exact property values app.css's
+# hand-written .dash-back-btn/.workspace-stage-title rules already had
+# - a like-for-like swap, not a redesign. The [data-stage="..."]
+# --stage-color cascade (set on #workspace-view directly by
+# workspace.ts's renderStage()) still cascades down to function-list's
+# tiles via inheritance (GridView's own --stage-color custom property).
+#
+# function-list itself (justjs#132 follow-up: "Workspace option must
+# remain grid widgets, even after drill in" - direct user request) is
+# now a <view-grid> instead of a plain div - same shared component the
+# overview grid already uses, fully self-styled inside its own Shadow
+# DOM (@justjs/component-view, ADR-0014). No parts entry needed here,
+# same as overview-grid above - a light-DOM part style can't reach
+# inside a Shadow DOM anyway.
 styles:
   parts:
     back-btn:
@@ -30,12 +34,6 @@ styles:
           font-size: "16px"
           padding-left: "10px"
           border-left: "3px solid var(--stage-color, var(--accent))"
-    function-list:
-      base:
-        properties:
-          display: "flex"
-          flex-direction: "column"
-          gap: "8px"
 dom:
   tag: x-workspace
   builtinStates: false
@@ -52,9 +50,9 @@ dom:
   # static across every navigation state is declared here: the root
   # wrapper, the overview grid (persistent, re-populated via .items on
   # each visit rather than torn down and rebuilt), the generic
-  # function-list shell (back button + title + rows container - the
-  # rows themselves still vary per stage, rendered into function-list's
-  # innerHTML same as before), and the sub-screen mount point (where
+  # function-list shell (back button + title + a second <view-grid>,
+  # re-populated via .items per stage the same way the overview grid
+  # is - justjs#132 follow-up), and the sub-screen mount point (where
   # the 6 extracted controls attach/detach). All three top-level
   # sections are permanent siblings toggled via `hidden`, not recreated
   # per navigation - matching every extracted control's own
@@ -76,7 +74,7 @@ dom:
       tag: h2
       address: true
     function-list:
-      tag: div
+      tag: view-grid
       address: true
     subscreen-view:
       tag: div

@@ -261,10 +261,30 @@ document.querySelector('.nav-btn[data-route="/home"]').click();
 // real light-DOM data-stage attribute (renderStage() - unchanged), so
 // that part of app.css's [data-stage="..."] coloring is untouched.
 function workspaceOverviewTiles() {
-  return [...(document.querySelector("#mount-workspace view-grid")?.shadowRoot?.querySelectorAll(".tile") ?? [])];
+  return [...(document.querySelector("#mount-workspace #workspace-overview-grid")?.shadowRoot?.querySelectorAll(".tile") ?? [])];
 }
 function clickWorkspaceOverviewTile(stageKey) {
-  document.querySelector("#mount-workspace view-grid")?.shadowRoot?.querySelector(`.tile[data-id="${stageKey}"]`)?.click();
+  document.querySelector("#mount-workspace #workspace-overview-grid")?.shadowRoot?.querySelector(`.tile[data-id="${stageKey}"]`)?.click();
+}
+// justjs#132 follow-up: "Workspace option must remain grid widgets, even
+// after drill in" (direct user request) - the function list is now the
+// same <view-grid> the overview above uses (a second, distinct instance,
+// #workspace-function-grid), not a plain button/div list. A stub function
+// (no route/action - "Coming soon") still renders as a real .tile button
+// (GridView's tiles always are), just with a .tile-status label instead
+// of being a non-button element - tileLabel()/tileIsStub() below read
+// that shape instead of the old .workspace-function-live/-stub classes.
+function workspaceFunctionTiles() {
+  return [...(document.querySelector("#mount-workspace #workspace-function-grid")?.shadowRoot?.querySelectorAll(".tile") ?? [])];
+}
+function clickWorkspaceFunctionTile(label) {
+  document.querySelector("#mount-workspace #workspace-function-grid")?.shadowRoot?.querySelector(`.tile[data-id="${label}"]`)?.click();
+}
+function tileLabel(tile) {
+  return tile.querySelector(".tile-label")?.textContent ?? "";
+}
+function tileIsStub(tile) {
+  return tile.querySelector(".tile-status")?.textContent === "Coming soon";
 }
 
 document.querySelector('.nav-btn[data-route="/workspace"]').click();
@@ -290,12 +310,12 @@ assert(
   document.querySelector("#mount-workspace .workspace__stage-title").textContent.includes("Requirement"),
   "drilling into Requirement shows its own detail view"
 );
-const requirementLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const requirementTiles = workspaceFunctionTiles();
 assert(
-  requirementLive.length === 2 && requirementLive[0].textContent.includes("Specs") && requirementLive[1].textContent.includes("User Stories"),
-  `Requirement's Specs and User Stories are both real, live functions now, not stubs (found ${requirementLive.map((el) => el.textContent).join(" | ")})`
+  requirementTiles.length === 2 && tileLabel(requirementTiles[0]) === "Specs" && tileLabel(requirementTiles[1]) === "User Stories",
+  `Requirement's Specs and User Stories are both real, live functions now, not stubs (found ${requirementTiles.map(tileLabel).join(" | ")})`
 );
-assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Requirement has no stubs left");
+assert(requirementTiles.every((t) => !tileIsStub(t)), "Requirement has no stubs left");
 
 // PM's connector (justjs#125) owns its own Shadow DOM too, same 3-level
 // nesting as SCM's - plus a real Jira OAuth-redirect field (justjs#125's
@@ -307,7 +327,7 @@ function pmConnectorShadow() {
 function pmGridShadow() {
   return pmConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
 }
-requirementLive[0].click();
+requirementTiles[0].click();
 await sleep(20);
 assert(document.getElementById("pm-header").title === "Project Management", "Specs opens a real PM connector grid, not a stub");
 const pmProviderTiles = [...pmGridShadow().querySelectorAll(".tile")];
@@ -409,7 +429,7 @@ await sleep(20);
 document.getElementById("pm-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Specs"),
+  tileLabel(workspaceFunctionTiles()[0]) === "Specs",
   "the grid's own back button returns to Requirement's function list, not the Workspace overview"
 );
 
@@ -417,12 +437,12 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 clickWorkspaceOverviewTile("planning");
 await sleep(20);
-const planningLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const planningTiles = workspaceFunctionTiles();
 assert(
-  planningLive.length === 1 && planningLive[0].textContent.includes("Project Boards"),
-  `Planning has just Project Boards now - Scaffold moved to Development per justjs#132 follow-up (found ${planningLive.map((el) => el.textContent).join(" | ")})`
+  planningTiles.length === 1 && tileLabel(planningTiles[0]) === "Project Boards",
+  `Planning has just Project Boards now - Scaffold moved to Development per justjs#132 follow-up (found ${planningTiles.map(tileLabel).join(" | ")})`
 );
-planningLive[0].click();
+planningTiles[0].click();
 await sleep(20);
 assert(
   document.getElementById("pm-header").backLabel === "Planning",
@@ -449,7 +469,7 @@ assert(
   "Presentation drills into its own detail view like every other widget"
 );
 assert(
-  document.querySelector("#mount-workspace .workspace-function-live .workspace-function-label")?.textContent === "Slides",
+  tileLabel(workspaceFunctionTiles()[0]) === "Slides" && !tileIsStub(workspaceFunctionTiles()[0]),
   "Presentation shows Slides as a real, live function, not a stub - full generator flow proved in section 1d below"
 );
 document.querySelector("#workspace-back-btn").click();
@@ -461,11 +481,11 @@ assert(
   document.querySelector("#mount-workspace .workspace__stage-title").textContent.includes("Deployment"),
   "drilling into a widget shows that stage's detail view"
 );
-assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Deployment has no stubs left - Git moved to Development's Repository, and Cloud is now real");
-const deploymentFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const deploymentTiles = workspaceFunctionTiles();
+assert(deploymentTiles.every((t) => !tileIsStub(t)), "Deployment has no stubs left - Git moved to Development's Repository, and Cloud is now real");
 assert(
-  deploymentFunctions.length === 1 && deploymentFunctions[0].textContent.includes("Cloud"),
-  `Deployment shows exactly one real function, Cloud (found ${deploymentFunctions.map((el) => el.textContent).join(" | ")})`
+  deploymentTiles.length === 1 && tileLabel(deploymentTiles[0]) === "Cloud",
+  `Deployment shows exactly one real function, Cloud (found ${deploymentTiles.map(tileLabel).join(" | ")})`
 );
 
 // Cloud providers: a real, recognizable catalog (not a free-text "type
@@ -484,7 +504,7 @@ function cloudConnectorShadow() {
 function cloudGridShadow() {
   return cloudConnectorShadow()?.querySelector("view-grid")?.shadowRoot ?? null;
 }
-deploymentFunctions[0].click();
+deploymentTiles[0].click();
 await sleep(20);
 const providerTiles = [...cloudGridShadow().querySelectorAll(".tile")];
 const providerNames = providerTiles.map((el) => el.querySelector(".tile-label").textContent);
@@ -648,7 +668,7 @@ await sleep(20);
 document.getElementById("cloud-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
-  document.querySelector("#mount-workspace .workspace-function-live")?.textContent.includes("Cloud"),
+  tileLabel(workspaceFunctionTiles()[0]) === "Cloud",
   "the grid's own back button returns to Deployment's function list, not the Workspace overview"
 );
 
@@ -658,23 +678,22 @@ assert(workspaceOverviewTiles().length === 9, "the back button returns to the 9-
 
 clickWorkspaceOverviewTile("development");
 await sleep(20);
-const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
-const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
+const developmentLive = workspaceFunctionTiles();
 assert(
   developmentLive.length === 5 &&
-    developmentLive[0].textContent.includes("Editor") &&
-    developmentLive[1].textContent.includes("CLI") &&
-    developmentLive[2].textContent.includes("Repository") &&
-    developmentLive[3].textContent.includes("Review") &&
-    developmentLive[4].textContent.includes("Scaffold"),
-  `Development's Editor, CLI, Repository, Review, and Scaffold are all real, live functions now - Review/Scaffold consolidated here per justjs#132 follow-up (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
+    tileLabel(developmentLive[0]) === "Editor" &&
+    tileLabel(developmentLive[1]) === "CLI" &&
+    tileLabel(developmentLive[2]) === "Repository" &&
+    tileLabel(developmentLive[3]) === "Review" &&
+    tileLabel(developmentLive[4]) === "Scaffold",
+  `Development's Editor, CLI, Repository, Review, and Scaffold are all real, live functions now - Review/Scaffold consolidated here per justjs#132 follow-up (found ${developmentLive.map(tileLabel).join(" | ")})`
 );
 assert(
-  developmentStubs.length === 0,
-  `Development has no stubs left - Repository is now real too (found ${developmentStubs.map((el) => el.textContent).join(" | ")})`
+  developmentLive.every((t) => !tileIsStub(t)),
+  `Development has no stubs left - Repository is now real too (found ${developmentLive.map(tileLabel).join(" | ")})`
 );
 assert(
-  [...document.querySelectorAll("#mount-workspace .workspace-function-label")].every((el) => el.textContent !== "Git"),
+  developmentLive.every((t) => tileLabel(t) !== "Git"),
   "Git no longer appears anywhere in the Workspace hub - it moved into Development's Repository, now a real connect screen"
 );
 developmentLive[0].click();
@@ -706,12 +725,12 @@ function designShadow() {
   return document.querySelector("control-design-generator")?.shadowRoot ?? null;
 }
 assert(designShadow() === null, "Design opens its own Architecture/Wireframes list first, not straight into the generator");
-const designFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const designFunctions = workspaceFunctionTiles();
 assert(
-  designFunctions.map((el) => el.querySelector(".workspace-function-label").textContent).join(",") === "Architecture,Wireframes",
-  `Architecture and Wireframes are both real, clickable entries (found ${designFunctions.map((el) => el.textContent).join(" | ")})`
+  designFunctions.map(tileLabel).join(",") === "Architecture,Wireframes",
+  `Architecture and Wireframes are both real, clickable entries (found ${designFunctions.map(tileLabel).join(" | ")})`
 );
-assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "neither is a stub - both are enabled by the one real capability, not replaced or left fake");
+assert(designFunctions.every((t) => !tileIsStub(t)), "neither is a stub - both are enabled by the one real capability, not replaced or left fake");
 
 designFunctions[0].click(); // Architecture
 await sleep(20);
@@ -780,7 +799,7 @@ assert(
 designShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(designShadow() === null, "the generator's own back button returns to Design's function list, not the Workspace overview");
-const designFunctionsAgain = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const designFunctionsAgain = workspaceFunctionTiles();
 assert(designFunctionsAgain.length === 2, "Architecture and Wireframes are both still there after backing out");
 designFunctionsAgain[1].click(); // Wireframes
 await sleep(20);
@@ -816,12 +835,12 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 clickWorkspaceOverviewTile("presentation");
 await sleep(20);
-const presentationFunctions = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const presentationFunctions = workspaceFunctionTiles();
 assert(
-  presentationFunctions.length === 1 && presentationFunctions[0].textContent.includes("Slides"),
-  `Presentation shows exactly one real function, Slides (found ${presentationFunctions.map((el) => el.textContent).join(" | ")})`
+  presentationFunctions.length === 1 && tileLabel(presentationFunctions[0]) === "Slides",
+  `Presentation shows exactly one real function, Slides (found ${presentationFunctions.map(tileLabel).join(" | ")})`
 );
-assert(document.querySelector("#mount-workspace .workspace-function-stub") === null, "Slides is real, not a stub");
+assert(presentationFunctions.every((t) => !tileIsStub(t)), "Slides is real, not a stub");
 
 // control-presentation-generator (justjs#123) owns its own Shadow DOM
 // too - same #slides-* -> shadowRoot traversal as Design above.
@@ -949,8 +968,8 @@ document.querySelector("#workspace-back-btn").click();
 await sleep(20);
 clickWorkspaceOverviewTile("development");
 await sleep(20);
-const developmentLiveForCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
-assert(developmentLiveForCli[1].textContent.includes("CLI"), "CLI is the second real, live function under Development");
+const developmentLiveForCli = workspaceFunctionTiles();
+assert(tileLabel(developmentLiveForCli[1]) === "CLI", "CLI is the second real, live function under Development");
 developmentLiveForCli[1].click();
 await sleep(20);
 // control-cli-terminal (justjs#122) owns its own Shadow DOM - every
@@ -1086,9 +1105,9 @@ assert(cliShadow().querySelectorAll("#transcript .cli-entry").length === 0, "cle
 // traversal to reach the real .back-btn.
 cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const developmentLiveAfterCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const developmentLiveAfterCli = workspaceFunctionTiles();
 assert(
-  developmentLiveAfterCli.length === 5 && developmentLiveAfterCli[1].textContent.includes("CLI"),
+  developmentLiveAfterCli.length === 5 && tileLabel(developmentLiveAfterCli[1]) === "CLI",
   "CLI's own back button returns to Development's function list, not the Workspace overview"
 );
 
@@ -1118,10 +1137,12 @@ assert(lastCliOutput() === cliCwdBeforeSwitch, "CLI's cwd also survives the tab 
 // Back to Development's function list before continuing to Repository
 // below - re-queried fresh since re-entering CLI above replaced the
 // previous function-list DOM (the earlier developmentLiveAfterCli
-// reference is now detached).
+// reference is now detached - GridView's own render() replaces its
+// shadow root's .tile children on every .items reassignment, same
+// "must re-query" caveat the old innerHTML rebuild had).
 cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
-const developmentLiveAfterCliSwitch = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
+const developmentLiveAfterCliSwitch = workspaceFunctionTiles();
 assert(developmentLiveAfterCliSwitch.length === 5, "Development's function list is real again after the keep-alive check");
 
 // Repository: a real, recognizable catalog (GitHub/GitLab/Bitbucket via
@@ -1197,7 +1218,7 @@ assert(
 document.getElementById("scm-header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 assert(
-  [...document.querySelectorAll("#mount-workspace .workspace-function-live")][2].textContent.includes("Repository"),
+  tileLabel(workspaceFunctionTiles()[2]) === "Repository",
   "the grid's own back button returns to Development's function list, not the Workspace overview"
 );
 
@@ -1212,7 +1233,7 @@ await sleep(20);
 // detail screen from before.
 clickWorkspaceOverviewTile("development");
 await sleep(20);
-[...document.querySelectorAll("#mount-workspace .workspace-function-live")][2].click();
+workspaceFunctionTiles()[2].click();
 await sleep(20);
 assert(
   scmConnectorShadow().querySelector("view-nav-header") === null,
