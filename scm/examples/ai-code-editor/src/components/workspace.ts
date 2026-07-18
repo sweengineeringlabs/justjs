@@ -600,7 +600,7 @@ function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly
 const SDLC_STAGES: readonly SdlcStage[] = [
   { key: "ideation", label: "Ideation", icon: "💡", functions: [{ label: "Chat", route: "/chat" }] },
   { key: "requirement", label: "Requirement", icon: "📋", functions: [{ label: "Specs", action: "pm-connect" }, { label: "User Stories", action: "pm-connect" }] },
-  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Scaffold", route: "/scaffold" }, { label: "Project Boards", action: "pm-connect" }] },
+  { key: "planning", label: "Planning", icon: "🗺️", functions: [{ label: "Project Boards", action: "pm-connect" }] },
   {
     key: "design",
     label: "Design",
@@ -614,9 +614,24 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "development",
     label: "Development",
     icon: "💻",
-    functions: [{ label: "Editor", route: "/editor" }, { label: "CLI", action: "cli" }, { label: "Repository", action: "scm-connect" }],
+    // justjs#132 follow-up: Review/Scaffold consolidated here per direct
+    // user request ("Editor, Review, Scaffold must go under Development
+    // workspace") - previously spread across Planning->Scaffold and
+    // Testing->Review. Testing's function list is genuinely empty now
+    // (it had only Review) rather than backfilled with an invented
+    // placeholder function. Editor/CLI/Repository stay first, in their
+    // original order - Review/Scaffold are appended rather than
+    // interleaved so existing index-based assertions on CLI/Repository
+    // don't shift.
+    functions: [
+      { label: "Editor", route: "/editor" },
+      { label: "CLI", action: "cli" },
+      { label: "Repository", action: "scm-connect" },
+      { label: "Review", route: "/review" },
+      { label: "Scaffold", route: "/scaffold" },
+    ],
   },
-  { key: "testing", label: "Testing", icon: "🧪", functions: [{ label: "Review", route: "/review" }] },
+  { key: "testing", label: "Testing", icon: "🧪", functions: [] },
   {
     key: "deployment",
     label: "Deployment",

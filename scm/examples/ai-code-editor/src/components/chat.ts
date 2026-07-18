@@ -62,7 +62,7 @@ export class ChatElement extends ChatBase {
         <input id="chat-image-input" type="file" data-part="image-input" accept="image/*" hidden />
         <button id="chat-image-btn" type="button" aria-label="Attach screenshot">📷</button>
         ${voiceSupported ? `<button id="chat-mic-btn" type="button" aria-label="Hold to speak">🎤</button>` : ""}
-        <button type="submit">Send</button>
+        <button type="submit" class="btn-primary">Send</button>
       </form>
     `;
     // Binds this.messages/this.messageInput/etc via real data-part

@@ -11,24 +11,27 @@ interface QuickAccessCard {
 // Same 3 groups the nav bar clusters into (justjs#132/#96 feature-
 // grouping pass) - Home is the umbrella entry point into all three, not
 // a 4th sibling of equal weight, so it links to the first route in each
-// group rather than duplicating every one of the 8 tabs here.
+// group rather than duplicating every one of the 8 tabs here. Develop
+// now routes to /chat, not /editor - Editor/Review/Scaffold moved under
+// Workspace -> Development (direct user request), leaving Chat as the
+// one standalone tool this card actually represents.
 const CARDS: readonly QuickAccessCard[] = [
   {
-    route: "/editor",
+    route: "/chat",
     title: "Develop",
-    description: "Edit, chat, review, and scaffold with AI assistance",
-    icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 5 2 10 7 15"/><polyline points="13 5 18 10 13 15"/></svg>`,
+    description: "Ask, debug, and iterate with your AI pair programmer",
+    icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h14a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H8l-4 3v-3H3a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"/></svg>`,
   },
   {
     route: "/workspace",
     title: "Workspace",
-    description: "Move through every stage of the SDLC, ideation to launch",
+    description: "Work on the go",
     icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="6" height="6" rx="1"/><rect x="11.5" y="2.5" width="6" height="6" rx="1"/><rect x="2.5" y="11.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/></svg>`,
   },
   {
     route: "/communication",
     title: "Connect",
-    description: "Link real Slack, Discord, Teams, social, and image providers",
+    description: "Stay connected, everywhere",
     icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><line x1="2.5" y1="10" x2="17.5" y2="10"/><path d="M10 2.5c2.2 2 3.4 4.7 3.4 7.5s-1.2 5.5-3.4 7.5c-2.2-2-3.4-4.7-3.4-7.5S7.8 4.5 10 2.5Z"/></svg>`,
   },
 ];
@@ -45,7 +48,7 @@ export class HomeElement extends HomeBase {
       <div class="home-hero" data-part="content">
         <div class="home-hero-mesh" aria-hidden="true"></div>
         <h2 class="home-hero-title">AI Code Editor</h2>
-        <p class="home-hero-tagline">Your AI-assisted engineering workspace</p>
+        <p class="home-hero-tagline">Code smarter. Ship faster.</p>
       </div>
       <div class="home-cards">
         ${CARDS.map(

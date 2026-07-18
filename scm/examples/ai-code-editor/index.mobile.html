@@ -13,7 +13,7 @@
         <div class="brand-mark"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 5 2 10 7 15"/><polyline points="13 5 18 10 13 15"/></svg></div>
         <div class="brand-text">
           <h1>AI Code Editor</h1>
-          <p class="brand-subtitle">Assisted by Claude</p>
+          <p class="brand-subtitle">Code smarter, ship faster</p>
         </div>
         <button id="settings-btn" type="button" aria-label="Settings"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.5"/><path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.4 4.6l-1.4 1.4M6 12.6l-1.4 1.4M15.4 15.4l-1.4-1.4M6 7.4 4.6 6"/></svg></button>
         <button id="theme-toggle-btn" type="button" aria-label="Toggle light/dark theme">
@@ -40,11 +40,12 @@
         <button class="nav-btn active" data-route="/home"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9.5 10 3l7 6.5"/><path d="M5 8v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8"/><path d="M8 17v-5h4v5"/></svg></span><span class="nav-label">Home</span></button>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
+      <!-- justjs#132 follow-up: Editor/Review/Scaffold are no longer
+           standalone tabs (direct user request) - they're reachable via
+           Workspace -> Development's function list instead. Chat is the
+           only tool left in this group. -->
       <div class="nav-group" data-group="develop">
-        <button class="nav-btn" data-route="/editor"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="7 5 2 10 7 15"/><polyline points="13 5 18 10 13 15"/></svg></span><span class="nav-label">Editor</span></button>
         <button class="nav-btn" data-route="/chat"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h14a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1H8l-4 3v-3H3a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"/></svg></span><span class="nav-label">Chat</span></button>
-        <button class="nav-btn" data-route="/review"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><line x1="17" y1="17" x2="13" y2="13"/></svg></span><span class="nav-label">Review</span></button>
-        <button class="nav-btn" data-route="/scaffold"><span class="nav-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5h6l4 4V17a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"/><line x1="10" y1="9.5" x2="10" y2="14.5"/><line x1="7.5" y1="12" x2="12.5" y2="12"/></svg></span><span class="nav-label">Scaffold</span></button>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group" data-group="workspace">
@@ -73,7 +74,7 @@
           <p class="settings-disclosure">Stored only on this device. Sent directly to Anthropic when you use AI features.</p>
           <input id="settings-api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
           <div class="settings-api-key-actions">
-            <button id="settings-api-key-save" type="button">Save</button>
+            <button id="settings-api-key-save" type="button" class="btn-primary">Save</button>
             <button id="settings-api-key-clear" type="button" class="btn-secondary">Clear</button>
           </div>
           <p id="settings-api-key-status" class="settings-api-key-status"></p>

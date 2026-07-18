@@ -479,7 +479,7 @@ body {
    workspace:1, connect:3) so tabs stay roughly equal width across
    groups. */
 .nav-group[data-group="home"] { flex: 1; }
-.nav-group[data-group="develop"] { flex: 4; }
+.nav-group[data-group="develop"] { flex: 1; }
 .nav-group[data-group="workspace"] { flex: 1; }
 .nav-group[data-group="connect"] { flex: 3; }
 
@@ -555,17 +555,30 @@ body {
     font-family: inherit;
   }
 
+  /* justjs#132 follow-up: every plain button defaulted to a solid,
+     full-saturation accent fill - correct feedback that this reads as
+     "too loud" once there are more than one or two of them on screen.
+     Restrained tinted style instead (--accent-soft + accent-colored
+     text, no solid fill) - .btn-primary opts back into a solid fill
+     for the few buttons that should genuinely stand out as the one
+     clear call to action on their screen (Send, Suggest, Save). */
   .btn,
   button {
     padding: 10px 18px;
-    border: none;
+    border: 1px solid transparent;
     border-radius: var(--radius-pill);
-    background: var(--accent);
-    color: var(--accent-text);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
     cursor: pointer;
     font-weight: 600;
     font-size: 14px;
-    transition: opacity 0.15s ease, transform 0.05s ease;
+    transition: opacity 0.15s ease, transform 0.05s ease, background 0.15s ease;
+  }
+
+  .btn-primary,
+  button.btn-primary {
+    background: var(--accent);
+    color: var(--accent-text);
   }
 }
 

@@ -92,10 +92,7 @@ document.body.innerHTML = `
       </div>
       <div class="nav-divider"></div>
       <div class="nav-group" data-group="develop">
-        <button class="nav-btn" data-route="/editor">Editor</button>
         <button class="nav-btn" data-route="/chat">Chat</button>
-        <button class="nav-btn" data-route="/review">Review</button>
-        <button class="nav-btn" data-route="/scaffold">Scaffold</button>
       </div>
       <div class="nav-divider"></div>
       <div class="nav-group" data-group="workspace">
@@ -108,6 +105,21 @@ document.body.innerHTML = `
         <button class="nav-btn" data-route="/cartoon">Cartoon</button>
       </div>
     </nav>
+    <!-- justjs#132 follow-up: Editor/Review/Scaffold are no longer
+         top-nav-reachable in real production markup (they moved under
+         Workspace -> Development, per direct user request) - the routes
+         themselves are still entirely real, so this test file still
+         needs a way to navigate straight to them without re-threading
+         hundreds of existing assertions through Workspace's function
+         list. These 3 stay as .nav-btn elements (goToRoute() doesn't
+         care whether its caller is a real nav tab or not) purely as
+         test-navigation hooks - not meant to represent visible
+         production UI, unlike every other .nav-btn in this fixture. -->
+    <div hidden>
+      <button class="nav-btn" data-route="/editor">Editor</button>
+      <button class="nav-btn" data-route="/review">Review</button>
+      <button class="nav-btn" data-route="/scaffold">Scaffold</button>
+    </div>
     <!-- data-ddas-id is stamped at runtime by the real bundle's stampMounts()
          call (src/mounts.gen.ts, justweb.toml's [mounts]), not seeded here -
          matches index.html, see justjs#95. -->
@@ -214,8 +226,8 @@ assert(homeHero && homeHero.textContent === "AI Code Editor", "Home's hero rende
 const homeCards = [...document.querySelectorAll("#mount-home .home-card")];
 assert(homeCards.length === 3, `Home has exactly 3 quick-access cards (found ${homeCards.length})`);
 assert(
-  homeCards.map((c) => c.dataset.route).join(",") === "/editor,/workspace,/communication",
-  "Home's cards point at the 3 real feature groups (Develop/Workspace/Connect)"
+  homeCards.map((c) => c.dataset.route).join(",") === "/chat,/workspace,/communication",
+  "Home's cards point at the 3 real feature groups (Develop/Workspace/Connect) - Develop routes to Chat now, Editor/Review/Scaffold moved under Workspace"
 );
 
 // Every navigation here - card clicks (navigateTo(), a dispatched
@@ -232,14 +244,16 @@ await sleep(20);
 assert(document.getElementById("mount-home").classList.contains("active"), "the Home nav tab navigates back to Home");
 document.querySelector("#mount-home .home-card").click();
 await sleep(20);
-assert(document.getElementById("mount-editor").classList.contains("active"), "clicking the Develop card (first card) navigates to Editor");
+assert(document.getElementById("mount-chat").classList.contains("active"), "clicking the Develop card (first card) navigates to Chat");
 
 document.querySelector('.nav-btn[data-route="/home"]').click();
 
 // 1b. Workspace hub proof - the widget-grid-then-drill-down SDLC hub.
-// Functions with a real backing tab (Ideation->Chat, Planning->Scaffold,
-// Development->Editor, Testing->Review) are live links; the rest are
-// honestly-labeled stubs, not fake-functional buttons.
+// Functions with a real backing tab (Ideation->Chat, Development->Editor/
+// Review/Scaffold) are live links; the rest are honestly-labeled stubs,
+// not fake-functional buttons. Editor/Review/Scaffold all live under
+// Development now (justjs#132 follow-up) - Planning no longer has
+// Scaffold and Testing has no functions at all.
 // WorkspaceElement's SDLC hub overview is migrated onto <view-grid>
 // (justjs#108) - the 9 stage tiles now live inside its shadow root as
 // data-id-tagged .tile buttons, not light-DOM [data-stage] elements.
@@ -405,10 +419,10 @@ clickWorkspaceOverviewTile("planning");
 await sleep(20);
 const planningLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
-  planningLive.length === 2 && planningLive[0].textContent.includes("Scaffold") && planningLive[1].textContent.includes("Project Boards"),
-  `Planning keeps its real Scaffold link and gains a real Project Boards entry (found ${planningLive.map((el) => el.textContent).join(" | ")})`
+  planningLive.length === 1 && planningLive[0].textContent.includes("Project Boards"),
+  `Planning has just Project Boards now - Scaffold moved to Development per justjs#132 follow-up (found ${planningLive.map((el) => el.textContent).join(" | ")})`
 );
-planningLive[1].click();
+planningLive[0].click();
 await sleep(20);
 assert(
   document.getElementById("pm-header").backLabel === "Planning",
@@ -647,11 +661,13 @@ await sleep(20);
 const developmentLive = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 const developmentStubs = [...document.querySelectorAll("#mount-workspace .workspace-function-stub")];
 assert(
-  developmentLive.length === 3 &&
+  developmentLive.length === 5 &&
     developmentLive[0].textContent.includes("Editor") &&
     developmentLive[1].textContent.includes("CLI") &&
-    developmentLive[2].textContent.includes("Repository"),
-  `Development's Editor, CLI, and Repository are all real, live functions now (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
+    developmentLive[2].textContent.includes("Repository") &&
+    developmentLive[3].textContent.includes("Review") &&
+    developmentLive[4].textContent.includes("Scaffold"),
+  `Development's Editor, CLI, Repository, Review, and Scaffold are all real, live functions now - Review/Scaffold consolidated here per justjs#132 follow-up (found ${developmentLive.map((el) => el.textContent).join(" | ")})`
 );
 assert(
   developmentStubs.length === 0,
@@ -1072,7 +1088,7 @@ cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click
 await sleep(20);
 const developmentLiveAfterCli = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
 assert(
-  developmentLiveAfterCli.length === 3 && developmentLiveAfterCli[1].textContent.includes("CLI"),
+  developmentLiveAfterCli.length === 5 && developmentLiveAfterCli[1].textContent.includes("CLI"),
   "CLI's own back button returns to Development's function list, not the Workspace overview"
 );
 
@@ -1106,7 +1122,7 @@ assert(lastCliOutput() === cliCwdBeforeSwitch, "CLI's cwd also survives the tab 
 cliShadow().querySelector("#header").shadowRoot.querySelector(".back-btn").click();
 await sleep(20);
 const developmentLiveAfterCliSwitch = [...document.querySelectorAll("#mount-workspace .workspace-function-live")];
-assert(developmentLiveAfterCliSwitch.length === 3, "Development's function list is real again after the keep-alive check");
+assert(developmentLiveAfterCliSwitch.length === 5, "Development's function list is real again after the keep-alive check");
 
 // Repository: a real, recognizable catalog (GitHub/GitLab/Bitbucket via
 // @justjs/scm-connect) - migrated onto <control-provider-connector>

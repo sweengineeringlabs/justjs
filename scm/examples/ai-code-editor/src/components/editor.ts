@@ -114,8 +114,8 @@ export class EditorElement extends EditorBase {
       <div class="editor-toolbar">
         <button id="sidebar-toggle-btn" type="button" title="Toggle file explorer">☰</button>
         <select id="editor-language" data-part="language-select"></select>
-        <button id="editor-suggest-btn" data-part="suggest-btn" type="button">✨ Suggest</button>
-        <button id="editor-review-btn" data-part="review-btn" type="button">🔍 Review</button>
+        <button id="editor-suggest-btn" data-part="suggest-btn" type="button" class="btn-primary">Suggest</button>
+        <button id="editor-review-btn" data-part="review-btn" type="button">Review</button>
       </div>
       <div class="editor-surface" data-part="surface">
         <div class="editor-sidebar">
