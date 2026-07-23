@@ -1,4 +1,8 @@
 export type {
+  AgentStepMessage,
+  AgentStepRequest,
+  AgentStepResult,
+  AgentToolDefinition,
   AiAssistProvider,
   AiAssistProviderConfig,
   ChatMessage,

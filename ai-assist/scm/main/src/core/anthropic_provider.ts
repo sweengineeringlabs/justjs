@@ -1,6 +1,9 @@
 import type { AspectTarget } from "@justjs/application";
 import type { ApiAdapter, ApiResponse } from "@justjs/transport";
 import type {
+  AgentStepMessage,
+  AgentStepRequest,
+  AgentStepResult,
   AiAssistProvider,
   AiAssistProviderConfig,
   ChatMessage,
@@ -48,6 +51,9 @@ const DESIGN_DOC_MAX_TOKENS = 4096;
 // so it isn't larger in practice than one design doc despite covering
 // several slides.
 const SLIDES_MAX_TOKENS = 4096;
+// Same tier as CHAT_MAX_TOKENS - one agent step is a short reply or one
+// tool call, never a whole-project generation.
+const AGENT_MAX_TOKENS = 4096;
 
 const REVIEW_TOOL_NAME = "report_findings";
 const PROJECT_TOOL_NAME = "report_project_files";
@@ -108,6 +114,10 @@ interface AnthropicTextBlock {
 
 interface AnthropicToolUseBlock {
   readonly type: "tool_use";
+  // Not read by review()/scaffoldProject() - neither ever sends a
+  // tool_result back, so nothing needs to correlate a tool_use with its
+  // result. agentStep()'s caller does, to build the next AgentStepMessage.
+  readonly id: string;
   readonly name: string;
   readonly input: unknown;
 }
@@ -183,6 +193,55 @@ function toAnthropicContent(source: { content: string; image?: ImageAttachment }
 
 function toAnthropicMessage(message: ChatMessage): { role: "user" | "assistant"; content: AnthropicContent } {
   return { role: message.role, content: toAnthropicContent(message) };
+}
+
+// Outbound shapes scoped to agentStep() only, kept separate from
+// AnthropicContent/toAnthropicMessage above so chat()/review()/
+// scaffold()/scaffoldProject() are untouched by this addition.
+interface OutboundAgentToolUseBlock {
+  readonly type: "tool_use";
+  readonly id: string;
+  readonly name: string;
+  readonly input: unknown;
+}
+
+interface OutboundAgentToolResultBlock {
+  readonly type: "tool_result";
+  readonly tool_use_id: string;
+  readonly content: string;
+  readonly is_error?: boolean;
+}
+
+type OutboundAgentContent = string | Array<OutboundTextBlock | OutboundAgentToolUseBlock>;
+
+interface OutboundAgentMessage {
+  readonly role: "user" | "assistant";
+  readonly content: OutboundAgentContent | OutboundAgentToolResultBlock[];
+}
+
+function toAnthropicAgentMessage(message: AgentStepMessage): OutboundAgentMessage {
+  if (message.role === "tool_result") {
+    return {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: message.toolUseId,
+          content: message.content,
+          ...(message.isError !== undefined ? { is_error: message.isError } : {}),
+        },
+      ],
+    };
+  }
+  if (message.role === "assistant" && message.toolUse) {
+    const blocks: Array<OutboundTextBlock | OutboundAgentToolUseBlock> = [];
+    if (message.content) {
+      blocks.push({ type: "text", text: message.content });
+    }
+    blocks.push({ type: "tool_use", id: message.toolUse.id, name: message.toolUse.name, input: message.toolUse.input });
+    return { role: "assistant", content: blocks };
+  }
+  return { role: message.role, content: message.content };
 }
 
 // Validated at this boundary, not left to the caller - unlike review()'s
@@ -369,6 +428,41 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
       messages: [{ role: "user", content: prompt }],
     });
     return this.firstText(response);
+  }
+
+  async agentStep(req: AgentStepRequest): Promise<AgentStepResult> {
+    const system =
+      `You are an autonomous coding agent working inside a browser-based code editor's own virtual ` +
+      `filesystem (not a real OS). The user's current buffer${req.language ? ` (${req.language})` : ""} ` +
+      `is:\n\n${req.code}\n\nYou have tools to read files, list files, run a small set of shell-like ` +
+      `commands, and write files. File-mutating actions require the user's explicit confirmation before ` +
+      `they take effect - if a mutating tool call is denied, adapt your plan instead of repeating the ` +
+      `same call. Work in small, verifiable steps and give a final plain-text answer (no further tool ` +
+      `call) once the task is done or you need more information from the user.`;
+    const response = await this.send({
+      model: this.capableModel,
+      max_tokens: AGENT_MAX_TOKENS,
+      system,
+      messages: req.messages.map(toAnthropicAgentMessage),
+      tools: req.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema })),
+      // "auto", not forced - the model must be free to just answer in text
+      // once it's done. disable_parallel_tool_use caps a response at ONE
+      // tool_use block - the caller's confirm-before-apply flow depends on
+      // there only ever being one pending tool call at a time.
+      tool_choice: { type: "auto", disable_parallel_tool_use: true },
+    });
+    if (response.stop_reason === "refusal") {
+      throw new AiAssistProviderError("REFUSED", "Claude declined to continue this step");
+    }
+    if (response.stop_reason === "max_tokens") {
+      return { kind: "max_tokens" };
+    }
+    const toolUse = response.content.find(isToolUseBlock);
+    if (toolUse) {
+      const text = this.firstText(response);
+      return { kind: "tool_call", ...(text ? { text } : {}), toolCall: { id: toolUse.id, name: toolUse.name, input: toolUse.input } };
+    }
+    return { kind: "text", text: this.firstText(response) };
   }
 
   private firstText(response: AnthropicMessageResponse): string {

@@ -78,6 +78,51 @@ export interface SlidesRequest {
   readonly description: string;
 }
 
+// A tool an agentic caller wants Claude to be able to invoke - pure JSON
+// Schema, no app-specific typing. This package never knows what "read_file"
+// or "write_file" mean; the caller supplies the schema and interprets the
+// resulting input itself (agentStep()'s own doc comment explains why).
+export interface AgentToolDefinition {
+  readonly name: string;
+  readonly description: string;
+  readonly inputSchema: Record<string, unknown>;
+}
+
+// One entry in an agentic conversation's replayed history. "assistant"
+// carries an optional toolUse when that turn proposed a tool call (needed
+// so a later agentStep() call can replay it back to Anthropic verbatim).
+// "tool_result" is the caller's synthesized reply to that tool call -
+// either the real tool output or a user-denial message - and must always
+// correlate to a toolUse.id from an earlier assistant entry.
+export type AgentStepMessage =
+  | { readonly role: "user"; readonly content: string }
+  | {
+      readonly role: "assistant";
+      readonly content: string;
+      readonly toolUse?: { readonly id: string; readonly name: string; readonly input: unknown };
+    }
+  | { readonly role: "tool_result"; readonly toolUseId: string; readonly content: string; readonly isError?: boolean };
+
+export interface AgentStepRequest {
+  readonly code: string;
+  readonly language?: string;
+  readonly tools: AgentToolDefinition[];
+  readonly messages: AgentStepMessage[];
+}
+
+// One round-trip's outcome. "tool_call" is capped at a single pending tool
+// call per step (agentStep() sends disable_parallel_tool_use so this is a
+// structural guarantee, not just the common case) - a caller never has to
+// reason about more than one pending tool call at a time.
+export type AgentStepResult =
+  | { readonly kind: "text"; readonly text: string }
+  | {
+      readonly kind: "tool_call";
+      readonly text?: string;
+      readonly toolCall: { readonly id: string; readonly name: string; readonly input: unknown };
+    }
+  | { readonly kind: "max_tokens" };
+
 export interface AiAssistProvider {
   readonly concern: "aiAssist";
   readonly strategy: string;
@@ -102,6 +147,15 @@ export interface AiAssistProvider {
   // needs terse per-slide bullets rather than document prose, and a
   // diagram is optional per slide rather than mandatory once overall.
   generateSlides(req: SlidesRequest): Promise<string>;
+  // Unlike every other method here, this is ONE round-trip of a caller-
+  // driven agentic loop, not a complete request/response. The caller owns:
+  // looping while result.kind === "tool_call", executing the tool (or
+  // pausing for user confirmation before a mutating one), appending the
+  // outcome as the next AgentStepMessage, and enforcing a max-iteration
+  // bound - this method has no iteration cap or tool-execution knowledge of
+  // its own and will call Anthropic exactly once per invocation, forever,
+  // if the caller keeps calling it.
+  agentStep(req: AgentStepRequest): Promise<AgentStepResult>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)` call
   // for every concern actually listed in the `aspects` config it's given
   // (application/scm/main/src/core/boot.ts) - aiAssist isn't a

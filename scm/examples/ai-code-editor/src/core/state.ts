@@ -12,6 +12,21 @@ export interface ChatUiMessage {
   imageDataUrl?: string;
 }
 
+export type AgentToolName = "read_file" | "write_file" | "list_files" | "run_command";
+
+// A richer discriminated union than ChatUiMessage, deliberately kept
+// separate rather than widening it - tool_call/tool_result/stopped are
+// concepts plain chat has no use for, and scaffold.ts already sets the
+// precedent of keeping two modes' result state fully separate rather than
+// merging them into one shape.
+export type AgentUiMessage =
+  | { kind: "user"; text: string; ts: number }
+  | { kind: "assistant"; text: string; ts: number }
+  | { kind: "tool_call"; id: string; tool: AgentToolName; input: Record<string, unknown>; text?: string; ts: number }
+  | { kind: "tool_result"; toolCallId: string; text: string; isError: boolean; denied?: boolean; ts: number }
+  | { kind: "error"; text: string; ts: number }
+  | { kind: "stopped"; ts: number };
+
 export interface AppState {
   files: FileMap;
   emptyFolders: string[];
@@ -23,6 +38,11 @@ export interface AppState {
   // whatever's currently active is still the reviewed file.
   reviewedFilePath: string | null;
   chatMessages: ChatUiMessage[];
+  // Not persisted, same as chatMessages - an in-progress agent
+  // conversation resetting on reload is already this app's existing
+  // behavior for plain chat, and avoids ever persisting a stale,
+  // unresolved pending-confirmation.
+  agentMessages: AgentUiMessage[];
 }
 
 export type AppAction =
@@ -36,7 +56,8 @@ export type AppAction =
   | { type: "DELETE_PATH"; path: string; isFolder: boolean }
   | { type: "REPLACE_PROJECT"; files: FileMap; emptyFolders: string[]; activeFilePath: string | null }
   | { type: "SET_REVIEW_FINDINGS"; findings: ReviewFinding[]; reviewedFilePath: string }
-  | { type: "CHAT_APPEND"; message: ChatUiMessage };
+  | { type: "CHAT_APPEND"; message: ChatUiMessage }
+  | { type: "AGENT_APPEND"; message: AgentUiMessage };
 
 const STARTER_FILES: FileMap = {
   "src/main.js": {
@@ -61,6 +82,7 @@ function defaultState(): AppState {
     reviewFindings: [],
     reviewedFilePath: null,
     chatMessages: [],
+    agentMessages: [],
   };
 }
 
@@ -96,6 +118,7 @@ export function loadInitialState(): AppState {
       reviewFindings: [],
       reviewedFilePath: null,
       chatMessages: [],
+      agentMessages: [],
     };
   } catch {
     return defaultState();
@@ -266,6 +289,9 @@ export function reducer(state: AppState, action: AppAction): AppState {
 
     case "CHAT_APPEND":
       return { ...state, chatMessages: [...state.chatMessages, action.message] };
+
+    case "AGENT_APPEND":
+      return { ...state, agentMessages: [...state.agentMessages, action.message] };
 
     default:
       return state;

@@ -62,7 +62,10 @@ function promptPath(cwd: string): string {
   return cwd ? `/${cwd}` : "/";
 }
 
-function findChildren(nodes: TreeNode[], dir: string): TreeNode[] | null {
+// Exported for core/agent_loop.ts's list_files tool - walking the tree
+// directly is more robust than re-tokenizing a synthetic "ls <path>"
+// string through runCliCommand, which would break on paths with spaces.
+export function findChildren(nodes: TreeNode[], dir: string): TreeNode[] | null {
   if (dir === "") {
     return nodes;
   }

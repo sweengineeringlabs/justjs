@@ -380,6 +380,114 @@ describe("AnthropicAiAssistProvider.scaffoldProject()", () => {
   });
 });
 
+describe("AnthropicAiAssistProvider.agentStep()", () => {
+  const READ_FILE_TOOL = { name: "read_file", description: "Read a file.", inputSchema: { type: "object", properties: { path: { type: "string" } } } };
+
+  it("test_agentStep_sends_tools_with_tool_choice_auto_and_disable_parallel_tool_use", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("Here's what I found."));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    await provider.agentStep({
+      code: "const x = 1;",
+      tools: [READ_FILE_TOOL],
+      messages: [{ role: "user", content: "read main.js" }],
+    });
+
+    const body = fake.calls[0]!.body as { tool_choice: unknown; tools: Array<{ name: string; input_schema: unknown }> };
+    expect(body.tool_choice).toEqual({ type: "auto", disable_parallel_tool_use: true });
+    expect(body.tools).toEqual([{ name: "read_file", description: "Read a file.", input_schema: READ_FILE_TOOL.inputSchema }]);
+  });
+
+  it("test_agentStep_returns_tool_call_kind_with_id_name_input_when_response_has_a_tool_use_block", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: {
+        content: [
+          { type: "text", text: "I'll read that file first." },
+          { type: "tool_use", id: "toolu_1", name: "read_file", input: { path: "main.js" } },
+        ],
+      },
+    }));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const result = await provider.agentStep({
+      code: "",
+      tools: [READ_FILE_TOOL],
+      messages: [{ role: "user", content: "read main.js" }],
+    });
+
+    expect(result).toEqual({
+      kind: "tool_call",
+      text: "I'll read that file first.",
+      toolCall: { id: "toolu_1", name: "read_file", input: { path: "main.js" } },
+    });
+  });
+
+  it("test_agentStep_returns_text_kind_when_response_has_no_tool_use_block", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("All done, no changes needed."));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const result = await provider.agentStep({ code: "", tools: [READ_FILE_TOOL], messages: [{ role: "user", content: "hi" }] });
+
+    expect(result).toEqual({ kind: "text", text: "All done, no changes needed." });
+  });
+
+  it("test_agentStep_returns_max_tokens_kind_and_does_not_throw", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({ status: 200, headers: {}, data: { stop_reason: "max_tokens", content: [{ type: "text", text: "cut off" }] } }));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const result = await provider.agentStep({ code: "", tools: [], messages: [{ role: "user", content: "hi" }] });
+
+    expect(result).toEqual({ kind: "max_tokens" });
+  });
+
+  it("test_agentStep_throws_AiAssistProviderError_on_refusal_stop_reason", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({ status: 200, headers: {}, data: { stop_reason: "refusal", content: [] } }));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    await expect(provider.agentStep({ code: "", tools: [], messages: [{ role: "user", content: "hi" }] })).rejects.toThrow(
+      AiAssistProviderError
+    );
+  });
+
+  it("test_agentStep_a_tool_result_message_serializes_as_a_user_role_tool_result_content_block", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { content: [{ type: "tool_use", id: "toolu_1", name: "read_file", input: { path: "main.js" } }] },
+    }));
+    fake.queueResponse(async () => textResponse("main.js contains a single console.log."));
+    const provider = new AnthropicAiAssistProvider({ apiKey: "k" }, fake);
+
+    const first = await provider.agentStep({ code: "", tools: [READ_FILE_TOOL], messages: [{ role: "user", content: "read main.js" }] });
+    expect(first.kind).toBe("tool_call");
+    const toolCall = (first as { toolCall: { id: string; name: string; input: unknown } }).toolCall;
+
+    await provider.agentStep({
+      code: "",
+      tools: [READ_FILE_TOOL],
+      messages: [
+        { role: "user", content: "read main.js" },
+        { role: "assistant", content: "", toolUse: toolCall },
+        { role: "tool_result", toolUseId: toolCall.id, content: "console.log('hi');", isError: false },
+      ],
+    });
+
+    const secondBody = fake.calls[1]!.body as { messages: Array<{ role: string; content: unknown }> };
+    expect(secondBody.messages[2]).toEqual({
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "console.log('hi');", is_error: false }],
+    });
+  });
+});
+
 describe("AnthropicAiAssistProvider error handling", () => {
   it("test_anthropic_error_body_message_is_surfaced_over_the_generic_status_text", async () => {
     const fake = new FakeApiAdapter();

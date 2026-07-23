@@ -27,7 +27,7 @@ const ROUTES: ResolvedRoute[] = [
   {
     "path": "/chat",
     "tag": "js-chat",
-    "children": "       <p data-part=\"context-label\"></p>\n       <p data-part=\"image-error\"></p>\n       <input data-part=\"image-input\">\n       <div data-part=\"image-preview\"></div>\n       <img data-part=\"image-thumb\">\n       <input data-part=\"message-input\">\n       <div data-part=\"messages\"></div>\n"
+    "children": "       <div data-part=\"agent-confirm\"></div>\n       <p data-part=\"agent-confirm-message\"></p>\n       <div data-part=\"agent-messages\"></div>\n       <button data-part=\"agent-stop-btn\"></button>\n       <p data-part=\"context-label\"></p>\n       <p data-part=\"image-error\"></p>\n       <input data-part=\"image-input\">\n       <div data-part=\"image-preview\"></div>\n       <img data-part=\"image-thumb\">\n       <input data-part=\"message-input\">\n       <div data-part=\"messages\"></div>\n       <view-toggle data-part=\"mode-toggle\"></view-toggle>\n"
   },
   {
     "path": "/review",

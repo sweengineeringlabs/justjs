@@ -13,6 +13,34 @@ export class ChatBase extends HTMLElement {
   // freeze attributes/children/listeners on what the getter returns.
   #root!: HTMLElement;
   get root(): HTMLElement { return this.#root; }
+  #agentConfirm!: HTMLDivElement;
+  get agentConfirm(): HTMLDivElement {
+    if (!this.#agentConfirm) {
+      throw new Error(`[justweb] 'agentConfirm' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#agentConfirm;
+  }
+  #agentConfirmMessage!: HTMLParagraphElement;
+  get agentConfirmMessage(): HTMLParagraphElement {
+    if (!this.#agentConfirmMessage) {
+      throw new Error(`[justweb] 'agentConfirmMessage' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#agentConfirmMessage;
+  }
+  #agentMessages!: HTMLDivElement;
+  get agentMessages(): HTMLDivElement {
+    if (!this.#agentMessages) {
+      throw new Error(`[justweb] 'agentMessages' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#agentMessages;
+  }
+  #agentStopBtn!: HTMLButtonElement;
+  get agentStopBtn(): HTMLButtonElement {
+    if (!this.#agentStopBtn) {
+      throw new Error(`[justweb] 'agentStopBtn' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#agentStopBtn;
+  }
   #contextLabel!: HTMLParagraphElement;
   get contextLabel(): HTMLParagraphElement {
     if (!this.#contextLabel) {
@@ -62,6 +90,13 @@ export class ChatBase extends HTMLElement {
     }
     return this.#messages;
   }
+  #modeToggle!: HTMLElement;
+  get modeToggle(): HTMLElement {
+    if (!this.#modeToggle) {
+      throw new Error(`[justweb] 'modeToggle' accessed before _bindElements() found it - check your markup has the matching [data-part] hook, or that this ran after connectedCallback`);
+    }
+    return this.#modeToggle;
+  }
 
   // ── Deferred-bind observer ──────────────────────────
   private _lightDomObserver: MutationObserver | null = null;
@@ -108,6 +143,34 @@ export class ChatBase extends HTMLElement {
   }
 
   private _bindElements(): void {
+    if (!this.#agentConfirm) {
+      const __el = this.querySelector('[data-part="agent-confirm"]') as HTMLDivElement | null;
+      if (__el) {
+        this.#agentConfirm = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:agent-confirm');
+      }
+    }
+    if (!this.#agentConfirmMessage) {
+      const __el = this.querySelector('[data-part="agent-confirm-message"]') as HTMLParagraphElement | null;
+      if (__el) {
+        this.#agentConfirmMessage = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:agent-confirm-message');
+      }
+    }
+    if (!this.#agentMessages) {
+      const __el = this.querySelector('[data-part="agent-messages"]') as HTMLDivElement | null;
+      if (__el) {
+        this.#agentMessages = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:agent-messages');
+      }
+    }
+    if (!this.#agentStopBtn) {
+      const __el = this.querySelector('[data-part="agent-stop-btn"]') as HTMLButtonElement | null;
+      if (__el) {
+        this.#agentStopBtn = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:agent-stop-btn');
+      }
+    }
     if (!this.#contextLabel) {
       const __el = this.querySelector('[data-part="context-label"]') as HTMLParagraphElement | null;
       if (__el) {
@@ -157,10 +220,17 @@ export class ChatBase extends HTMLElement {
         __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:messages');
       }
     }
+    if (!this.#modeToggle) {
+      const __el = this.querySelector('[data-part="mode-toggle"]') as HTMLElement | null;
+      if (__el) {
+        this.#modeToggle = __el;
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:chat:chat:mode-toggle');
+      }
+    }
   }
 
   private _hasAllElements(): boolean {
-    return !!this.#contextLabel && !!this.#imageError && !!this.#imageInput && !!this.#imagePreview && !!this.#imageThumb && !!this.#messageInput && !!this.#messages;
+    return !!this.#agentConfirm && !!this.#agentConfirmMessage && !!this.#agentMessages && !!this.#agentStopBtn && !!this.#contextLabel && !!this.#imageError && !!this.#imageInput && !!this.#imagePreview && !!this.#imageThumb && !!this.#messageInput && !!this.#messages && !!this.#modeToggle;
   }
 
   private _watchDdasIntegrity(): void {

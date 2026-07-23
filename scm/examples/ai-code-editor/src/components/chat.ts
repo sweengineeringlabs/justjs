@@ -1,10 +1,13 @@
 import type { FeatureStore } from "@justjs/data";
-import type { ImageAttachment } from "@justjs/ai-assist";
-import type { AppState, AppAction, ChatUiMessage } from "../core/state.js";
+import type { AgentStepResult, ImageAttachment } from "@justjs/ai-assist";
+import type { AgentToolName, AgentUiMessage, AppState, AppAction, ChatUiMessage } from "../core/state.js";
 import { getAiAssistProvider } from "../core/ai_assist.js";
+import { AGENT_TOOLS, MAX_AGENT_ITERATIONS, executeAgentTool, toAgentStepHistory } from "../core/agent_loop.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
 import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
 import type { VoicePromptHandle } from "../core/speech.js";
+import "@justjs/component-view";
+import type { ToggleView } from "@justjs/component-view";
 import { ChatBase } from "../features/chat/chat_component.gen.js";
 
 function escapeHtml(text: string): string {
@@ -38,10 +41,31 @@ export class ChatElement extends ChatBase {
   private pendingImage: ImageAttachment | null = null;
   private pendingImageDataUrl: string | null = null;
 
+  // Agent mode (justjs#134) - a multi-step tool-use loop layered on top
+  // of the same store/transcript pattern plain chat uses, but with its
+  // own separate AppState.agentMessages slice (see core/state.ts's
+  // AgentUiMessage doc comment for why it isn't merged into
+  // chatMessages) and its own confirm-before-apply gate for anything
+  // that mutates files.
+  private mode: "chat" | "agent" = "chat";
+  private agentPhase: "idle" | "running" | "awaiting-confirmation" = "idle";
+  private agentStopRequested = false;
+  // A field, not a local loop variable - must survive a confirm/deny
+  // pause (a fresh continueAgentLoop() call resuming after one) without
+  // resetting to 0, or the MAX_AGENT_ITERATIONS cap would never bind on
+  // any turn with more than one mutating step.
+  private agentIterationCount = 0;
+  private agentCwd = "";
+  private pendingAgentTool: { toolCallId: string; action: AppAction; summary: string } | null = null;
+  private sendBtn!: HTMLButtonElement;
+
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
     this.unsubscribe?.();
     this.store = ctx?.store;
-    const render = () => this.renderMessages();
+    const render = () => {
+      this.renderMessages();
+      this.renderAgentMessages();
+    };
     render();
     this.unsubscribe = this.store?.subscribe(render);
   }
@@ -49,7 +73,16 @@ export class ChatElement extends ChatBase {
   connectedCallback(): void {
     const voiceSupported = isVoicePromptSupported();
     this.innerHTML = `
+      <view-toggle id="chat-mode-toggle" data-part="mode-toggle"></view-toggle>
       <div id="chat-messages" data-part="messages"></div>
+      <div id="chat-agent-messages" class="chat-agent-messages" data-part="agent-messages" hidden></div>
+      <div id="chat-agent-confirm" class="scaffold-replace-confirm" data-part="agent-confirm" hidden>
+        <p id="chat-agent-confirm-message" data-part="agent-confirm-message"></p>
+        <div class="scaffold-replace-actions">
+          <button id="chat-agent-confirm-btn" type="button">Confirm</button>
+          <button id="chat-agent-deny-btn" type="button" class="btn-secondary">Deny</button>
+        </div>
+      </div>
       <p id="chat-context-label" class="chat-context-label" data-part="context-label"></p>
       <div id="chat-image-preview" class="attach-image-preview" data-part="image-preview" hidden>
         <img id="chat-image-thumb" data-part="image-thumb" alt="Attached screenshot" />
@@ -62,7 +95,8 @@ export class ChatElement extends ChatBase {
         <input id="chat-image-input" type="file" data-part="image-input" accept="image/*" hidden />
         <button id="chat-image-btn" type="button" aria-label="Attach screenshot">📷</button>
         ${voiceSupported ? `<button id="chat-mic-btn" type="button" aria-label="Hold to speak">🎤</button>` : ""}
-        <button type="submit" class="btn-primary">Send</button>
+        <button id="chat-agent-stop-btn" type="button" class="btn-secondary" data-part="agent-stop-btn" hidden>Stop</button>
+        <button id="chat-send-btn" type="submit" class="btn-primary">Send</button>
       </form>
     `;
     // Binds this.messages/this.messageInput/etc via real data-part
@@ -70,6 +104,8 @@ export class ChatElement extends ChatBase {
     // ChatBase's own connectedCallback() calls _bindElements()
     // synchronously.
     super.connectedCallback();
+
+    this.sendBtn = this.querySelector<HTMLButtonElement>("#chat-send-btn")!;
 
     this.querySelector("#chat-form")?.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -80,10 +116,25 @@ export class ChatElement extends ChatBase {
     this.imageInput.addEventListener("change", () => void this.handleImageSelected(this.imageInput));
     this.querySelector("#chat-image-remove")?.addEventListener("click", () => this.clearPendingImage());
 
+    const modeToggle = this.modeToggle as ToggleView;
+    modeToggle.options = [
+      { value: "chat", label: "Chat" },
+      { value: "agent", label: "Agent" },
+    ];
+    modeToggle.activeValue = "chat";
+    modeToggle.addEventListener("change", (e) => {
+      this.setMode((e as CustomEvent<{ value: "chat" | "agent" }>).detail.value);
+    });
+    this.querySelector("#chat-agent-confirm-btn")?.addEventListener("click", () => this.handleConfirmAgentTool());
+    this.querySelector("#chat-agent-deny-btn")?.addEventListener("click", () => this.handleDenyAgentTool());
+    this.agentStopBtn.addEventListener("click", () => this.handleStopAgentLoop());
+
     if (voiceSupported) {
       this.setupVoicePrompt();
     }
     this.renderMessages();
+    this.renderAgentMessages();
+    this.updateAgentControls();
   }
 
   disconnectedCallback(): void {
@@ -224,7 +275,273 @@ export class ChatElement extends ChatBase {
     this.contextLabel.textContent = state?.activeFilePath ? `Context: ${state.activeFilePath}` : "Context: no file open";
   }
 
+  // Mode switching is only reachable while idle - updateAgentControls()
+  // disables the toggle itself whenever a loop is running or awaiting
+  // confirmation, so this guard is a backstop, not the primary gate.
+  private setMode(mode: "chat" | "agent"): void {
+    if (this.agentPhase !== "idle") {
+      (this.modeToggle as ToggleView).activeValue = this.mode;
+      return;
+    }
+    this.mode = mode;
+    (this.modeToggle as ToggleView).activeValue = mode;
+    this.messages.hidden = mode !== "chat";
+    this.agentMessages.hidden = mode !== "agent";
+    this.querySelector<HTMLElement>("#chat-image-btn")!.hidden = mode !== "chat";
+    const micBtn = this.querySelector<HTMLButtonElement>("#chat-mic-btn");
+    if (micBtn) {
+      micBtn.hidden = mode !== "chat";
+    }
+    if (mode === "agent") {
+      this.clearPendingImage();
+    }
+  }
+
+  private renderAgentMessages(): void {
+    // Same isConnected guard as renderMessages() - see its comment.
+    if (!this.isConnected) {
+      return;
+    }
+    const state = this.store?.state.value;
+    const messages = state?.agentMessages ?? [];
+    this.agentMessages.innerHTML = messages.map((m) => this.renderAgentMessage(m)).join("");
+    this.agentMessages.scrollTop = this.agentMessages.scrollHeight;
+  }
+
+  private renderAgentMessage(m: AgentUiMessage): string {
+    switch (m.kind) {
+      case "user":
+        return `<div class="chat-message user">${escapeHtml(m.text)}</div>`;
+      case "assistant":
+      case "error":
+        return `<div class="chat-message assistant">${escapeHtml(m.text)}</div>`;
+      case "tool_call": {
+        const suffix = m.text ? ` — ${escapeHtml(m.text)}` : "";
+        return `<div class="agent-step">🔧 ${escapeHtml(m.tool)}(${escapeHtml(JSON.stringify(m.input))})${suffix}</div>`;
+      }
+      case "tool_result":
+        if (m.denied) {
+          return `<div class="agent-step agent-step-error">🚫 Denied</div>`;
+        }
+        if (m.isError) {
+          return `<div class="agent-step agent-step-error">⚠️ ${escapeHtml(m.text)}</div>`;
+        }
+        return `<div class="agent-step">✅ ${escapeHtml(m.text)}</div>`;
+      case "stopped":
+        return `<div class="agent-step agent-step-stopped">⏹ Stopped</div>`;
+    }
+  }
+
+  private appendAgentMessage(message: AgentUiMessage): void {
+    this.store?.dispatch({ type: "AGENT_APPEND", message });
+  }
+
+  private updateAgentControls(): void {
+    const busy = this.mode === "agent" && this.agentPhase !== "idle";
+    this.agentStopBtn.hidden = this.agentPhase === "idle";
+    this.agentStopBtn.textContent = this.agentStopRequested ? "Stopping…" : "Stop";
+    this.agentStopBtn.disabled = this.agentStopRequested;
+    this.messageInput.disabled = busy;
+    this.sendBtn.disabled = busy;
+    this.modeToggle.classList.toggle("chat-mode-toggle-disabled", this.agentPhase !== "idle");
+  }
+
+  private async handleAgentSubmit(): Promise<void> {
+    const input = this.messageInput;
+    const text = input.value.trim();
+    if (!text || !this.store || this.agentPhase !== "idle") {
+      return;
+    }
+    input.value = "";
+    this.agentIterationCount = 0;
+    this.agentStopRequested = false;
+    this.agentCwd = "";
+    this.appendAgentMessage({ kind: "user", text, ts: Date.now() });
+    this.agentPhase = "running";
+    this.updateAgentControls();
+    await this.continueAgentLoop();
+  }
+
+  // The loop driver - one iteration is one agentStep() round-trip. Runs
+  // while agentPhase === "running", pausing (via an early return, not a
+  // recursive call) the moment a tool call needs user confirmation. The
+  // Stop control and the MAX_AGENT_ITERATIONS cap are both checked at the
+  // top of every iteration, matching this app's "no unbounded loops" rule
+  // and the "Stop can't cancel an in-flight request, only the next one"
+  // interpretation the plan settled on (no AbortController anywhere in
+  // this codebase's fetch layer).
+  private async continueAgentLoop(): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+    while (this.agentPhase === "running") {
+      if (this.agentStopRequested) {
+        this.appendAgentMessage({ kind: "stopped", ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+      if (this.agentIterationCount >= MAX_AGENT_ITERATIONS) {
+        this.appendAgentMessage({ kind: "error", text: `⚠️ Reached the ${MAX_AGENT_ITERATIONS}-step limit for this turn.`, ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+      this.agentIterationCount += 1;
+
+      const provider = getAiAssistProvider();
+      if (!provider) {
+        this.appendAgentMessage({ kind: "error", text: "⚠️ Add an Anthropic API key in Settings to use Agent mode.", ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+
+      const state = this.store.state.value;
+      const activeFile = state.activeFilePath ? state.files[state.activeFilePath] : undefined;
+      let result: AgentStepResult;
+      try {
+        result = await provider.agentStep({
+          code: activeFile?.content ?? "",
+          ...(activeFile?.language !== undefined ? { language: activeFile.language } : {}),
+          tools: AGENT_TOOLS,
+          messages: toAgentStepHistory(this.store.state.value.agentMessages),
+        });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        this.appendAgentMessage({ kind: "error", text: `⚠️ ${message}`, ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+
+      if (result.kind === "text") {
+        this.appendAgentMessage({ kind: "assistant", text: result.text, ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+      if (result.kind === "max_tokens") {
+        this.appendAgentMessage({ kind: "error", text: "⚠️ The model's response was cut off before finishing this step.", ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+
+      const { toolCall } = result;
+      this.appendAgentMessage({
+        kind: "tool_call",
+        id: toolCall.id,
+        tool: toolCall.name as AgentToolName,
+        input: (toolCall.input ?? {}) as Record<string, unknown>,
+        ...(result.text ? { text: result.text } : {}),
+        ts: Date.now(),
+      });
+
+      const freshState = this.store.state.value;
+      const outcome = executeAgentTool(toolCall.name, toolCall.input, freshState.files, freshState.emptyFolders, this.agentCwd);
+
+      if (outcome.kind === "immediate") {
+        if (outcome.cwd !== undefined) {
+          this.agentCwd = outcome.cwd;
+        }
+        this.appendAgentMessage({ kind: "tool_result", toolCallId: toolCall.id, text: outcome.output, isError: outcome.isError, ts: Date.now() });
+        continue;
+      }
+
+      // needs_confirm - pause here. The invariant that must hold from
+      // this point on: this tool_use must get a matching tool_result
+      // (Confirm, Deny, or Stop-while-awaiting all provide one) before
+      // the next agentStep() call, or that call sends Anthropic an
+      // invalid message sequence.
+      if (this.agentStopRequested) {
+        // Stop was clicked while this round-trip was already in flight,
+        // and it came back wanting to mutate a file - honor the stop
+        // instead of surfacing a new confirm prompt the user already
+        // asked to be done with. Still resolves the dangling tool_use
+        // (as a denial) rather than abandoning it.
+        this.appendAgentMessage({
+          kind: "tool_result",
+          toolCallId: toolCall.id,
+          text: "User denied this action.",
+          isError: true,
+          denied: true,
+          ts: Date.now(),
+        });
+        this.appendAgentMessage({ kind: "stopped", ts: Date.now() });
+        this.agentPhase = "idle";
+        this.updateAgentControls();
+        return;
+      }
+      this.pendingAgentTool = { toolCallId: toolCall.id, action: outcome.action, summary: outcome.summary };
+      this.agentPhase = "awaiting-confirmation";
+      this.agentConfirmMessage.textContent = outcome.summary;
+      this.agentConfirm.hidden = false;
+      this.updateAgentControls();
+      return;
+    }
+  }
+
+  private clearPendingAgentTool(): void {
+    this.pendingAgentTool = null;
+    this.agentConfirm.hidden = true;
+  }
+
+  private handleConfirmAgentTool(): void {
+    if (!this.pendingAgentTool || !this.store) {
+      return;
+    }
+    const { toolCallId, action, summary } = this.pendingAgentTool;
+    this.store.dispatch(action);
+    this.appendAgentMessage({ kind: "tool_result", toolCallId, text: `${summary} — done.`, isError: false, ts: Date.now() });
+    this.clearPendingAgentTool();
+    this.resumeAfterConfirmation();
+  }
+
+  private handleDenyAgentTool(): void {
+    if (!this.pendingAgentTool) {
+      return;
+    }
+    const { toolCallId } = this.pendingAgentTool;
+    this.appendAgentMessage({ kind: "tool_result", toolCallId, text: "User denied this action.", isError: true, denied: true, ts: Date.now() });
+    this.clearPendingAgentTool();
+    this.resumeAfterConfirmation();
+  }
+
+  private resumeAfterConfirmation(): void {
+    if (this.agentStopRequested) {
+      this.appendAgentMessage({ kind: "stopped", ts: Date.now() });
+      this.agentPhase = "idle";
+      this.updateAgentControls();
+      return;
+    }
+    this.agentPhase = "running";
+    this.updateAgentControls();
+    void this.continueAgentLoop();
+  }
+
+  // Stop mid-network-call just requests a stop, checked at the top of
+  // the loop's next iteration (no AbortController exists to cancel the
+  // in-flight call itself). Stop while a confirm banner is showing is
+  // treated as an immediate Deny-then-terminate - never a silent
+  // abandon of the pending tool_use, per continueAgentLoop()'s own
+  // invariant comment.
+  private handleStopAgentLoop(): void {
+    if (this.agentPhase === "idle") {
+      return;
+    }
+    this.agentStopRequested = true;
+    this.updateAgentControls();
+    if (this.agentPhase === "awaiting-confirmation") {
+      this.handleDenyAgentTool();
+    }
+  }
+
   private async handleSubmit(): Promise<void> {
+    if (this.mode === "agent") {
+      void this.handleAgentSubmit();
+      return;
+    }
     const input = this.messageInput;
     const text = input.value.trim();
     if (!text || !this.store) {

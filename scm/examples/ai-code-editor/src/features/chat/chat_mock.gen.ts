@@ -3,6 +3,10 @@
 // Regenerate with: justw generate app
 
 export interface ChatSampleData {
+  agentConfirm: string;
+  agentConfirmMessage: string;
+  agentMessages: string;
+  agentStopBtn: string;
   contextLabel: string;
   imageError: string;
   imageInput: string;
@@ -10,9 +14,14 @@ export interface ChatSampleData {
   imageThumb: string;
   messageInput: string;
   messages: string;
+  modeToggle: string;
 }
 
 export const sampleData: ChatSampleData = {
+  agentConfirm: "Sample agent-confirm",
+  agentConfirmMessage: "Sample agent-confirm-message",
+  agentMessages: "Sample agent-messages",
+  agentStopBtn: "Submit",
   contextLabel: "Sample context-label",
   imageError: "Sample image-error",
   imageInput: "Sample image-input",
@@ -20,9 +29,16 @@ export const sampleData: ChatSampleData = {
   imageThumb: "Sample image-thumb",
   messageInput: "Sample message-input",
   messages: "Sample messages",
+  modeToggle: "Sample mode-toggle",
 };
 
 export function populateChat(root: HTMLElement): void {
+  const agentConfirm = root.querySelector("[data-part='agent-confirm']") as HTMLElement;
+  if (agentConfirm) agentConfirm.textContent = String(sampleData.agentConfirm);
+  const agentConfirmMessage = root.querySelector("[data-part='agent-confirm-message']") as HTMLElement;
+  if (agentConfirmMessage) agentConfirmMessage.textContent = String(sampleData.agentConfirmMessage);
+  const agentMessages = root.querySelector("[data-part='agent-messages']") as HTMLElement;
+  if (agentMessages) agentMessages.textContent = String(sampleData.agentMessages);
   const contextLabel = root.querySelector("[data-part='context-label']") as HTMLElement;
   if (contextLabel) contextLabel.textContent = String(sampleData.contextLabel);
   const imageError = root.querySelector("[data-part='image-error']") as HTMLElement;
@@ -37,4 +53,6 @@ export function populateChat(root: HTMLElement): void {
   if (messageInput) messageInput.value = String(sampleData.messageInput);
   const messages = root.querySelector("[data-part='messages']") as HTMLElement;
   if (messages) messages.textContent = String(sampleData.messages);
+  const modeToggle = root.querySelector("[data-part='mode-toggle']") as HTMLElement;
+  if (modeToggle) modeToggle.textContent = String(sampleData.modeToggle);
 }

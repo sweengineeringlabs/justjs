@@ -177,6 +177,38 @@
       "tag": "js-cartoon",
       "type": "view-prompt-field"
     },
+    "ai-code-editor:chat:chat:agent-confirm": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "div"
+    },
+    "ai-code-editor:chat:chat:agent-confirm-message": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "p"
+    },
+    "ai-code-editor:chat:chat:agent-messages": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "div"
+    },
+    "ai-code-editor:chat:chat:agent-stop-btn": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "button"
+    },
     "ai-code-editor:chat:chat:context-label": {
       "component": "chat",
       "feature": "chat",
@@ -232,6 +264,14 @@
       "scope": "public",
       "tag": "js-chat",
       "type": "div"
+    },
+    "ai-code-editor:chat:chat:mode-toggle": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "view-toggle"
     },
     "ai-code-editor:communication:communication:connector": {
       "component": "communication",

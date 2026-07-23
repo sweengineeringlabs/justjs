@@ -14,6 +14,11 @@ dom:
   # running. It stays a plain querySelector call, matching the original
   # code's own already-conditional handling (only ever queried inside
   # `if (voiceSupported)`).
+  #
+  # #chat-agent-confirm-btn/#chat-agent-deny-btn (Agent mode's
+  # confirm-before-apply banner) are one-shot buttons wired once in
+  # connectedCallback and never read again - same exclusion bar
+  # scaffold.yaml's own replace-confirm-btn/replace-cancel-btn use.
   elements:
     messages:
       tag: div
@@ -35,4 +40,19 @@ dom:
       address: true
     image-input:
       tag: input
+      address: true
+    mode-toggle:
+      tag: view-toggle
+      address: true
+    agent-messages:
+      tag: div
+      address: true
+    agent-confirm:
+      tag: div
+      address: true
+    agent-confirm-message:
+      tag: p
+      address: true
+    agent-stop-btn:
+      tag: button
       address: true
