@@ -107,7 +107,12 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Inter (Google Fonts, linked in index.html/index.mobile.html) - a
+     deliberate corporate/professional sans, not just whatever system
+     font a given OS/WebView happens to default to. Falls back to the
+     prior system stack if the network request for it hasn't resolved
+     yet or ever fails. */
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   margin: 0;
   color: var(--text);
   background: var(--bg);
@@ -163,6 +168,8 @@ body {
 
 .brand-text {
   min-width: 0;
+  flex: 1;
+  text-align: center;
 }
 
 .app-header h1 {
@@ -173,9 +180,20 @@ body {
 }
 
 .brand-subtitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   margin: 1px 0 0;
   font-size: 12px;
+  font-style: italic;
   color: var(--text-muted);
+}
+
+.brand-subtitle-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
 }
 
 #settings-btn,

@@ -26,7 +26,12 @@ const CARDS: readonly QuickAccessCard[] = [
     route: "/workspace",
     title: "Workspace",
     description: "Work on the go",
-    icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="6" height="6" rx="1"/><rect x="11.5" y="2.5" width="6" height="6" rx="1"/><rect x="2.5" y="11.5" width="6" height="6" rx="1"/><rect x="11.5" y="11.5" width="6" height="6" rx="1"/></svg>`,
+    // Distinct hub-and-spoke mark (not the generic 4-square grid glyph
+    // every other card/nav icon in this file uses) - matches this app's
+    // own description of Workspace as "an SDLC workspace hub linking
+    // each stage to whichever ... tab actually serves it" (see app.ts's
+    // top-of-file comment).
+    icon: `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.2"/><circle cx="10" cy="3" r="1.6"/><circle cx="17" cy="10" r="1.6"/><circle cx="10" cy="17" r="1.6"/><circle cx="3" cy="10" r="1.6"/><path d="M10 5.2V7.8M12.2 10H14.8M10 12.2V14.8M5.2 10H7.8"/></svg>`,
   },
   {
     route: "/communication",
