@@ -54,6 +54,7 @@ import type { CloudDeployFile, CloudDeployResult } from "../core/cloud_connect.j
 import { getStoredScmToken, setStoredScmToken } from "../core/scm_credentials.js";
 import { connectGithub, connectGitlab, connectBitbucket } from "../core/scm_connect.js";
 import type { ScmResource } from "../core/scm_connect.js";
+import { beginGithubDeviceFlow } from "../core/github_device_flow.js";
 import type { CloudResource } from "../core/cloud_connect.js";
 import {
   getStoredPmToken,
@@ -346,17 +347,24 @@ interface ScmProvider {
   readonly name: string;
   readonly color: string;
   readonly logo: string;
+  // "deviceFlow" (GitHub only, justjs#135) signs in via GitHub's OAuth
+  // Device Authorization Flow - no token to paste, no redirect URI
+  // (works in the packaged Android WebView, unlike Jira's redirect-based
+  // flow). GitLab/Bitbucket stay "bearer" - GitLab also supports device
+  // flow but is a follow-up, not this pass; Bitbucket's OAuth is
+  // redirect-only, out of scope for the same reason Jira's redirect flow
+  // doesn't fit here.
+  readonly kind: "bearer" | "deviceFlow";
 }
 
 // A real, recognizable set of actual source-control providers - all 3
 // are in simple-icons' catalog for real, so no emoji-monogram fallback
 // is needed here (unlike CLOUD_PROVIDER_CATALOG's AWS/Azure/Heroku
-// gap). All 3 use a single pasted bearer token (a real Personal Access
-// Token), same posture as the Anthropic key.
+// gap).
 const SCM_PROVIDER_CATALOG: readonly ScmProvider[] = [
-  { id: "github", name: "GitHub", color: "#181717", logo: githubLogo },
-  { id: "gitlab", name: "GitLab", color: "#FC6D26", logo: gitlabLogo },
-  { id: "bitbucket", name: "Bitbucket", color: "#0052CC", logo: bitbucketLogo },
+  { id: "github", name: "GitHub", color: "#181717", logo: githubLogo, kind: "deviceFlow" },
+  { id: "gitlab", name: "GitLab", color: "#FC6D26", logo: gitlabLogo, kind: "bearer" },
+  { id: "bitbucket", name: "Bitbucket", color: "#0052CC", logo: bitbucketLogo, kind: "bearer" },
 ];
 
 const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> = {
@@ -367,20 +375,28 @@ const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> 
 
 // <control-provider-connector> (@justjs/provider-connect) covers this
 // exact "provider grid -> single bearer-token form -> resource list"
-// shape with zero extension needed. ScmResource{id,name,status} already
-// matches ListItem's shape exactly (deliberately, see scm-connect's own
-// provider.ts comment), so list() below is a pure cast, same as
-// socials.ts's own real usage.
+// shape with zero extension needed for GitLab/Bitbucket.
+// ScmResource{id,name,status} already matches ListItem's shape exactly
+// (deliberately, see scm-connect's own provider.ts comment), so list()
+// below is a pure cast, same as socials.ts's own real usage. GitHub uses
+// the control's device-flow mode instead (justjs#135) - no token field,
+// no pasted credential at all.
 function toScmCatalogItem(p: ScmProvider): ProviderCatalogItem {
+  const common = { id: p.id, name: p.name, color: p.color, logo: p.logo, resourceListLabel: "Repositories" };
+  if (p.kind === "deviceFlow") {
+    return {
+      ...common,
+      deviceFlow: true,
+      fields: [],
+      connected: getStoredScmToken(p.id).length > 0,
+      disclosure: `Connect with your real ${p.name} account - opens a short code and a link, no token to paste. Sign in from any browser, even another device.`,
+    };
+  }
   return {
-    id: p.id,
-    name: p.name,
-    color: p.color,
-    logo: p.logo,
+    ...common,
     connected: getStoredScmToken(p.id).length > 0,
     fields: [{ id: "token", type: "password", placeholder: `Paste your ${p.name} token` }],
     disclosure: `Stored only on this device. Sent directly to ${p.name} when you connect.`,
-    resourceListLabel: "Repositories",
   };
 }
 
@@ -389,6 +405,10 @@ async function handleScmConnect(providerId: string, values: Readonly<Record<stri
   if (!provider) {
     throw new Error(`Unknown provider: ${providerId}`);
   }
+  // Reads values["token"] regardless of who supplied it - a pasted
+  // Personal Access Token (bearer providers) or a resolved device-flow
+  // access token (GitHub, see handleScmDeviceFlowBegin below). This
+  // function needs no branch on p.kind at all.
   const token = (values["token"] ?? "").trim() || getStoredScmToken(providerId);
   if (!token) {
     throw new Error("Paste a token first.");
@@ -396,6 +416,22 @@ async function handleScmConnect(providerId: string, values: Readonly<Record<stri
   const resources = await SCM_CONNECTORS[providerId]!(token);
   setStoredScmToken(providerId, token);
   return resources;
+}
+
+// GitHub's device-flow "Connect" - mirrors handlePmOAuthBegin's own
+// provider guard. Delegates to core/github_device_flow.ts, which only
+// awaits the device-code request (fast) before returning - the token
+// poll itself runs in the background as the returned handle's `token`
+// promise, which ProviderConnectorControl awaits and then feeds into
+// handleScmConnect's existing {token} shape unchanged.
+async function handleScmDeviceFlowBegin(
+  providerId: string,
+  signal: AbortSignal
+): Promise<{ userCode: string; verificationUri: string; token: Promise<string> }> {
+  if (providerId !== "github") {
+    throw new Error(`Unknown device-flow provider: ${providerId}`);
+  }
+  return beginGithubDeviceFlow(signal);
 }
 
 function handleScmDisconnect(providerId: string): void {
@@ -1007,9 +1043,11 @@ export class SdlcHubElement extends HTMLElement {
   }
 
   // ---- Development: source-control connections (opened from Repository
-  // above) - <control-provider-connector>: single bearer-token field, no
-  // extra actions beyond connect/list/disconnect, a clean fit with zero
-  // package extension. ----
+  // above) - <control-provider-connector>: GitLab/Bitbucket use a single
+  // bearer-token field; GitHub uses the control's device-flow mode
+  // (justjs#135) - no token to paste, real OAuth via a short code +
+  // link, working in the packaged Android WebView where a redirect-based
+  // flow (like Jira's) has no HTTP origin to land on. ----
 
   private renderScmProviders(): void {
     this.functionListView.hidden = true;
@@ -1019,7 +1057,7 @@ export class SdlcHubElement extends HTMLElement {
       const screen = document.createElement("div");
       screen.innerHTML = `
         <view-nav-header id="scm-header"></view-nav-header>
-        <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. GitLab/Bitbucket tokens are stored only on this device, sent directly to that provider. GitHub signs in via a real OAuth device flow instead of a pasted token - the code request and sign-in poll relay through a small local service (scm/bo, justjs#135) only to add the CORS headers GitHub's own endpoints don't send; it never sees or stores your token, and every actual repository call still goes straight from this device to GitHub, unproxied.</p>
         <control-provider-connector id="scm-connector"></control-provider-connector>
       `;
       const header = screen.querySelector<NavHeaderView>("#scm-header")!;
@@ -1038,6 +1076,7 @@ export class SdlcHubElement extends HTMLElement {
       connector.connect = handleScmConnect;
       connector.list = async (_providerId, session) => session as ScmResource[];
       connector.disconnect = handleScmDisconnect;
+      connector.deviceFlowBegin = handleScmDeviceFlowBegin;
       connector.catalogLabel = "Repository";
       this.scmScreen = screen;
     }
