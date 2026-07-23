@@ -1,8 +1,8 @@
-// AUTO-GENERATED — do not edit. Regenerate with: jsc dom home_component.yaml
-// Source: home_component.yaml (version 1)
+// AUTO-GENERATED — do not edit. Regenerate with: jsc dom connect_component.yaml
+// Source: connect_component.yaml (version 1)
 
-export class HomeBase extends HTMLElement {
-  static readonly tagName = 'js-home';
+export class ConnectBase extends HTMLElement {
+  static readonly tagName = 'js-connect';
 
   // ── Effect cleanup handles ──────────────────────────────────────────────
   #cleanups: Array<() => void> = [];
@@ -29,7 +29,7 @@ export class HomeBase extends HTMLElement {
   connectedCallback(): void {
     // Element setup
     this.#root = this as unknown as HTMLElement;
-    this.classList.add('home');
+    this.classList.add('connect');
 
     // Bind light-DOM children + DDAS stamps.
     this._bindElements();
@@ -70,7 +70,7 @@ export class HomeBase extends HTMLElement {
       const __el = this.querySelector('[data-part="content"]') as HTMLDivElement | null;
       if (__el) {
         this.#content = __el;
-        __el.setAttribute('data-ddas-id', 'ai-code-editor:home:home:content');
+        __el.setAttribute('data-ddas-id', 'ai-code-editor:connect:connect:content');
       }
     }
   }
@@ -98,11 +98,11 @@ export class HomeBase extends HTMLElement {
 }
 
 if (typeof customElements === 'object' && customElements !== null && typeof customElements.define === 'function') {
-  const __existing = customElements.get('js-home');
+  const __existing = customElements.get('js-connect');
   if (!__existing) {
-    customElements.define('js-home', HomeBase);
-  } else if (__existing !== HomeBase) {
-    const __msg = "[justweb] custom element 'js-home' is already registered to a different class";
+    customElements.define('js-connect', ConnectBase);
+  } else if (__existing !== ConnectBase) {
+    const __msg = "[justweb] custom element 'js-connect' is already registered to a different class";
     const __strict: boolean = (globalThis as { __justwebRegistryStrict__?: boolean }).__justwebRegistryStrict__ === true;
     if (__strict) { throw new Error(__msg); }
     console.warn(__msg + '; keeping the existing registration');

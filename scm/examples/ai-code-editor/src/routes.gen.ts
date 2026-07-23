@@ -40,24 +40,9 @@ const ROUTES: ResolvedRoute[] = [
     "children": "       <pre data-part=\"code\"></pre>\n       <textarea data-part=\"description\"></textarea>\n       <div data-part=\"file-mode\"></div>\n       <input data-part=\"file-path\">\n       <button data-part=\"generate-btn\"></button>\n       <button data-part=\"generate-project-btn\"></button>\n       <view-toggle data-part=\"mode-toggle\"></view-toggle>\n       <textarea data-part=\"project-description\"></textarea>\n       <div data-part=\"project-files\"></div>\n       <p data-part=\"project-image-error\"></p>\n       <input data-part=\"project-image-input\">\n       <div data-part=\"project-image-preview\"></div>\n       <img data-part=\"project-image-thumb\">\n       <div data-part=\"project-mode\"></div>\n       <div data-part=\"project-result\"></div>\n       <div data-part=\"replace-confirm\"></div>\n       <p data-part=\"replace-message\"></p>\n       <div data-part=\"result\"></div>\n       <p data-part=\"status\"></p>\n"
   },
   {
-    "path": "/workspace",
-    "tag": "js-workspace",
-    "children": "       <button data-part=\"back-btn\"></button>\n       <view-grid data-part=\"function-list\"></view-grid>\n       <div data-part=\"function-list-view\"></div>\n       <view-grid data-part=\"overview-grid\"></view-grid>\n       <h2 data-part=\"stage-title\"></h2>\n       <div data-part=\"subscreen-view\"></div>\n       <div data-part=\"workspace-view\"></div>\n"
-  },
-  {
-    "path": "/communication",
-    "tag": "js-communication",
-    "children": "       <control-comms-connector data-part=\"connector\"></control-comms-connector>\n       <div data-part=\"main-view\"></div>\n       <input data-part=\"setting-auto-read\">\n       <select data-part=\"setting-default-provider\"></select>\n       <input data-part=\"setting-hide-archived\">\n       <select data-part=\"setting-refresh-interval\"></select>\n       <button data-part=\"settings-back-btn\"></button>\n       <button data-part=\"settings-btn\"></button>\n       <div data-part=\"settings-view\"></div>\n"
-  },
-  {
-    "path": "/socials",
-    "tag": "js-socials",
-    "children": "       <control-provider-connector data-part=\"connector\"></control-provider-connector>\n       <view-nav-header data-part=\"page-header\"></view-nav-header>\n"
-  },
-  {
-    "path": "/cartoon",
-    "tag": "js-cartoon",
-    "children": "       <button data-part=\"back-btn\"></button>\n       <button data-part=\"connect-btn\"></button>\n       <p data-part=\"connect-disclosure\"></p>\n       <p data-part=\"connect-status\"></p>\n       <input data-part=\"connect-token\">\n       <div data-part=\"detail-view\"></div>\n       <button data-part=\"disconnect-btn\"></button>\n       <button data-part=\"generate-btn\"></button>\n       <p data-part=\"generate-disclosure\"></p>\n       <div data-part=\"generate-section\"></div>\n       <p data-part=\"generate-status\"></p>\n       <img data-part=\"generated-image\">\n       <div data-part=\"grid-view\"></div>\n       <view-badge data-part=\"header-badge\"></view-badge>\n       <span data-part=\"header-name\"></span>\n       <view-prompt-field data-part=\"prompt\"></view-prompt-field>\n"
+    "path": "/connect",
+    "tag": "js-connect",
+    "children": "       <div data-part=\"content\"></div>\n"
   }
 ];
 

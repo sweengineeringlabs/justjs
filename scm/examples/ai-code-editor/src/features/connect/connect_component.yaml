@@ -1,0 +1,14 @@
+name: connect
+version: 1
+dom:
+  tag: x-connect
+  builtinStates: false
+  # No customElement.tagName override here - same reason as every other
+  # feature (socials_component.yaml has the full explanation): ConnectBase
+  # self-registers under its own harmless default, ConnectElement
+  # (connect.ts) does the real customElements.define("x-connect",
+  # ConnectElement) itself.
+  elements:
+    content:
+      tag: div
+      address: true

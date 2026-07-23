@@ -27,10 +27,7 @@ import "./components/editor.js";
 import "./components/chat.js";
 import "./components/review.js";
 import "./components/scaffold.js";
-import "./components/workspace.js";
-import "./components/communication.js";
-import "./components/socials.js";
-import "./components/cartoon.js";
+import "./components/connect.js";
 import { loadInitialState, persistProject, reducer } from "./core/state.js";
 import { applyStoredTheme, currentTheme, setTheme, toggleTheme, THEMES } from "./core/theme.js";
 import type { Theme } from "./core/theme.js";
@@ -298,6 +295,15 @@ async function main(): Promise<void> {
     // made sense as a home. remember-last-route below still wins for
     // returning visitors; this is only the untouched first-visit default.
     let landingRoute = "/home";
+    // Home is both the untouched first-visit default AND (since
+    // Workspace was retired - its content is now inline on Home, see
+    // sdlc_hub.ts) Jira's own explicit post-OAuth landing choice below -
+    // no longer distinguishable from each other by comparing
+    // landingRoute's string value alone, unlike when Jira used to land
+    // on a dedicated "/workspace" route. This flag disambiguates them so
+    // the last-route override further down only ever applies to the
+    // genuinely untouched default, never overriding Jira's explicit choice.
+    let landingRouteIsExplicit = false;
     const oauthParams = new URLSearchParams(window.location.search);
     const jiraCode = oauthParams.get("code");
     const jiraState = oauthParams.get("state");
@@ -308,8 +314,11 @@ async function main(): Promise<void> {
         // A clean, simple landing rather than trying to restore the
         // exact prior Requirement/Planning drill-down - the session is
         // already persisted, so re-opening Jira's connect screen from
-        // there shows it connected immediately.
-        landingRoute = "/workspace";
+        // there shows it connected immediately. Home is that clean
+        // landing spot, since the SDLC hub (with Requirement/Planning's
+        // PM connect screens) lives there now.
+        landingRoute = "/home";
+        landingRouteIsExplicit = true;
       } catch (e) {
         console.error("Jira OAuth callback failed:", e);
       } finally {
@@ -323,12 +332,12 @@ async function main(): Promise<void> {
     MOUNT_ID_FOR_ROUTE = Object.fromEntries(routes.map((r) => [r.path, r.mountElementId]));
     DOM_ADDRESS_ELEMENTS = elements;
 
-    // Only overrides the untouched "/home" default - Jira's OAuth
+    // Only overrides the genuinely untouched default - Jira's OAuth
     // landing above already set something more specific, and must win.
     // Validated against the real resolved route list, never trusted blind
     // (a stale localStorage value from a route that no longer exists
     // would otherwise navigate() into a real error).
-    if (landingRoute === "/home") {
+    if (!landingRouteIsExplicit) {
       const lastRoute = readStoredLastRoute();
       if (lastRoute && ROUTES.includes(lastRoute)) {
         landingRoute = lastRoute;

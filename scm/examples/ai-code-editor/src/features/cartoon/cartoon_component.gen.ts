@@ -8,6 +8,9 @@ export class CartoonBase extends HTMLElement {
   #cleanups: Array<() => void> = [];
 
   // ── Element references (private; read-only externally, ADR-0012) ──────────────────────────────────
+  // Getter-only stops reassignment (element.button = x); the returned
+  // element itself remains a live, mutable DOM node — this does not
+  // freeze attributes/children/listeners on what the getter returns.
   #root!: HTMLElement;
   get root(): HTMLElement { return this.#root; }
   #backBtn!: HTMLButtonElement;

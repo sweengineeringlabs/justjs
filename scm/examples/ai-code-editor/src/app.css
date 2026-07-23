@@ -345,138 +345,11 @@ body {
   min-height: 0;
 }
 
-/* justjs#132: Home - a real landing page, not a re-skinned Editor. The
-   mesh animation is the "SWE corporate" flourish: slow, low-key,
-   professional rather than a marketing-site spectacle - respects
-   prefers-reduced-motion below. */
-.home-hero {
-  position: relative;
-  overflow: hidden;
-  flex: 0 0 auto;
-  border-radius: var(--radius-lg);
-  padding: 32px 20px;
-  margin-bottom: 16px;
-  background: var(--surface-alt);
-  text-align: center;
-}
-
-.home-hero-mesh {
-  position: absolute;
-  inset: -20%;
-  background:
-    radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--accent) 35%, transparent) 0%, transparent 45%),
-    radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--accent-2) 30%, transparent) 0%, transparent 40%),
-    radial-gradient(circle at 50% 80%, color-mix(in srgb, var(--accent) 25%, transparent) 0%, transparent 50%);
-  filter: blur(40px);
-  animation: home-mesh-drift 18s ease-in-out infinite alternate;
-}
-
-@keyframes home-mesh-drift {
-  0% { transform: translate(-4%, -2%) scale(1); }
-  100% { transform: translate(4%, 3%) scale(1.08); }
-}
-
-.home-hero-title {
-  position: relative;
-  margin: 0 0 4px;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.home-hero-tagline {
-  position: relative;
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.home-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 0 0 auto;
-}
-
-.home-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  opacity: 0;
-  animation: home-card-in 0.4s ease forwards;
-  animation-delay: var(--card-delay, 0ms);
-  transition: border-color 0.15s ease;
-}
-
-@keyframes home-card-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.home-card:hover,
-.home-card:focus-visible {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.home-card-icon {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.home-card-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.home-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.home-card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.home-card-description {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-hero-mesh {
-    animation: none;
-  }
-  .home-card {
-    animation: none;
-    opacity: 1;
-  }
-}
-
-/* Bottom tab bar - Home standalone/leading, then develop/workspace/connect
-   clusters (justjs feature-grouping pass), separated by .nav-divider
-   rather than one flat run of equally-weighted buttons. justjs#132: no
-   accent rule on the bar itself - the active tab's own underline is the
-   only accent here, restraint over decoration. */
+/* Bottom tab bar - Home standalone/leading, then develop/connect
+   clusters, separated by .nav-divider rather than one flat run of
+   equally-weighted buttons. No accent rule on the bar itself - the
+   active tab's own underline is the only accent here, restraint over
+   decoration. */
 .nav {
   position: relative;
   flex: 0 0 auto;
@@ -493,13 +366,12 @@ body {
   gap: 2px;
 }
 
-/* Proportional to each group's button count (home:1, develop:4,
-   workspace:1, connect:3) so tabs stay roughly equal width across
-   groups. */
+/* Proportional to each group's button count (home:1, develop:1,
+   connect:1 - Workspace retired, Communication/Socials/Cartoon merged
+   into one Connect tab) so tabs stay roughly equal width across groups. */
 .nav-group[data-group="home"] { flex: 1; }
 .nav-group[data-group="develop"] { flex: 1; }
-.nav-group[data-group="workspace"] { flex: 1; }
-.nav-group[data-group="connect"] { flex: 3; }
+.nav-group[data-group="connect"] { flex: 1; }
 
 .nav-divider {
   flex: 0 0 auto;
@@ -1454,20 +1326,22 @@ textarea:focus {
   flex: 1;
 }
 
-/* Workspace (SDLC hub). .widget-grid/.widget/.widget-action/
+/* SDLC hub (sdlc_hub.ts, <control-sdlc-hub> - inline on Home, no longer
+   a standalone Workspace tab/route). .widget-grid/.widget/.widget-action/
    .widget-icon/.widget-label moved into <view-grid>'s own Shadow DOM
    (@justjs/component-view, ADR-0014) - no longer global classes here.
    Each stage's hue now travels as real per-item accentColor data
-   instead (see workspace.ts's STAGE_COLORS), since a light-DOM
+   instead (see sdlc_hub.ts's STAGE_COLORS), since a light-DOM
    [data-stage="..."] selector can't reach inside that Shadow DOM. */
 
-/* #workspace-view still gets data-stage set directly once you've
-   drilled into a stage (renderStage() - see workspace.ts), so
-   .workspace-function/.dash-back-btn/etc below still pick up
-   --stage-color via inheritance. Percentages are picked to be clearly
-   visible (not a "technically there" 5% wash). Hues spread around the
-   wheel and stay clear of --danger/--warning/--success's meaning
-   elsewhere. */
+/* #workspace-view (inside sdlc_hub.ts's own markup - the id is unchanged
+   from the original Workspace feature, just no longer justweb-bound)
+   still gets data-stage set directly once you've drilled into a stage
+   (renderStage() - see sdlc_hub.ts), so .dash-back-btn/etc below still
+   pick up --stage-color via inheritance. Percentages are picked to be
+   clearly visible (not a "technically there" 5% wash). Hues spread
+   around the wheel and stay clear of --danger/--warning/--success's
+   meaning elsewhere. */
 [data-stage="ideation"] { --stage-color: #f5a524; }
 [data-stage="requirement"] { --stage-color: #3b82f6; }
 [data-stage="planning"] { --stage-color: #14b8a6; }
@@ -1490,30 +1364,20 @@ textarea:focus {
    grid itself via GridView's own --stage-color custom property) never
    picked up any of the widget grid's color treatment once you actually
    clicked into a stage. Reuses the same --stage-color the overview
-   already set (see workspace.ts's renderStage(), which stamps
+   already set (see sdlc_hub.ts's renderStage(), which stamps
    data-stage on #workspace-view - the [data-stage="..."] rules above
    cascade down via custom-property inheritance, no per-stage
    duplication needed).
 
-   .dash-back-btn/.workspace-stage-title stay here, unchanged -
-   communication.ts and cartoon.ts's own detail screens reuse these 2
-   classes for the identical visual pattern (justjs#96 found this while
-   adding real csslens-generated BEM CSS for x-workspace specifically:
-   features/workspace/workspace_component.gen.css's
-   .workspace__back-btn/.workspace__stage-title). workspace.ts's own
-   markup sets both the old shared class AND the new component-scoped
-   one on the same elements - communication/cartoon keep using only the
-   shared classes below, entirely unaffected.
-
-   The function-list row classes that used to live here
-   (.workspace-function/.workspace-function-live/etc) are gone -
-   justjs#132 follow-up ("Workspace option must remain grid widgets,
-   even after drill in") moved the function list onto the same
-   <view-grid> the overview already uses, fully self-styled inside its
-   own Shadow DOM (@justjs/component-view). .workspace-function-list
-   (the plain-list container class) had no real consumers left once
-   workspace.ts stopped applying it - confirmed via a repo-wide grep,
-   not assumed - so it's removed too, rather than left as dead CSS. */
+   .dash-back-btn/.workspace-stage-title are one shared, hand-written
+   pattern used consistently by 4 places now: sdlc_hub.ts,
+   communication.ts, cartoon.ts, and connect.ts's own detail screens.
+   (The Workspace feature's real csslens-generated BEM CSS -
+   .workspace__back-btn/.workspace__stage-title, formerly a second,
+   divergent pattern used only there - was retired along with the whole
+   Workspace feature/route; sdlc_hub.ts now uses these shared classes
+   too instead of a component-scoped equivalent, since it's a plain
+   control with no yaml/styles: layer of its own.) */
 .dash-back-btn {
   flex: 0 0 auto;
   padding: 8px 14px;

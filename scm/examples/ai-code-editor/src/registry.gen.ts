@@ -6,12 +6,12 @@
 import { CartoonBase } from './features/cartoon/cartoon_component.gen';
 import { ChatBase } from './features/chat/chat_component.gen';
 import { CommunicationBase } from './features/communication/communication_component.gen';
+import { ConnectBase } from './features/connect/connect_component.gen';
 import { EditorBase } from './features/editor/editor_component.gen';
 import { HomeBase } from './features/home/home_component.gen';
 import { ReviewBase } from './features/review/review_component.gen';
 import { ScaffoldBase } from './features/scaffold/scaffold_component.gen';
 import { SocialsBase } from './features/socials/socials_component.gen';
-import { WorkspaceBase } from './features/workspace/workspace_component.gen';
 
 // SSR / non-browser guard. Accepts only a real CustomElementRegistry —
 // rejects environments where `customElements` is missing or where a
@@ -27,12 +27,12 @@ if (typeof customElements === 'object' && customElements !== null && typeof cust
     ['js-cartoon', CartoonBase],
     ['js-chat', ChatBase],
     ['js-communication', CommunicationBase],
+    ['js-connect', ConnectBase],
     ['js-editor', EditorBase],
     ['js-home', HomeBase],
     ['js-review', ReviewBase],
     ['js-scaffold', ScaffoldBase],
     ['js-socials', SocialsBase],
-    ['js-workspace', WorkspaceBase],
   ];
   for (const [tag, Klass] of __components) {
     const existing = customElements.get(tag);

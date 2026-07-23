@@ -78,7 +78,6 @@ import "./presentation_generator_control.js";
 import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
 import "./cloud_connector.js";
 import type { CloudCatalogItem, CloudConnectorControl } from "./cloud_connector.js";
-import { WorkspaceBase } from "../features/workspace/workspace_component.gen.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -102,10 +101,9 @@ const STAGE_COLORS: Record<string, string> = {
 interface SdlcFunction {
   readonly label: string;
   // Rendered into the same GridView tile shape the overview grid
-  // already uses (justjs#132 follow-up: "Workspace option must remain
-  // grid widgets, even after drill in" - direct user request) - every
-  // function needs an icon for that tile, the same way every stage
-  // already has one.
+  // already uses ("Workspace option must remain grid widgets, even
+  // after drill in" - direct user request) - every function needs an
+  // icon for that tile, the same way every stage already has one.
   readonly icon: string;
   // Present => a real, working link into one of this app's existing
   // tabs. Absent (and no `action` either) => an honestly-labeled "Coming
@@ -113,15 +111,15 @@ interface SdlcFunction {
   // the widget shell only, not new tooling for every stage.
   readonly route?: string;
   // Present => clicking opens an inline view within this stage's own
-  // detail screen (WorkspaceElement's own drill-down), rather than
-  // navigating to another tab or showing a stub. "design-generate":
-  // Architecture and Wireframes are two distinct entries that both open
-  // the same real generateDesignDoc() capability, since one generated
-  // Markdown+Mermaid doc genuinely covers what both labels represent
-  // (the write-up and the diagram). "cloud-providers": a real,
-  // recognizable catalog of actual cloud providers (AWS, Azure, Google
-  // Cloud, etc. - see CLOUD_PROVIDER_CATALOG), each with a real connect
-  // screen (@justjs/cloud-connect) - a real token/credential pair, sent
+  // detail screen (this hub's own drill-down), rather than navigating to
+  // another tab or showing a stub. "design-generate": Architecture and
+  // Wireframes are two distinct entries that both open the same real
+  // generateDesignDoc() capability, since one generated Markdown+Mermaid
+  // doc genuinely covers what both labels represent (the write-up and
+  // the diagram). "cloud-providers": a real, recognizable catalog of
+  // actual cloud providers (AWS, Azure, Google Cloud, etc. - see
+  // CLOUD_PROVIDER_CATALOG), each with a real connect screen
+  // (@justjs/cloud-connect) - a real token/credential pair, sent
   // directly to that provider, same security posture as the Anthropic
   // key. "scm-connect": the source-control equivalent
   // (@justjs/scm-connect) - GitHub/GitLab/Bitbucket, see
@@ -221,7 +219,7 @@ const BEARER_CONNECTORS: Record<string, (token: string) => Promise<CloudResource
   heroku: connectHeroku,
 };
 
-// <control-cloud-connector> (justjs#126, app-local sibling to
+// <control-cloud-connector> (app-local sibling to
 // <control-provider-connector> - Cloud's real extra actions don't fit
 // the shared package's own scope, see cloud_connector.ts's own doc
 // comment) covers this shape. CloudResource{id,name,status} already
@@ -326,10 +324,11 @@ async function handleCloudListInstances(providerId: string): Promise<CloudResour
 }
 
 // Real "Deploy this project" action (Netlify/Vercel/Heroku only) - the
-// caller (workspace.ts) owns the store, so it's the one that reads the
-// current real file tree, dispatches nothing (a deploy doesn't mutate
-// AppState), and persists the returned targetId for a later redeploy to
-// reuse the same site/app instead of creating a new one each time.
+// caller (home.ts, via SdlcHubElement.store) owns the store, so it's
+// the one that reads the current real file tree, dispatches nothing (a
+// deploy doesn't mutate AppState), and persists the returned targetId
+// for a later redeploy to reuse the same site/app instead of creating a
+// new one each time.
 async function handleCloudDeploy(providerId: string, store: FeatureStore<AppState, AppAction> | undefined): Promise<{ url: string }> {
   if (!store) {
     throw new Error("Couldn't deploy - no project loaded.");
@@ -366,13 +365,12 @@ const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> 
   bitbucket: connectBitbucket,
 };
 
-// <control-provider-connector> (@justjs/provider-connect, justjs#97)
-// covers this exact "provider grid -> single bearer-token form ->
-// resource list" shape with zero extension needed - confirmed during
-// justjs#124's real migration, not assumed. ScmResource{id,name,status}
-// already matches ListItem's shape exactly (deliberately, see
-// scm-connect's own provider.ts comment), so list() below is a pure
-// cast, same as socials.ts's own real usage.
+// <control-provider-connector> (@justjs/provider-connect) covers this
+// exact "provider grid -> single bearer-token form -> resource list"
+// shape with zero extension needed. ScmResource{id,name,status} already
+// matches ListItem's shape exactly (deliberately, see scm-connect's own
+// provider.ts comment), so list() below is a pure cast, same as
+// socials.ts's own real usage.
 function toScmCatalogItem(p: ScmProvider): ProviderCatalogItem {
   return {
     id: p.id,
@@ -441,11 +439,11 @@ const PM_CONNECTORS: Record<string, (token: string) => Promise<PmResource[]>> = 
 };
 
 // <control-provider-connector>'s real oauthRedirect support
-// (justjs#125, @justjs/provider-connect) covers Jira's real OAuth 2.0
-// redirect flow directly - the form still collects Jira's own OAuth app
-// Client ID/Secret (pre-filled via FormField.defaultValue, also
-// justjs#125), but submitting them navigates the real browser to
-// Atlassian's consent screen instead of calling connect().
+// (@justjs/provider-connect) covers Jira's real OAuth 2.0 redirect flow
+// directly - the form still collects Jira's own OAuth app Client
+// ID/Secret (pre-filled via FormField.defaultValue), but submitting them
+// navigates the real browser to Atlassian's consent screen instead of
+// calling connect().
 function toPmCatalogItem(p: PmProvider): ProviderCatalogItem {
   if (p.kind === "oauth") {
     const appCreds = getStoredJiraAppCredentials();
@@ -564,20 +562,6 @@ function handlePmDisconnect(providerId: string): void {
   }
 }
 
-function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly color: string; readonly logo?: string }): void {
-  const badge = el as BadgeView | null;
-  if (!badge) {
-    return;
-  }
-  badge.color = p.color;
-  if (p.icon !== undefined) {
-    badge.icon = p.icon;
-  }
-  if (p.logo !== undefined) {
-    badge.logo = p.logo;
-  }
-}
-
 // Development -> Editor, Testing -> Review, Ideation -> Chat, and
 // Planning -> Scaffold are real links into this app's existing tabs -
 // each the natural fit for that stage (scaffolding a new file/project
@@ -588,17 +572,15 @@ function setBadgeProps(el: Element | null, p: { readonly icon?: string; readonly
 // generated doc covers both. Development's CLI is also real (not a
 // stub) - a real terminal against this app's own virtual filesystem
 // (renderCliTerminal() below). Development's Repository is also real
-// (not a stub, no longer "Git" under Deployment - moved here, since a
-// repository is a development-stage concern) - a real connect screen
-// (@justjs/scm-connect) for GitHub/GitLab/Bitbucket
-// (renderScmProviders() below).
-// Deployment's Cloud is also real - a real connect screen
-// (@justjs/cloud-connect) for actual cloud providers
-// (renderCloudProviders() below). Requirement's Specs/User Stories and
-// Planning's Project Boards are also real (not stubs) - all 3 open the
-// same real connect screen (@justjs/pm-connect) for Linear/Asana/
-// Trello/Jira (renderPmProviders() below), the same one-real-capability-
-// shared-across-multiple-entries shape Design's Architecture/Wireframes
+// (not a stub) - a real connect screen (@justjs/scm-connect) for
+// GitHub/GitLab/Bitbucket (renderScmProviders() below). Deployment's
+// Cloud is also real - a real connect screen (@justjs/cloud-connect)
+// for actual cloud providers (renderCloudProviders() below).
+// Requirement's Specs/User Stories and Planning's Project Boards are
+// also real (not stubs) - all 3 open the same real connect screen
+// (@justjs/pm-connect) for Linear/Asana/Trello/Jira
+// (renderPmProviders() below), the same one-real-capability-shared-
+// across-multiple-entries shape Design's Architecture/Wireframes
 // already established, just spanning two different stages instead of
 // one. Presentation is a 9th widget appended after the 8 SDLC stages -
 // it isn't itself an SDLC stage, but the user asked for it alongside
@@ -630,15 +612,10 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "development",
     label: "Development",
     icon: "💻",
-    // justjs#132 follow-up: Review/Scaffold consolidated here per direct
-    // user request ("Editor, Review, Scaffold must go under Development
-    // workspace") - previously spread across Planning->Scaffold and
-    // Testing->Review. Testing's function list is genuinely empty now
-    // (it had only Review) rather than backfilled with an invented
-    // placeholder function. Editor/CLI/Repository stay first, in their
-    // original order - Review/Scaffold are appended rather than
-    // interleaved so existing index-based assertions on CLI/Repository
-    // don't shift.
+    // Review/Scaffold consolidated here per direct user request
+    // ("Editor, Review, Scaffold must go under Development workspace").
+    // Testing's function list is genuinely empty (it had only Review)
+    // rather than backfilled with an invented placeholder function.
     functions: [
       { label: "Editor", icon: "📝", route: "/editor" },
       { label: "CLI", icon: "⌨️", action: "cli" },
@@ -672,63 +649,61 @@ const SDLC_STAGES: readonly SdlcStage[] = [
 ];
 
 // The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
-// drilling into each stage's function list on tap - same
-// widget-grid-then-drill-down architecture agentic-memory-demo's
-// dashboard.ts established. Design, Development's CLI, Deployment's
-// Cloud, and Presentation's Slides are the stages with real, inline
-// functionality (a Markdown+Mermaid design-doc generator; a real
-// virtual-filesystem terminal; a real cloud-provider catalog to toggle
-// on/off; an AI-generated slide deck) rather than a link elsewhere or a
-// stub.
+// drilling into each stage's function list on tap. Design, Development's
+// CLI, Deployment's Cloud, and Presentation's Slides are the stages with
+// real, inline functionality (a Markdown+Mermaid design-doc generator; a
+// real virtual-filesystem terminal; a real cloud-provider catalog to
+// toggle on/off; an AI-generated slide deck) rather than a link
+// elsewhere or a stub.
 //
-// Extends WorkspaceBase (justweb-generated, justjs#127 - the final
-// closing sub-issue of justjs#119's decomposition) for real value now
-// that the 6 live sub-screens are extracted into their own controls
-// (justjs#122-#126): only what's genuinely static across every
-// navigation state is declared in dom.elements (the root wrapper, the
-// persistent overview grid, the generic function-list shell, the
-// sub-screen mount point) - see workspace_component.yaml's own comment
-// for why this is a narrower, more honest scope than
-// editor/chat/review/scaffold's own dom.elements specs. See justjs#113's
-// shared note for why customElement.tagName is deliberately not set
-// (WorkspaceBase self-registers under its harmless default
-// js-workspace; WorkspaceElement keeps its own explicit x-workspace
-// registration).
-export class WorkspaceElement extends WorkspaceBase {
+// A plain HTMLElement control (like cli_terminal.ts/cloud_connector.ts),
+// not a justweb-generated component - this hub lives inline on the Home
+// page (home.ts appends one <control-sdlc-hub> into its own markup, was
+// previously WorkspaceElement's own top-level route/mount). No dom.
+// yaml/data-part bindings here: every internal ref is a plain id +
+// querySelector lookup instead. `store` is forwarded manually by
+// home.ts on creation and on every dataContext update, since this
+// element is never itself router-mounted.
+export class SdlcHubElement extends HTMLElement {
   private store?: FeatureStore<AppState, AppAction>;
   private currentStageKey: string | null = null;
 
-  // Design-stage generator - extracted into <control-design-generator>
-  // (justjs#123). Description/doc/viewMode/render-token now live on
-  // that element itself; cached in designGenerator so the same
-  // instance (and its in-progress doc) survives leaving and
-  // re-entering via either Architecture or Wireframes - same
-  // persistence semantics as the original's own component-local
-  // fields, matching CliTerminalControl's cliTerminal caching
-  // (justjs#122).
+  private workspaceView!: HTMLElement;
+  private overviewGrid!: GridView;
+  private functionListView!: HTMLElement;
+  private backBtn!: HTMLButtonElement;
+  private stageTitle!: HTMLElement;
+  private functionList!: GridView;
+  private subscreenView!: HTMLElement;
+
+  // Design-stage generator - <control-design-generator>.
+  // Description/doc/viewMode/render-token live on that element itself;
+  // cached in designGenerator so the same instance (and its in-progress
+  // doc) survives leaving and re-entering via either Architecture or
+  // Wireframes - same persistence semantics as CliTerminalControl's
+  // cliTerminal caching.
   private designGenerator: DesignGeneratorControl | undefined;
-  // Design has three drill-down levels (Workspace -> Design's own
+  // Design has three drill-down levels (overview -> Design's own
   // Architecture/Wireframes list -> the shared generator), one more than
-  // every other stage's two (Workspace -> function list). This flag is
+  // every other stage's two (overview -> function list). This flag is
   // the third level's on/off switch.
   private showDesignGenerator = false;
 
-  // Deployment's Cloud providers - migrated onto
-  // <control-cloud-connector> (justjs#126, an app-local sibling to
-  // <control-provider-connector> since AWS's List EC2 Instances and 3
-  // providers' Deploy don't fit the shared package's own scope - see
-  // cloud_connector.ts's own doc comment). Same
-  // caching/reset-on-stage-switch/no-public-reset-API reasoning as
+  // Deployment's Cloud providers - <control-cloud-connector> (an
+  // app-local sibling to <control-provider-connector> since AWS's List
+  // EC2 Instances and 3 providers' Deploy don't fit the shared
+  // package's own scope - see cloud_connector.ts's own doc comment).
+  // Same caching/reset-on-stage-switch/no-public-reset-API reasoning as
   // scmScreen/pmScreen.
   private showCloudProviders = false;
   private cloudScreen: HTMLElement | undefined;
 
-  // Development's Repository - migrated onto <control-provider-connector>
-  // (justjs#124), which owns which-provider-is-selected/fetched-resources
-  // state internally. scmScreen caches the whole composed wrapper (header
-  // + hint + connector) so that state (and grid<->detail position)
-  // survives leaving and re-entering Repository within Development, and
-  // across tab switches - but the control has no public reset API, so
+  // Development's Repository - <control-provider-connector>, which owns
+  // which-provider-is-selected/fetched-resources state internally.
+  // scmScreen caches the whole composed wrapper (header + hint +
+  // connector) so that state (and grid<->detail position) survives
+  // leaving and re-entering Repository within Development, and across
+  // tab switches - but the control has no public reset API, so
   // renderOverview's item-select handler below discards this reference
   // entirely (forcing a fresh instance next visit) to preserve the
   // original's own reset-on-stage-switch behavior for
@@ -736,74 +711,66 @@ export class WorkspaceElement extends WorkspaceBase {
   private showScmConnect = false;
   private scmScreen: HTMLElement | undefined;
 
-  // Requirement's/Planning's project-management connections - migrated
-  // onto <control-provider-connector> (justjs#125), same caching/
-  // reset-on-stage-switch reasoning as scmScreen above. pmScreen is
-  // shared across both stages (one real capability, not two separate
-  // ones) - its own back-button label is refreshed on every
-  // renderPmProviders() call since the two entry stages have different
-  // labels ("← Requirement" vs "← Planning"), unlike scmScreen's single
-  // fixed "← Development".
+  // Requirement's/Planning's project-management connections -
+  // <control-provider-connector>, same caching/reset-on-stage-switch
+  // reasoning as scmScreen above. pmScreen is shared across both stages
+  // (one real capability, not two separate ones) - its own back-button
+  // label is refreshed on every renderPmProviders() call since the two
+  // entry stages have different labels ("← Requirement" vs
+  // "← Planning"), unlike scmScreen's single fixed "← Development".
   private showPmConnect = false;
   private pmScreen: HTMLElement | undefined;
 
-  // Presentation-stage generator - extracted into
-  // <control-presentation-generator> (justjs#123), same caching
-  // reasoning as designGenerator above.
+  // Presentation-stage generator - <control-presentation-generator>,
+  // same caching reasoning as designGenerator above.
   private presentationGenerator: PresentationGeneratorControl | undefined;
   private showPresentationGenerator = false;
 
   // Development's CLI - a real terminal against this app's own virtual
-  // filesystem (core/cli.ts), extracted into <control-cli-terminal>
-  // (justjs#122). cwd/history now live on that element itself, not
-  // here - cached in cliTerminal so the same instance (and its state)
-  // survives leaving and re-entering the CLI sub-screen, matching the
-  // original's own persistence (cliCwd/cliHistory were deliberately
-  // never reset by renderOverview's item-select handler below, and
-  // deliberately uncoupled from AppState.activeFilePath).
+  // filesystem (core/cli.ts), <control-cli-terminal>. cwd/history live
+  // on that element itself, cached in cliTerminal so the same instance
+  // (and its state) survives leaving and re-entering the CLI sub-screen.
   private cliTerminal: CliTerminalControl | undefined;
   private showCliTerminal = false;
 
-  set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
-    this.store = ctx?.store;
+  setStore(s: FeatureStore<AppState, AppAction> | undefined): void {
+    this.store = s;
   }
 
   connectedCallback(): void {
     this.innerHTML = `
-      <div id="workspace-view" data-part="workspace-view">
-        <view-grid id="workspace-overview-grid" data-part="overview-grid" hidden></view-grid>
-        <div id="workspace-function-list-view" data-part="function-list-view" hidden>
+      <div id="workspace-view">
+        <view-grid id="workspace-overview-grid" hidden></view-grid>
+        <div id="workspace-function-list-view" hidden>
           <div class="dash-subnav">
-            <!-- justjs#96: real csslens-generated BEM CSS (workspace_component.gen.css)
-                 for these 2 elements, replacing the .dash-back-btn/.workspace-stage-title
-                 classes communication.ts/cartoon.ts's own detail screens still use
-                 unchanged (a separate, shared hand-written pattern). -->
-            <button id="workspace-back-btn" data-part="back-btn" class="workspace__back-btn" type="button">← Workspace</button>
-            <h2 class="workspace__stage-title" data-part="stage-title"></h2>
+            <button id="workspace-back-btn" class="dash-back-btn" type="button">← Home</button>
+            <h2 class="workspace-stage-title" id="workspace-stage-title"></h2>
           </div>
-          <!-- justjs#132 follow-up: "Workspace option must remain grid widgets,
-               even after drill in" (direct user request) - the same <view-grid>
-               the overview above uses, not a plain button list. -->
-          <view-grid id="workspace-function-grid" data-part="function-list"></view-grid>
+          <!-- "Workspace option must remain grid widgets, even after
+               drill in" (direct user request) - the same <view-grid> the
+               overview above uses, not a plain button list. -->
+          <view-grid id="workspace-function-grid"></view-grid>
         </div>
-        <div id="workspace-subscreen-view" data-part="subscreen-view" hidden></div>
+        <div id="workspace-subscreen-view" hidden></div>
       </div>
     `;
-    // Binds this.workspaceView/overviewGrid/functionListView/backBtn/
-    // stageTitle/functionList/subscreenView via real data-part lookups -
-    // must run after the markup above exists, since WorkspaceBase's own
-    // connectedCallback() calls _bindElements() synchronously.
-    super.connectedCallback();
+    this.workspaceView = this.querySelector<HTMLElement>("#workspace-view")!;
+    this.overviewGrid = this.querySelector<GridView>("#workspace-overview-grid")!;
+    this.functionListView = this.querySelector<HTMLElement>("#workspace-function-list-view")!;
+    this.backBtn = this.querySelector<HTMLButtonElement>("#workspace-back-btn")!;
+    this.stageTitle = this.querySelector<HTMLElement>("#workspace-stage-title")!;
+    this.functionList = this.querySelector<GridView>("#workspace-function-grid")!;
+    this.subscreenView = this.querySelector<HTMLElement>("#workspace-subscreen-view")!;
 
-    // Both bound once - the overview grid and the back button are now
+    // Both bound once - the overview grid and the back button are
     // permanent, cached elements (not torn down and rebuilt on every
-    // overview/stage transition, unlike before justjs#127), so their
-    // listeners only need wiring a single time here, not per-render.
+    // overview/stage transition), so their listeners only need wiring a
+    // single time here, not per-render.
     this.backBtn.addEventListener("click", () => {
       this.currentStageKey = null;
       this.renderView();
     });
-    (this.overviewGrid as GridView).addEventListener("item-select", (e) => {
+    this.overviewGrid.addEventListener("item-select", (e) => {
       this.currentStageKey = (e as CustomEvent<{ id: string }>).detail.id;
       // Always start a freshly-entered stage at its function list, not
       // mid-generator/mid-provider-list from a previous visit.
@@ -814,9 +781,7 @@ export class WorkspaceElement extends WorkspaceBase {
       this.cloudScreen = undefined;
       this.showScmConnect = false;
       // No public reset API on ProviderConnectorControl - discarding the
-      // cached wrapper is the only way to force a fresh grid view
-      // (matches the original's own explicit selectedScmProviderId/
-      // scmResources reset here).
+      // cached wrapper is the only way to force a fresh grid view.
       this.scmScreen = undefined;
       this.showPmConnect = false;
       this.pmScreen = undefined;
@@ -827,7 +792,7 @@ export class WorkspaceElement extends WorkspaceBase {
     // Bound once, same reasoning as overviewGrid above - the function
     // grid is a permanent, cached element too (re-populated via .items
     // per stage in renderStage(), not torn down and rebuilt).
-    (this.functionList as GridView).addEventListener("item-select", (e) => {
+    this.functionList.addEventListener("item-select", (e) => {
       this.handleFunctionSelect((e as CustomEvent<{ id: string }>).detail.id);
     });
 
@@ -836,12 +801,11 @@ export class WorkspaceElement extends WorkspaceBase {
 
   // GridView's tiles are always real buttons - a stub function (neither
   // route nor action) still fires item-select, but with nothing to do
-  // it's an intentional no-op, the same non-interactivity the old inert
-  // <div> stub conveyed, just signaled via a "Coming soon" status label
-  // on the tile instead of a different element type. Reads the current
-  // stage fresh from SDLC_STAGES/this.currentStageKey rather than
-  // closing over `stage` from renderStage(), since this listener is
-  // wired once in connectedCallback(), not per-render.
+  // it's an intentional no-op, signaled via a "Coming soon" status label
+  // on the tile. Reads the current stage fresh from
+  // SDLC_STAGES/this.currentStageKey rather than closing over `stage`
+  // from renderStage(), since this listener is wired once in
+  // connectedCallback(), not per-render.
   private handleFunctionSelect(functionLabel: string): void {
     const stage = SDLC_STAGES.find((s) => s.key === this.currentStageKey);
     const fn = stage?.functions.find((f) => f.label === functionLabel);
@@ -893,15 +857,13 @@ export class WorkspaceElement extends WorkspaceBase {
     // overview grid colors each widget individually, not the container.
     this.workspaceView.removeAttribute("data-stage");
     this.functionListView.hidden = true;
-    // Detaches whatever sub-screen was showing (if any) - matches the
-    // original's own full container.innerHTML replace, which always
-    // destroyed the previous drill-down's DOM outright. The cached
+    // Detaches whatever sub-screen was showing (if any). The cached
     // instance itself (this.cliTerminal/designGenerator/etc) survives
     // regardless, held by its own JS reference, not the DOM.
     this.subscreenView.hidden = true;
     this.subscreenView.innerHTML = "";
     this.overviewGrid.hidden = false;
-    (this.overviewGrid as GridView).items = SDLC_STAGES.map((s) => ({
+    this.overviewGrid.items = SDLC_STAGES.map((s) => ({
       id: s.key,
       label: s.label,
       icon: s.icon,
@@ -954,7 +916,7 @@ export class WorkspaceElement extends WorkspaceBase {
     // GridView instance is permanent (bound once in connectedCallback());
     // re-populating .items per stage is the same pattern renderOverview()
     // already uses for the overview grid.
-    (this.functionList as GridView).items = stage.functions.map((f) => ({
+    this.functionList.items = stage.functions.map((f) => ({
       id: f.label,
       label: f.label,
       icon: f.icon,
@@ -997,9 +959,8 @@ export class WorkspaceElement extends WorkspaceBase {
       };
       generator.addEventListener("back", () => {
         // One level back - to Design's own Architecture/Wireframes list,
-        // not all the way out to the Workspace overview (that back
-        // button, in the generic function-list view above, handles
-        // that level).
+        // not all the way out to the overview (that back button, in the
+        // generic function-list view above, handles that level).
         this.showDesignGenerator = false;
         this.renderView();
       });
@@ -1008,8 +969,8 @@ export class WorkspaceElement extends WorkspaceBase {
     this.subscreenView.appendChild(this.designGenerator);
   }
 
-  // ---- Deployment: Cloud providers (opened from Cloud above) - migrated
-  // onto <control-cloud-connector> (justjs#126). ----
+  // ---- Deployment: Cloud providers (opened from Cloud above) -
+  // <control-cloud-connector>. ----
 
   private renderCloudProviders(): void {
     this.functionListView.hidden = true;
@@ -1028,7 +989,7 @@ export class WorkspaceElement extends WorkspaceBase {
       header.backLabel = "Deployment";
       header.addEventListener("nav-back", () => {
         // One level back - to Deployment's own function list, not all
-        // the way out to the Workspace overview.
+        // the way out to the overview.
         this.showCloudProviders = false;
         this.renderView();
       });
@@ -1046,9 +1007,9 @@ export class WorkspaceElement extends WorkspaceBase {
   }
 
   // ---- Development: source-control connections (opened from Repository
-  // above) - migrated onto <control-provider-connector> (justjs#124):
-  // single bearer-token field, no extra actions beyond connect/list/
-  // disconnect, a clean fit with zero package extension. ----
+  // above) - <control-provider-connector>: single bearer-token field, no
+  // extra actions beyond connect/list/disconnect, a clean fit with zero
+  // package extension. ----
 
   private renderScmProviders(): void {
     this.functionListView.hidden = true;
@@ -1064,9 +1025,7 @@ export class WorkspaceElement extends WorkspaceBase {
       const header = screen.querySelector<NavHeaderView>("#scm-header")!;
       // icon/title are private-field-backed accessors on NavHeaderView,
       // not reflected HTML attributes - must be set via JS property
-      // assignment, not inline in the template string above (real bug
-      // caught while writing this migration, fixed in cli_terminal.ts/
-      // doc_generator_control.ts too).
+      // assignment, not inline in the template string above.
       header.icon = "📦";
       header.title = "Repository";
       header.backLabel = "Development";
@@ -1086,9 +1045,9 @@ export class WorkspaceElement extends WorkspaceBase {
   }
 
   // ---- Requirement/Planning: project-management connections (opened
-  // from Specs/User Stories/Project Boards above) - migrated onto
-  // <control-provider-connector> (justjs#125), including Jira's real
-  // OAuth-redirect flow via oauthRedirect/oauthBegin. ----
+  // from Specs/User Stories/Project Boards above) - <control-provider-
+  // connector>, including Jira's real OAuth-redirect flow via
+  // oauthRedirect/oauthBegin. ----
 
   private renderPmProviders(stage: SdlcStage): void {
     this.functionListView.hidden = true;
@@ -1160,7 +1119,7 @@ export class WorkspaceElement extends WorkspaceBase {
       };
       generator.addEventListener("back", () => {
         // One level back - to Presentation's own function list, not all
-        // the way out to the Workspace overview.
+        // the way out to the overview.
         this.showPresentationGenerator = false;
         this.renderView();
       });
@@ -1186,7 +1145,7 @@ export class WorkspaceElement extends WorkspaceBase {
       };
       terminal.addEventListener("back", () => {
         // One level back - to Development's own function list, not all
-        // the way out to the Workspace overview.
+        // the way out to the overview.
         this.showCliTerminal = false;
         this.renderView();
       });
@@ -1200,6 +1159,6 @@ export class WorkspaceElement extends WorkspaceBase {
   }
 }
 
-if (typeof customElements !== "undefined" && !customElements.get("x-workspace")) {
-  customElements.define("x-workspace", WorkspaceElement);
+if (typeof customElements !== "undefined" && !customElements.get("control-sdlc-hub")) {
+  customElements.define("control-sdlc-hub", SdlcHubElement);
 }

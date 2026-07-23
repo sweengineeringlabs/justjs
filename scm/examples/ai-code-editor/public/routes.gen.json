@@ -31,28 +31,10 @@
       "tag": "js-scaffold"
     },
     {
-      "component": "workspace",
-      "feature": "workspace",
-      "path": "/workspace",
-      "tag": "js-workspace"
-    },
-    {
-      "component": "communication",
-      "feature": "communication",
-      "path": "/communication",
-      "tag": "js-communication"
-    },
-    {
-      "component": "socials",
-      "feature": "socials",
-      "path": "/socials",
-      "tag": "js-socials"
-    },
-    {
-      "component": "cartoon",
-      "feature": "cartoon",
-      "path": "/cartoon",
-      "tag": "js-cartoon"
+      "component": "connect",
+      "feature": "connect",
+      "path": "/connect",
+      "tag": "js-connect"
     }
   ],
   "version": 1

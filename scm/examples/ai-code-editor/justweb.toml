@@ -1,11 +1,17 @@
 # justweb.toml — project config for the justw CLI.
-# ai-code-editor's 8 top-level components (x-editor/x-chat/x-review/
-# x-scaffold/x-workspace/x-communication/x-socials/x-cartoon) are
-# hand-written, not justweb-generated — the
-# [mounts] table below exists only to get real, validated DDAS addresses
-# for their pre-existing containers (justweb#69/#70/#71). app.ts is
-# hand-authored (no "DO NOT EDIT" marker), so `justw generate app` never
-# overwrites it — see justjs#95.
+# ai-code-editor's 6 top-level components (x-home/x-editor/x-chat/
+# x-review/x-scaffold/x-connect) are hand-written, not justweb-generated
+# — the [mounts] table below exists only to get real, validated DDAS
+# addresses for their pre-existing containers (justweb#69/#70/#71).
+# app.ts is hand-authored (no "DO NOT EDIT" marker), so
+# `justw generate app` never overwrites it — see justjs#95.
+#
+# Workspace's former mount was retired — its content now lives inline on
+# Home via a plain (non-routed) <control-sdlc-hub> control, not a mount
+# of its own. Communication/Socials/Cartoon's former mounts were merged
+# into one "connect" mount — each is still a real custom element
+# (x-communication/x-socials/x-cartoon), just no longer top-level routes;
+# x-connect creates and appends them dynamically instead.
 
 name = "ai-code-editor"
 version = "0.1.0"
@@ -38,22 +44,7 @@ selector = "#mount-scaffold"
 component = "scaffold"
 tag = "x-scaffold"
 
-[mounts.mount-workspace]
-selector = "#mount-workspace"
-component = "workspace"
-tag = "x-workspace"
-
-[mounts.mount-communication]
-selector = "#mount-communication"
-component = "communication"
-tag = "x-communication"
-
-[mounts.mount-socials]
-selector = "#mount-socials"
-component = "socials"
-tag = "x-socials"
-
-[mounts.mount-cartoon]
-selector = "#mount-cartoon"
-component = "cartoon"
-tag = "x-cartoon"
+[mounts.mount-connect]
+selector = "#mount-connect"
+component = "connect"
+tag = "x-connect"

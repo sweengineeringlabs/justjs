@@ -1,14 +1,6 @@
 {
   "app": "ai-code-editor",
   "elements": {
-    "ai-code-editor:app:shell:mount-cartoon": {
-      "component": "cartoon",
-      "feature": "app",
-      "interactive": false,
-      "scope": "public",
-      "tag": "x-cartoon",
-      "type": "div"
-    },
     "ai-code-editor:app:shell:mount-chat": {
       "component": "chat",
       "feature": "app",
@@ -17,12 +9,12 @@
       "tag": "x-chat",
       "type": "div"
     },
-    "ai-code-editor:app:shell:mount-communication": {
-      "component": "communication",
+    "ai-code-editor:app:shell:mount-connect": {
+      "component": "connect",
       "feature": "app",
       "interactive": false,
       "scope": "public",
-      "tag": "x-communication",
+      "tag": "x-connect",
       "type": "div"
     },
     "ai-code-editor:app:shell:mount-editor": {
@@ -55,22 +47,6 @@
       "interactive": false,
       "scope": "public",
       "tag": "x-scaffold",
-      "type": "div"
-    },
-    "ai-code-editor:app:shell:mount-socials": {
-      "component": "socials",
-      "feature": "app",
-      "interactive": false,
-      "scope": "public",
-      "tag": "x-socials",
-      "type": "div"
-    },
-    "ai-code-editor:app:shell:mount-workspace": {
-      "component": "workspace",
-      "feature": "app",
-      "interactive": false,
-      "scope": "public",
-      "tag": "x-workspace",
       "type": "div"
     },
     "ai-code-editor:cartoon:cartoon:back-btn": {
@@ -327,6 +303,14 @@
       "interactive": false,
       "scope": "public",
       "tag": "js-communication",
+      "type": "div"
+    },
+    "ai-code-editor:connect:connect:content": {
+      "component": "connect",
+      "feature": "connect",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-connect",
       "type": "div"
     },
     "ai-code-editor:editor:editor:gutter": {
@@ -640,62 +624,6 @@
       "scope": "public",
       "tag": "js-socials",
       "type": "view-nav-header"
-    },
-    "ai-code-editor:workspace:workspace:back-btn": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "button"
-    },
-    "ai-code-editor:workspace:workspace:function-list": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "view-grid"
-    },
-    "ai-code-editor:workspace:workspace:function-list-view": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "div"
-    },
-    "ai-code-editor:workspace:workspace:overview-grid": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "view-grid"
-    },
-    "ai-code-editor:workspace:workspace:stage-title": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "h2"
-    },
-    "ai-code-editor:workspace:workspace:subscreen-view": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "div"
-    },
-    "ai-code-editor:workspace:workspace:workspace-view": {
-      "component": "workspace",
-      "feature": "workspace",
-      "interactive": false,
-      "scope": "public",
-      "tag": "js-workspace",
-      "type": "div"
     }
   },
   "mounts": {
@@ -703,17 +631,13 @@
       "id": "ai-code-editor:app:shell:mount",
       "selector": "#app"
     },
-    "mount-cartoon": {
-      "id": "ai-code-editor:app:shell:mount-cartoon",
-      "selector": "#mount-cartoon"
-    },
     "mount-chat": {
       "id": "ai-code-editor:app:shell:mount-chat",
       "selector": "#mount-chat"
     },
-    "mount-communication": {
-      "id": "ai-code-editor:app:shell:mount-communication",
-      "selector": "#mount-communication"
+    "mount-connect": {
+      "id": "ai-code-editor:app:shell:mount-connect",
+      "selector": "#mount-connect"
     },
     "mount-editor": {
       "id": "ai-code-editor:app:shell:mount-editor",
@@ -730,14 +654,6 @@
     "mount-scaffold": {
       "id": "ai-code-editor:app:shell:mount-scaffold",
       "selector": "#mount-scaffold"
-    },
-    "mount-socials": {
-      "id": "ai-code-editor:app:shell:mount-socials",
-      "selector": "#mount-socials"
-    },
-    "mount-workspace": {
-      "id": "ai-code-editor:app:shell:mount-workspace",
-      "selector": "#mount-workspace"
     }
   },
   "schema": "1",
