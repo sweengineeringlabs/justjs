@@ -779,6 +779,36 @@ it may not open a working native picker without the right capability
 wired. Real Android verification for either feature is unconfirmed and
 explicitly out of scope for this pass.
 
+## Android — Jira's OAuth-redirect connect flow doesn't work
+
+Every other real "Connect" screen in this app (cloud/SCM/PM/comms/
+socials/cartoon providers, Linear/Asana/Trello included) is a plain
+bearer-token or two-field form that resolves in place — those all work
+identically on Android. **Jira is the one exception**, and it's a real,
+structural limitation, not an oversight: `beginJiraConnect()`
+(`core/pm_connect.ts`) does a genuine `globalThis.location.assign(url)`
+full-page navigation to Atlassian's real consent screen, expecting
+Atlassian to redirect back to `redirectUri` afterward (`app.ts`'s
+`main()` detects the returned `code`/`state` params before normal boot).
+That round trip assumes a real HTTP origin the browser can navigate back
+to. The packaged Android build has no such origin — its WebView loads
+static assets from `file:///android_asset/`, not a real server — so
+Atlassian's redirect after a real consent approval has nowhere valid to
+land. The button still renders and still navigates the WebView to
+Atlassian's real screen; a user could even complete real Atlassian login
+there, but the return trip fails, a dead end rather than a crash.
+
+Every other provider's connect flow was verified working end-to-end on
+a real device (Samsung SM-A055F) as part of `justjs#133`. Jira's
+OAuth-redirect flow specifically was not attempted on-device, and isn't
+expected to work given the above — fixing it for real would mean either
+a custom URL scheme + Android Intent Filter (so Atlassian's redirect can
+be caught and routed back into the app) or a different, non-redirect
+Jira auth path; neither is implemented. This app compiles unmodified for
+both targets (no platform branching in the source), so today Jira's
+button is left as-is rather than special-cased per platform — a real,
+disclosed gap, not silently broken.
+
 ## Real security tradeoff, stated plainly
 
 This app calls Anthropic's Messages API directly from browser/WebView JS,
