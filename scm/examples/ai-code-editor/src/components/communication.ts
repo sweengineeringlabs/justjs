@@ -4,7 +4,7 @@
 // workspace.ts's CLOUD_PROVIDER_CATALOG - major, commercially
 // protective brands not in simple-icons at all). Slack/Teams fall back
 // to a plain colored monogram instead of a fabricated logo shape.
-import discordLogo from "simple-icons/icons/discord.svg?raw";
+import { discordLogo } from "../core/brand_logos.js";
 import { getStoredCommsToken, setStoredCommsToken, getStoredCommsSettings, setStoredCommsSettings } from "../core/comms_credentials.js";
 import type { CommsSettings } from "../core/comms_credentials.js";
 import {

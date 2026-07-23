@@ -4,10 +4,7 @@
 // real. LinkedIn is NOT (confirmed - same real gap AWS/Azure/Heroku hit
 // in workspace.ts's CLOUD_PROVIDER_CATALOG), so it falls back to a
 // plain colored monogram instead of a fabricated logo shape.
-import mastodonLogo from "simple-icons/icons/mastodon.svg?raw";
-import blueskyLogo from "simple-icons/icons/bluesky.svg?raw";
-import redditLogo from "simple-icons/icons/reddit.svg?raw";
-import xLogo from "simple-icons/icons/x.svg?raw";
+import { mastodonLogo, blueskyLogo, redditLogo, xLogo } from "../core/brand_logos.js";
 import {
   getStoredSocialToken,
   setStoredSocialToken,

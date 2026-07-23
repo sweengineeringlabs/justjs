@@ -64,21 +64,24 @@ store.subscribe(() => {
 
 // Real generated DDAS/route data (justweb#69/#70/#71, justjs#95) replaces
 // what used to be hand-typed ROUTES/MOUNT_ID_FOR_ROUTE/registry/
-// domAddressMap literals. Fetched at runtime, not statically imported -
-// both files live under public/, and Vite's dev server (unlike its
-// production `vite build`, which happily inlines them) refuses to
-// resolve a JS `import` of anything under public/ ("Assets in public
-// directory cannot be imported from JavaScript"), silently breaking
-// `bun run dev` while `bun run build` looked fine. fetch() is Vite's own
-// documented way to consume public/ files, and works identically in dev
-// and build. routes.gen.json's own `tag` field is unusable here - it's
-// always auto-derived as "js-<component>" (justweb's
-// component_tag_name), never matching this app's real x-editor/x-chat/
-// ... tags - so the real tag comes from dom-address-map.json's
-// bound-mount `elements` entries instead (justweb.toml's
-// [mounts.*].tag), joined by the shared bare component name. Any route
-// whose component has no bound mount fails loud rather than silently
-// mounting nothing.
+// domAddressMap literals. Statically imported (not fetched at runtime -
+// see justscript_compiler#22, fixed 2026-07-22) so both compiled
+// targets (`vite build` and `justc build --bundle --format iife`, the
+// Android generator) get the exact same build-time-known data with zero
+// runtime network dependency - no boot-time fetch() to fail, which is
+// fatal on Android specifically (Chromium's fetch() categorically
+// refuses `file:` URLs, and the WebView serves everything from
+// file:///android_asset/). routes.gen.json's own `tag` field is
+// unusable here - it's always auto-derived as "js-<component>"
+// (justweb's component_tag_name), never matching this app's real
+// x-editor/x-chat/... tags - so the real tag comes from
+// dom-address-map.json's bound-mount `elements` entries instead
+// (justweb.toml's [mounts.*].tag), joined by the shared bare component
+// name. Any route whose component has no bound mount fails loud rather
+// than silently mounting nothing.
+import domAddressMapJson from "../public/dom-address-map.json";
+import routesGenJson from "../public/routes.gen.json";
+
 interface ResolvedRoute {
   readonly path: string;
   readonly tag: string;
@@ -87,11 +90,7 @@ interface ResolvedRoute {
 
 type DomAddressElements = Record<string, { component: string; tag?: string }>;
 
-async function resolveGeneratedRoutes(): Promise<{ routes: ResolvedRoute[]; elements: DomAddressElements }> {
-  const [domAddressMapJson, routesGenJson] = await Promise.all([
-    fetch("/dom-address-map.json").then((r) => r.json()),
-    fetch("/routes.gen.json").then((r) => r.json()),
-  ]);
+function resolveGeneratedRoutes(): { routes: ResolvedRoute[]; elements: DomAddressElements } {
   const elements = domAddressMapJson.elements as DomAddressElements;
   const mounts = domAddressMapJson.mounts as Record<string, { id: string; selector: string }>;
   const routes = routesGenJson.routes as Array<{ path: string; component: string }>;
@@ -116,7 +115,7 @@ async function resolveGeneratedRoutes(): Promise<{ routes: ResolvedRoute[]; elem
 
 // Populated by main() before boot() runs - showRoute()/goToRoute() are
 // only ever invoked (via the NAVIGATE_EVENT listener or a nav-bar click)
-// after main() has awaited resolveGeneratedRoutes() and boot() has
+// after main() has called resolveGeneratedRoutes() and boot() has
 // mounted every route, so these are never read empty.
 let RESOLVED_ROUTES: ResolvedRoute[] = [];
 let ROUTES: string[] = [];
@@ -318,7 +317,7 @@ async function main(): Promise<void> {
       }
     }
 
-    const { routes, elements } = await resolveGeneratedRoutes();
+    const { routes, elements } = resolveGeneratedRoutes();
     RESOLVED_ROUTES = routes;
     ROUTES = routes.map((r) => r.path);
     MOUNT_ID_FOR_ROUTE = Object.fromEntries(routes.map((r) => [r.path, r.mountElementId]));

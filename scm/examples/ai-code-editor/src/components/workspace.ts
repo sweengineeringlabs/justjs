@@ -11,23 +11,25 @@ import { runCliCommand } from "../core/cli.js";
 // pulled over trademark requests in the past) - those three fall back
 // to a plain colored monogram instead of a fabricated logo shape, see
 // CLOUD_PROVIDER_CATALOG below.
-import gcpLogo from "simple-icons/icons/googlecloud.svg?raw";
-import digitaloceanLogo from "simple-icons/icons/digitalocean.svg?raw";
-import cloudflareLogo from "simple-icons/icons/cloudflare.svg?raw";
-import vercelLogo from "simple-icons/icons/vercel.svg?raw";
-import netlifyLogo from "simple-icons/icons/netlify.svg?raw";
 // GitHub/GitLab/Bitbucket are all in simple-icons' catalog for real
 // (unlike AWS/Azure/Heroku above) - no monogram fallback needed for any
-// of the 3 SCM providers.
-import githubLogo from "simple-icons/icons/github.svg?raw";
-import gitlabLogo from "simple-icons/icons/gitlab.svg?raw";
-import bitbucketLogo from "simple-icons/icons/bitbucket.svg?raw";
-// Linear/Asana/Trello/Jira are all in simple-icons' catalog for real
-// too - no monogram fallback needed for any of the 4 PM providers.
-import linearLogo from "simple-icons/icons/linear.svg?raw";
-import asanaLogo from "simple-icons/icons/asana.svg?raw";
-import trelloLogo from "simple-icons/icons/trello.svg?raw";
-import jiraLogo from "simple-icons/icons/jira.svg?raw";
+// of the 3 SCM providers. Linear/Asana/Trello/Jira are all in
+// simple-icons' catalog for real too - no monogram fallback needed for
+// any of the 4 PM providers.
+import {
+  gcpLogo,
+  digitaloceanLogo,
+  cloudflareLogo,
+  vercelLogo,
+  netlifyLogo,
+  githubLogo,
+  gitlabLogo,
+  bitbucketLogo,
+  linearLogo,
+  asanaLogo,
+  trelloLogo,
+  jiraLogo,
+} from "../core/brand_logos.js";
 import {
   getStoredCloudToken,
   setStoredCloudToken,

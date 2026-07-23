@@ -5,6 +5,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    "resolveJsonModule": true,
     "types": ["node"],
     "paths": {
       "@browser/*": ["./src/shared/browser-sdk/*"]

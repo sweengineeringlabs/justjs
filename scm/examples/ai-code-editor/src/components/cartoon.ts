@@ -3,7 +3,7 @@
 // AI aren't (same real gap AWS/Azure/Heroku hit in workspace.ts's
 // CLOUD_PROVIDER_CATALOG) - both fall back to a plain colored monogram
 // instead of a fabricated logo shape.
-import geminiLogo from "simple-icons/icons/googlegemini.svg?raw";
+import { geminiLogo } from "../core/brand_logos.js";
 import { getStoredCartoonToken, setStoredCartoonToken } from "../core/cartoon_credentials.js";
 import {
   connectOpenAi,
