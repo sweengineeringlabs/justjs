@@ -305,4 +305,163 @@ describe("ProviderConnectorControl", () => {
     expect(el.shadowRoot?.querySelector("view-status-line")).toBeNull();
     expect(connectCalled).toBe(false);
   });
+
+  // justjs#135 - GitHub OAuth Device Flow's own third mode, distinct
+  // from both plain bearer-token connect and oauthRedirect's fire-and-
+  // forget navigation.
+  describe("device flow (justjs#135)", () => {
+    function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (e: unknown) => void } {
+      let resolve!: (value: T) => void;
+      let reject!: (e: unknown) => void;
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    const GITHUB_PROVIDER = {
+      id: "github",
+      name: "GitHub",
+      color: "#181717",
+      deviceFlow: true as const,
+      fields: [],
+    };
+
+    it("calls deviceFlowBegin instead of connect, and renders the real user code/verification URL once it resolves", async () => {
+      const el = mount();
+      let connectCalled = false;
+      const tokenDeferred = deferred<string>();
+      el.deviceFlowBegin = async () => ({
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        token: tokenDeferred.promise,
+      });
+      el.connect = async () => {
+        connectCalled = true;
+        return undefined;
+      };
+      el.providers = [GITHUB_PROVIDER];
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "github" } }));
+      const formEl = el.shadowRoot!.querySelector("view-form")!;
+      formEl.dispatchEvent(new CustomEvent("submit", { detail: { values: {} } }));
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(connectCalled).toBe(false); // not yet - token hasn't resolved
+      const link = el.shadowRoot?.querySelector<HTMLAnchorElement>(".device-flow-link");
+      expect(link?.href).toBe("https://github.com/login/device");
+      expect(el.shadowRoot?.querySelector(".device-flow-user-code")?.textContent).toBe("ABCD-1234");
+      const status = el.shadowRoot?.querySelector("view-status-line") as { text?: string } | null;
+      expect(status?.text).toBe("Waiting for you to finish on GitHub…");
+    });
+
+    it("connects and populates the resource list once the device-flow token resolves", async () => {
+      const el = mount();
+      let connectValues: Record<string, string> | undefined;
+      const tokenDeferred = deferred<string>();
+      el.deviceFlowBegin = async () => ({
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        token: tokenDeferred.promise,
+      });
+      el.connect = async (providerId, values) => {
+        connectValues = { ...values };
+        expect(providerId).toBe("github");
+        return { session: "real" };
+      };
+      el.list = async (_id, session) => [{ id: "1", name: "sweengineeringlabs/justjs", status: "public" }];
+      let connectedDetail: { providerId: string } | undefined;
+      el.addEventListener("connected", (e) => {
+        connectedDetail = (e as CustomEvent).detail;
+      });
+      el.providers = [GITHUB_PROVIDER];
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "github" } }));
+      el.shadowRoot!.querySelector("view-form")!.dispatchEvent(new CustomEvent("submit", { detail: { values: {} } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      tokenDeferred.resolve("gho_real_token");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(connectValues).toEqual({ token: "gho_real_token" });
+      expect(connectedDetail).toEqual({ providerId: "github" });
+      const list = el.shadowRoot?.querySelector("view-list") as { items?: readonly { name: string }[] } | null;
+      expect(list?.items?.[0]?.name).toBe("sweengineeringlabs/justjs");
+    });
+
+    it("surfaces a device-flow rejection (e.g. expired code) via the status line, same as a failed connect", async () => {
+      const el = mount();
+      const tokenDeferred = deferred<string>();
+      el.deviceFlowBegin = async () => ({
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        token: tokenDeferred.promise,
+      });
+      let errorDetail: { providerId: string; message: string } | undefined;
+      el.addEventListener("error", (e) => {
+        errorDetail = (e as CustomEvent).detail;
+      });
+      el.providers = [GITHUB_PROVIDER];
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "github" } }));
+      el.shadowRoot!.querySelector("view-form")!.dispatchEvent(new CustomEvent("submit", { detail: { values: {} } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      tokenDeferred.reject(new Error("GitHub: the device code expired before you finished signing in - try connecting again."));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(errorDetail?.providerId).toBe("github");
+      expect(errorDetail?.message).toContain("expired");
+      const status = el.shadowRoot?.querySelector("view-status-line") as { text?: string } | null;
+      expect(status?.text).toContain("⚠️");
+    });
+
+    it("abandons a device-flow attempt on reselect - a late-resolving token never flips connected or dispatches a stale event", async () => {
+      const el = mount();
+      const tokenDeferred = deferred<string>();
+      let connectCalled = false;
+      el.deviceFlowBegin = async () => ({
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        token: tokenDeferred.promise,
+      });
+      el.connect = async () => {
+        connectCalled = true;
+        return undefined;
+      };
+      let connectedFired = false;
+      el.addEventListener("connected", () => {
+        connectedFired = true;
+      });
+      el.providers = [
+        GITHUB_PROVIDER,
+        { id: "mastodon", name: "Mastodon", color: "#6364FF", fields: [{ id: "token", type: "password" as const, placeholder: "" }] },
+      ];
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "github" } }));
+      el.shadowRoot!.querySelector("view-form")!.dispatchEvent(new CustomEvent("submit", { detail: { values: {} } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Abandon by going back to the grid and reselecting a different
+      // provider before the token ever resolves.
+      el.shadowRoot?.querySelector("view-nav-header")?.shadowRoot?.querySelector<HTMLButtonElement>(".back-btn")?.click();
+      el.shadowRoot!.querySelector("view-grid")!.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+
+      // The abandoned poll resolves late - must be a silent no-op.
+      tokenDeferred.resolve("gho_too_late");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(connectCalled).toBe(false);
+      expect(connectedFired).toBe(false);
+      // Still on the (correct) mastodon form, not silently bounced anywhere.
+      const form = el.shadowRoot?.querySelector("view-form") as { fields?: readonly { id: string }[] } | null;
+      expect(form?.fields?.map((f) => f.id)).toEqual(["token"]);
+    });
+  });
 });

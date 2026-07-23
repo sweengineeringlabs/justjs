@@ -51,6 +51,17 @@ export interface ProviderCatalogItem {
   // re-verifies the persisted session itself, there's nothing for
   // `connect` to legitimately return as a "session" mid-visit.
   readonly oauthRedirect?: boolean;
+  // When set, the form's Connect button calls `deviceFlowBegin` instead
+  // of `connect`/`oauthBegin` - a real, necessary third extension beyond
+  // ADR-0007's original scope, discovered wiring up GitHub's OAuth
+  // Device Authorization Flow (justjs#135): unlike oauthRedirect, device
+  // flow never navigates away (no redirect URI exists in this flow at
+  // all, which is the whole point - it works in a packaged WebView with
+  // no HTTP origin for a redirect to land on), so the control has to
+  // stay on this same screen showing a real user code + verification
+  // URL while polling in the background. `fields` should be empty for a
+  // deviceFlow provider - there's nothing for the user to type.
+  readonly deviceFlow?: boolean;
 }
 
 // Caller-supplied network calls - the control never talks to a
@@ -68,12 +79,32 @@ export type DisconnectFunction = (providerId: string) => void;
 // via the same status line.
 export type OAuthBeginFunction = (providerId: string, values: Readonly<Record<string, string>>) => void;
 
+// The real user code + verification URL to show while `token` is still
+// pending - unlike OAuthBeginFunction's fire-and-forget navigation,
+// device flow has real intermediate state to display before the
+// eventual outcome, since the page never unloads.
+export interface DeviceFlowSession {
+  readonly userCode: string;
+  readonly verificationUri: string;
+  // Resolves once the user finishes on the provider's own site; rejects
+  // on expiry/denial/network failure. The control awaits this itself -
+  // it never calls `connect()` before this resolves.
+  readonly token: Promise<string>;
+}
+// `signal` is aborted by the control itself if the user navigates away
+// (reselects a provider, taps back, disconnects) before `token`
+// resolves - the caller's implementation should stop polling, though it
+// cannot cancel a request already in flight (see
+// @justjs/scm-connect's pollGithubDeviceToken for the disclosed limit).
+export type DeviceFlowBeginFunction = (providerId: string, signal: AbortSignal) => Promise<DeviceFlowSession>;
+
 export interface ProviderConnectorControlProps {
   readonly providers?: readonly ProviderCatalogItem[];
   readonly connect?: ConnectFunction;
   readonly list?: ListFunction;
   readonly disconnect?: DisconnectFunction;
   readonly oauthBegin?: OAuthBeginFunction;
+  readonly deviceFlowBegin?: DeviceFlowBeginFunction;
   // The detail screen's back-button label (composes <view-nav-header>
   // internally - e.g. "Socials" renders "← Socials"), matching every
   // existing screen's own "← <catalog name>" convention.

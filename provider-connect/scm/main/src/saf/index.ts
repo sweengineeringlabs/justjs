@@ -13,6 +13,8 @@ export type {
   ListFunction,
   DisconnectFunction,
   OAuthBeginFunction,
+  DeviceFlowSession,
+  DeviceFlowBeginFunction,
   ProviderConnectorControlProps,
 } from "../api/provider_connector_control.js";
 

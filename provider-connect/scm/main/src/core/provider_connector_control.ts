@@ -6,6 +6,7 @@ import type {
   ListFunction,
   DisconnectFunction,
   OAuthBeginFunction,
+  DeviceFlowBeginFunction,
 } from "../api/provider_connector_control.js";
 
 // Real Custom Element covering the common case ADR-0007 scoped: single-
@@ -38,6 +39,7 @@ export class ProviderConnectorControl extends HTMLElement {
   #list: ListFunction | undefined;
   #disconnect: DisconnectFunction | undefined;
   #oauthBegin: OAuthBeginFunction | undefined;
+  #deviceFlowBegin: DeviceFlowBeginFunction | undefined;
   #catalogLabel = "";
   #selectedProviderId: string | null = null;
   #connecting = false;
@@ -45,6 +47,18 @@ export class ProviderConnectorControl extends HTMLElement {
   #resources: readonly ListItem[] | null = null;
   readonly #connectedIds = new Set<string>();
   readonly #root: ShadowRoot;
+  // Device-flow-only state (justjs#135). #deviceFlowSession holds the
+  // real user code/URL to render while a poll is in flight, cleared once
+  // it settles either way. #deviceFlowGeneration guards against a stale
+  // poll (abandoned by reselecting a provider, tapping back, or
+  // disconnecting) ever flipping `connected`/dispatching "connected" for
+  // a screen nobody's watching anymore - every entry point that
+  // abandons an attempt bumps this counter AND aborts the controller;
+  // #handleDeviceFlowBegin checks the counter at each resume point and
+  // simply returns if it's gone stale.
+  #deviceFlowSession: { userCode: string; verificationUri: string } | null = null;
+  #deviceFlowAbort: AbortController | null = null;
+  #deviceFlowGeneration = 0;
 
   constructor() {
     super();
@@ -78,6 +92,10 @@ export class ProviderConnectorControl extends HTMLElement {
 
   set oauthBegin(fn: OAuthBeginFunction | undefined) {
     this.#oauthBegin = fn;
+  }
+
+  set deviceFlowBegin(fn: DeviceFlowBeginFunction | undefined) {
+    this.#deviceFlowBegin = fn;
   }
 
   get catalogLabel(): string {
@@ -166,11 +184,79 @@ export class ProviderConnectorControl extends HTMLElement {
   }
 
   #handleDisconnect(provider: ProviderCatalogItem): void {
+    this.#abandonDeviceFlow();
     this.#disconnect?.(provider.id);
     this.#connectedIds.delete(provider.id);
     this.#resources = null;
     this.#error = null;
     this.render();
+  }
+
+  // Bumps the generation counter and aborts any in-flight device-flow
+  // poll - called from every point the user leaves a pending attempt
+  // behind (reselecting a provider, tapping back, disconnecting) so a
+  // stale poll resolving later can never flip `connected`/dispatch
+  // "connected" for a screen nobody's watching anymore. Cheap/no-op when
+  // no device flow is in progress.
+  #abandonDeviceFlow(): void {
+    this.#deviceFlowGeneration++;
+    this.#deviceFlowAbort?.abort();
+    this.#deviceFlowAbort = null;
+    this.#deviceFlowSession = null;
+  }
+
+  // justjs#135 - device flow's own Connect handler. Unlike
+  // #handleOAuthBegin (fire-and-forget navigation, page unloads), this
+  // stays on screen the whole time: request the code, render it
+  // immediately, await the background poll, then replicate
+  // #handleSubmit's own connect-then-list tail once a real token exists,
+  // so behavior matches the plain-bearer path exactly from that point
+  // on. Re-rendering after the code arrives is correct here (unlike
+  // #handleOAuthBegin's deliberate no-rerender rule, which exists only
+  // to protect just-typed fields from a page unload that never happens
+  // in this flow, and deviceFlow providers have no fields to protect
+  // anyway).
+  async #handleDeviceFlowBegin(provider: ProviderCatalogItem): Promise<void> {
+    this.#abandonDeviceFlow();
+    const controller = new AbortController();
+    this.#deviceFlowAbort = controller;
+    const generation = this.#deviceFlowGeneration;
+    this.#connecting = true;
+    this.#error = null;
+    this.render();
+    try {
+      const handle = await this.#deviceFlowBegin?.(provider.id, controller.signal);
+      if (generation !== this.#deviceFlowGeneration || !handle) {
+        return;
+      }
+      this.#deviceFlowSession = { userCode: handle.userCode, verificationUri: handle.verificationUri };
+      this.render();
+      const token = await handle.token;
+      if (generation !== this.#deviceFlowGeneration) {
+        return;
+      }
+      const session = await this.#connect?.(provider.id, { token });
+      if (generation !== this.#deviceFlowGeneration) {
+        return;
+      }
+      this.#connectedIds.add(provider.id);
+      this.dispatchEvent(new CustomEvent("connected", { detail: { providerId: provider.id }, bubbles: true, composed: true }));
+      this.#resources = (await this.#list?.(provider.id, session)) ?? [];
+    } catch (e) {
+      if (generation !== this.#deviceFlowGeneration) {
+        return;
+      }
+      this.#error = e instanceof Error ? e.message : String(e);
+      this.dispatchEvent(
+        new CustomEvent("error", { detail: { providerId: provider.id, message: this.#error }, bubbles: true, composed: true })
+      );
+    } finally {
+      if (generation === this.#deviceFlowGeneration) {
+        this.#connecting = false;
+        this.#deviceFlowSession = null;
+        this.render();
+      }
+    }
   }
 
   // Matches every existing screen's own lazy-validation posture: a
@@ -180,7 +266,7 @@ export class ProviderConnectorControl extends HTMLElement {
   // workspace.ts/communication.ts before porting, not assumed.
   #maybeAutoConnect(provider: ProviderCatalogItem): void {
     if (this.#connectedIds.has(provider.id) && this.#resources === null && !this.#connecting && !this.#error) {
-      if (provider.oauthRedirect) {
+      if (provider.oauthRedirect || provider.deviceFlow) {
         void this.#fetchList(provider);
       } else {
         void this.#handleSubmit(provider, {});
@@ -221,6 +307,7 @@ export class ProviderConnectorControl extends HTMLElement {
       };
     });
     grid.addEventListener("item-select", (e) => {
+      this.#abandonDeviceFlow();
       const id = (e as CustomEvent<{ id: string }>).detail.id;
       this.#selectedProviderId = id;
       this.#error = null;
@@ -240,15 +327,32 @@ export class ProviderConnectorControl extends HTMLElement {
       !unsupported && this.#resources !== null
         ? `${provider.resourceListLabel !== undefined ? `<h3 class="resource-list-label"></h3>` : ""}<view-list></view-list>`
         : "";
+    // Same "plain template block, no new shared view component" precedent
+    // .connect-hint already established for unsupportedMessage - shown
+    // only while a device-flow poll actually has a real code/URL to
+    // display (never for the other 2 modes, never before the code
+    // arrives).
+    // href/text content are set via safe DOM properties below, never
+    // interpolated into this template string - verificationUri/userCode
+    // come from a real external API response (GitHub's), same "never
+    // trust external data into innerHTML" rule this control's own
+    // provider.name/disclosure text already follows via
+    // appendChild(createTextNode(...))/.textContent.
+    const deviceFlowSection =
+      provider.deviceFlow && this.#deviceFlowSession
+        ? `<p class="device-flow-code">Go to <a class="device-flow-link" target="_blank" rel="noopener noreferrer"></a> and enter code <strong class="device-flow-user-code"></strong></p>`
+        : "";
     this.#root.innerHTML = `
       <style>
         :host { display: block; }
         .settings-disclosure { margin: 0 0 10px; font-size: 12px; line-height: 1.4; color: var(--text-muted); }
         .connect-hint { margin: 0 0 14px; font-size: 12px; line-height: 1.4; color: var(--text-muted); }
         .resource-list-label { margin: 12px 0 8px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+        .device-flow-code { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: var(--text); }
       </style>
       <view-nav-header id="detail-header"><view-badge id="detail-badge"></view-badge></view-nav-header>
       ${provider.disclosure !== undefined ? `<p class="settings-disclosure"></p>` : ""}
+      ${deviceFlowSection}
       ${unsupported ? `<p class="connect-hint"></p>` : `<view-form></view-form><view-status-line></view-status-line>${resourceListSection}`}
     `;
 
@@ -256,9 +360,21 @@ export class ProviderConnectorControl extends HTMLElement {
     header.appendChild(document.createTextNode(` ${provider.name}`));
     header.backLabel = this.#catalogLabel;
     header.addEventListener("nav-back", () => {
+      this.#abandonDeviceFlow();
       this.#selectedProviderId = null;
       this.render();
     });
+    if (provider.deviceFlow && this.#deviceFlowSession) {
+      const linkEl = this.#root.querySelector<HTMLAnchorElement>(".device-flow-link");
+      if (linkEl) {
+        linkEl.href = this.#deviceFlowSession.verificationUri;
+        linkEl.textContent = this.#deviceFlowSession.verificationUri;
+      }
+      const codeEl = this.#root.querySelector(".device-flow-user-code");
+      if (codeEl) {
+        codeEl.textContent = this.#deviceFlowSession.userCode;
+      }
+    }
     const badge = this.#root.querySelector<BadgeView>("#detail-badge")!;
     badge.color = provider.color;
     if (provider.icon !== undefined) {
@@ -289,6 +405,10 @@ export class ProviderConnectorControl extends HTMLElement {
     form.connected = connected;
     form.addEventListener("submit", (e) => {
       const values = (e as unknown as CustomEvent<{ values: Record<string, string> }>).detail.values;
+      if (provider.deviceFlow) {
+        void this.#handleDeviceFlowBegin(provider);
+        return;
+      }
       if (provider.oauthRedirect) {
         this.#handleOAuthBegin(provider, values);
         return;
@@ -298,7 +418,14 @@ export class ProviderConnectorControl extends HTMLElement {
     form.addEventListener("disconnect", () => this.#handleDisconnect(provider));
 
     const status = this.#root.querySelector<StatusLineView>("view-status-line")!;
-    status.text = this.#connecting ? "Connecting…" : this.#error ? `⚠️ ${this.#error}` : "";
+    status.text =
+      provider.deviceFlow && this.#deviceFlowSession
+        ? "Waiting for you to finish on GitHub…"
+        : this.#connecting
+          ? "Connecting…"
+          : this.#error
+            ? `⚠️ ${this.#error}`
+            : "";
 
     if (provider.resourceListLabel !== undefined && this.#resources !== null) {
       const labelEl = this.#root.querySelector(".resource-list-label");
