@@ -617,6 +617,7 @@ textarea:focus {
 }
 
 .editor-surface {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -641,6 +642,36 @@ textarea:focus {
 
 .editor-surface.sidebar-collapsed .editor-sidebar {
   display: none;
+}
+
+.editor-sidebar-backdrop {
+  display: none;
+}
+
+/* Below this width a fixed 150px sidebar leaves too little room for code
+   (measured on a real 360px viewport via csslense/browse: only 140px left
+   for the code pane, which needed 305px of scrollWidth to show a 4-line
+   file without horizontal scrolling) - the sidebar becomes a full overlay
+   drawer instead of a permanent flex sibling, same interaction as the
+   Settings panel's own backdrop-dismissible sheet. editor.ts defaults
+   sidebarOpen to false at this width and auto-closes it after a file is
+   opened, since it now covers the code instead of squeezing it. */
+@media (max-width: 640px) {
+  .editor-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 6;
+    width: min(240px, 80vw);
+    box-shadow: var(--shadow);
+  }
+
+  .editor-surface:not(.sidebar-collapsed) .editor-sidebar-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(0, 0, 0, 0.4);
+  }
 }
 
 .sidebar-toolbar {
@@ -882,13 +913,45 @@ textarea:focus {
 }
 
 /* Chat (AI-assisted) */
-#chat-messages {
+#chat-messages,
+.chat-agent-messages {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
   padding: 4px 2px 12px;
+}
+
+/* Agent mode (justjs#134) - one line per transcript step (tool call,
+   tool result, stopped) distinct from the .chat-message bubbles a plain
+   user/assistant turn reuses. */
+.agent-step {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-step-error {
+  color: var(--danger);
+}
+
+.agent-step-stopped {
+  text-align: center;
+  font-style: italic;
+}
+
+/* Disables the mode toggle by CSS alone - ToggleView has no `disabled`
+   concept of its own (a fully controlled "props in, event out" element),
+   so pointer-events/opacity on the host is the whole mechanism. */
+.chat-mode-toggle-disabled {
+  pointer-events: none;
+  opacity: 0.5;
 }
 
 .chat-message {

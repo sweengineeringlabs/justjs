@@ -48,6 +48,17 @@ function escapeAttr(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+// Keep in sync with app.css's matching editor-sidebar-overlay media query -
+// below this width the fixed 150px sidebar leaves too little room for code
+// (confirmed via csslense/browse against a real 360px viewport: only 140px
+// left for the code pane, needing 305px of scrollWidth to show a 4-line
+// file without horizontal scrolling).
+const MOBILE_BREAKPOINT_PX = 640;
+
+function isNarrowViewport(): boolean {
+  return globalThis.matchMedia?.(`(max-width: ${MOBILE_BREAKPOINT_PX}px)`).matches ?? false;
+}
+
 interface CreateTarget {
   readonly parentPath: string | null;
   readonly kind: "file" | "folder";
@@ -87,7 +98,11 @@ export class EditorElement extends EditorBase {
   // Sidebar UI state - all ephemeral, none of it read by any other
   // component, so it lives here rather than in the FeatureStore (avoids
   // Set-in-a-plain-JSON-reducer serialization questions entirely).
-  private sidebarOpen = true;
+  // Defaults closed on a narrow viewport (real usability bug, not just a
+  // style preference - a permanently-open 150px sidebar leaves the code
+  // pane too narrow to use on a phone-sized screen, confirmed on a real
+  // 360px viewport before this fix).
+  private sidebarOpen = !isNarrowViewport();
   private readonly expandedFolders = new Set<string>();
   private creatingIn: CreateTarget | null = null;
   private renamingPath: string | null = null;
@@ -118,6 +133,7 @@ export class EditorElement extends EditorBase {
         <button id="editor-review-btn" data-part="review-btn" type="button">Review</button>
       </div>
       <div class="editor-surface" data-part="surface">
+        <div id="editor-sidebar-backdrop" class="editor-sidebar-backdrop"></div>
         <div class="editor-sidebar">
           <div class="sidebar-toolbar">
             <span class="sidebar-title">Files</span>
@@ -157,6 +173,13 @@ export class EditorElement extends EditorBase {
     this.reviewBtn.addEventListener("click", () => void this.handleReview());
     this.querySelector("#sidebar-toggle-btn")?.addEventListener("click", () => {
       this.sidebarOpen = !this.sidebarOpen;
+      this.applySidebarOpenState();
+    });
+    // Only visible (via CSS) at narrow widths while the sidebar overlay is
+    // open - tapping outside the drawer closes it, same convention as the
+    // Settings panel's own backdrop.
+    this.querySelector("#editor-sidebar-backdrop")?.addEventListener("click", () => {
+      this.sidebarOpen = false;
       this.applySidebarOpenState();
     });
     this.querySelector("#sidebar-new-file-btn")?.addEventListener("click", () => this.startCreate(null, "file"));
@@ -549,6 +572,14 @@ export class EditorElement extends EditorBase {
         const path = el.closest<HTMLElement>(".tree-row")?.dataset.path;
         if (path) {
           this.store?.dispatch({ type: "OPEN_FILE", path });
+        }
+        // On a phone-sized screen the sidebar is a full overlay drawer -
+        // opening a file should return focus to the code, not leave the
+        // drawer covering it. Desktop-width sidebars push rather than
+        // overlay, so they stay open there.
+        if (isNarrowViewport() && this.sidebarOpen) {
+          this.sidebarOpen = false;
+          this.applySidebarOpenState();
         }
       });
     });
