@@ -54,11 +54,11 @@ export class GridView extends HTMLElement {
           align-items: center;
           justify-content: center;
           text-align: center;
-          gap: 8px;
-          padding: 16px;
+          gap: 6px;
+          padding: 12px;
           font-family: inherit;
           cursor: pointer;
-          min-height: 92px;
+          min-height: 108px;
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow);
           background: linear-gradient(135deg, color-mix(in srgb, var(--stage-color, var(--accent)) 8%, var(--surface)) 0%, var(--surface) 70%);
@@ -85,18 +85,15 @@ export class GridView extends HTMLElement {
           box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
         }
         .tile-icon {
-          font-size: 20px;
-          width: 40px;
-          height: 40px;
-          flex: 0 0 auto;
+          font-size: 40px;
+          width: 100%;
+          flex: 1 1 auto;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: var(--radius-md);
-          background: color-mix(in srgb, var(--stage-color, var(--accent)) 20%, transparent);
         }
         .tile-label {
-          font-size: 13px;
+          font-size: 10px;
           font-weight: 600;
           color: var(--text);
         }
