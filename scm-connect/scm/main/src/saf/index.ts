@@ -1,5 +1,12 @@
 export type { ScmConnectProvider, ScmResource, BearerTokenConfig } from "../api/provider.js";
 export { ScmConnectProviderError } from "../api/provider.js";
+// Plain exported functions, not a registered `justjs.providers` strategy -
+// they don't implement the ScmConnectProvider contract themselves, only
+// produce the token that later gets passed into createScmConnectProvider
+// ("github", {token}). Same precedent as @justjs/pm-connect's
+// buildJiraAuthorizationUrl/exchangeJiraAuthorizationCode.
+export type { GithubDeviceCodeConfig, GithubDeviceCodeSession } from "../core/github_device_flow.js";
+export { requestGithubDeviceCode, pollGithubDeviceToken } from "../core/github_device_flow.js";
 
 // Same justjs#91-pattern fix @justjs/ai-assist's/@justjs/cloud-connect's
 // own saf/index.ts applies - importing this module's own spi/index.ts
