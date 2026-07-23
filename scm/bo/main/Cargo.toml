@@ -1,0 +1,43 @@
+[package]
+name = "scm-bo"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal relay backend for GitHub OAuth Device Flow - sidesteps GitHub's CORS-less OAuth endpoints (github.com/login/device/code, github.com/login/oauth/access_token both send zero CORS headers, confirmed by direct testing) so ai-code-editor's browser/WebView client can reach them (justjs#135)."
+
+[[bin]]
+name = "scm-bo"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+axum = "0.8"
+tower-http = { version = "0.6", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+async-trait = "0.1"
+
+# The Handler/HandlerRegistry/SecurityContext lineage - v0.10.7 specifically,
+# because swe-edge-ingress-http-transport v0.5.2 (below) depends on exactly
+# this tag. A newer edge-domain (e.g. v0.14.1's split edge-domain-handler)
+# is NOT compatible with this ingress crate - confirmed by reading the real
+# dependency graph, not assumed. default-features = false to avoid pulling
+# in port contracts this relay never uses (event/saga/projection/etc).
+edge-domain = { git = "https://github.com/sweengineeringlabs/edge-domain.git", tag = "v0.10.7", default-features = false, features = ["handler", "security", "command"] }
+
+# HTTP inbound dispatch (Handler -> route -> HttpIngress).
+swe-edge-ingress-http = { package = "swe-edge-ingress-http-transport", git = "https://github.com/sweengineeringlabs/edge-ingress-http.git", tag = "v0.5.2" }
+
+# HTTP outbound client for the real calls to GitHub - plain reqwest, not
+# swe-edge-egress-http. Verified by real testing (not assumed): its concrete
+# DefaultHttpEgress::send() intercepts specific status codes (401/403/404/
+# 429/502/503) and converts them to a generic Err, discarding the remote's
+# real response body in the process - this relay's entire purpose is
+# forwarding GitHub's exact response verbatim (its device-flow endpoints
+# legitimately return non-2xx for real, expected reasons), so that behavior
+# is a genuine functional mismatch, not a style preference. reqwest itself
+# only errors on transport-level failure, never on the remote's status code -
+# exactly what "relay verbatim" needs.
+reqwest = { version = "0.12", features = ["json"] }
+
+[lints.rust]
+unsafe_code = "deny"
