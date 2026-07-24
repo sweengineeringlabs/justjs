@@ -73,6 +73,29 @@ describe("executeAgentTool write_file", () => {
   });
 });
 
+describe("executeAgentTool list_agent_channels", () => {
+  it("test_executeAgentTool_list_agent_channels_reports_none_enabled_when_no_channels_are_passed", () => {
+    const outcome = executeAgentTool("list_agent_channels", {}, FILES, EMPTY_FOLDERS, "");
+    expect(outcome).toEqual({
+      kind: "immediate",
+      output: "No channels enabled. Ask the user to enable some in Connect → Agent.",
+      isError: false,
+    });
+  });
+
+  it("test_executeAgentTool_list_agent_channels_lists_each_enabled_channel", () => {
+    const outcome = executeAgentTool("list_agent_channels", {}, FILES, EMPTY_FOLDERS, "", [
+      { kind: "comms", id: "slack", name: "Slack" },
+      { kind: "socials", id: "mastodon", name: "Mastodon" },
+    ]);
+    expect(outcome).toEqual({
+      kind: "immediate",
+      output: "comms: Slack (slack)\nsocials: Mastodon (mastodon)",
+      isError: false,
+    });
+  });
+});
+
 describe("describeAction", () => {
   it("test_describeAction_describes_every_mutating_action_variant", () => {
     expect(describeAction({ type: "CREATE_FILE", path: "a.js", content: "", language: "javascript" })).toBe('Write file "a.js"');

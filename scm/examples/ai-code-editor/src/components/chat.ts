@@ -3,6 +3,8 @@ import type { AgentStepResult, ImageAttachment } from "@justjs/ai-assist";
 import type { AgentToolName, AgentUiMessage, AppState, AppAction, ChatUiMessage } from "../core/state.js";
 import { getAiAssistProvider } from "../core/ai_assist.js";
 import { AGENT_TOOLS, MAX_AGENT_ITERATIONS, executeAgentTool, toAgentStepHistory } from "../core/agent_loop.js";
+import { getEnabledAgentChannels } from "./agent_channels.js";
+import { COMMS_AGENT_TOOLS, executeAgentCommsTool } from "./agent_comms_tools.js";
 import { isSupportedImageType, MAX_IMAGE_BYTES, MAX_IMAGE_MB, parseDataUrl, readImageFileAsDataUrl } from "../core/images.js";
 import { describeVoiceError, isVoicePromptSupported, startVoicePrompt } from "../core/speech.js";
 import type { VoicePromptHandle } from "../core/speech.js";
@@ -56,7 +58,22 @@ export class ChatElement extends ChatBase {
   // any turn with more than one mutating step.
   private agentIterationCount = 0;
   private agentCwd = "";
-  private pendingAgentTool: { toolCallId: string; action: AppAction; summary: string } | null = null;
+  // "action" resolves synchronously (a plain FileMap reducer dispatch);
+  // "effect" is justjs#136's addition - a real async network call (send
+  // a message/create a post), already fully resolved (credentials/args
+  // baked into the closure) by whichever module classified the tool
+  // call, so this component never needs to know which provider it is.
+  private pendingAgentTool:
+    | { readonly kind: "action"; readonly toolCallId: string; readonly action: AppAction; readonly summary: string }
+    | { readonly kind: "effect"; readonly toolCallId: string; readonly run: () => Promise<{ readonly output: string; readonly isError: boolean }>; readonly summary: string }
+    | null = null;
+  // True only while an "effect" confirmation's real network call is
+  // in-flight - guards handleStopAgentLoop() from firing a second,
+  // racing Deny against the same pendingAgentTool handleConfirmAgentTool
+  // is still awaiting (see handleStopAgentLoop's own comment).
+  private agentConfirmBusy = false;
+  private confirmBtn!: HTMLButtonElement;
+  private denyBtn!: HTMLButtonElement;
   private sendBtn!: HTMLButtonElement;
 
   set dataContext(ctx: { store?: FeatureStore<AppState, AppAction> } | undefined) {
@@ -125,8 +142,10 @@ export class ChatElement extends ChatBase {
     modeToggle.addEventListener("change", (e) => {
       this.setMode((e as CustomEvent<{ value: "chat" | "agent" }>).detail.value);
     });
-    this.querySelector("#chat-agent-confirm-btn")?.addEventListener("click", () => this.handleConfirmAgentTool());
-    this.querySelector("#chat-agent-deny-btn")?.addEventListener("click", () => this.handleDenyAgentTool());
+    this.confirmBtn = this.querySelector<HTMLButtonElement>("#chat-agent-confirm-btn")!;
+    this.denyBtn = this.querySelector<HTMLButtonElement>("#chat-agent-deny-btn")!;
+    this.confirmBtn.addEventListener("click", () => void this.handleConfirmAgentTool());
+    this.denyBtn.addEventListener("click", () => this.handleDenyAgentTool());
     this.agentStopBtn.addEventListener("click", () => this.handleStopAgentLoop());
 
     if (voiceSupported) {
@@ -404,7 +423,7 @@ export class ChatElement extends ChatBase {
         result = await provider.agentStep({
           code: activeFile?.content ?? "",
           ...(activeFile?.language !== undefined ? { language: activeFile.language } : {}),
-          tools: AGENT_TOOLS,
+          tools: [...AGENT_TOOLS, ...COMMS_AGENT_TOOLS],
           messages: toAgentStepHistory(this.store.state.value.agentMessages),
         });
       } catch (e) {
@@ -439,7 +458,10 @@ export class ChatElement extends ChatBase {
       });
 
       const freshState = this.store.state.value;
-      const outcome = executeAgentTool(toolCall.name, toolCall.input, freshState.files, freshState.emptyFolders, this.agentCwd);
+      const isCommsAgentTool = COMMS_AGENT_TOOLS.some((t) => t.name === toolCall.name);
+      const outcome = isCommsAgentTool
+        ? await executeAgentCommsTool(toolCall.name, toolCall.input, getEnabledAgentChannels())
+        : executeAgentTool(toolCall.name, toolCall.input, freshState.files, freshState.emptyFolders, this.agentCwd, getEnabledAgentChannels());
 
       if (outcome.kind === "immediate") {
         if (outcome.cwd !== undefined) {
@@ -449,11 +471,11 @@ export class ChatElement extends ChatBase {
         continue;
       }
 
-      // needs_confirm - pause here. The invariant that must hold from
-      // this point on: this tool_use must get a matching tool_result
-      // (Confirm, Deny, or Stop-while-awaiting all provide one) before
-      // the next agentStep() call, or that call sends Anthropic an
-      // invalid message sequence.
+      // needs_confirm/needs_confirm_effect - pause here. The invariant
+      // that must hold from this point on: this tool_use must get a
+      // matching tool_result (Confirm, Deny, or Stop-while-awaiting all
+      // provide one) before the next agentStep() call, or that call
+      // sends Anthropic an invalid message sequence.
       if (this.agentStopRequested) {
         // Stop was clicked while this round-trip was already in flight,
         // and it came back wanting to mutate a file - honor the stop
@@ -473,7 +495,10 @@ export class ChatElement extends ChatBase {
         this.updateAgentControls();
         return;
       }
-      this.pendingAgentTool = { toolCallId: toolCall.id, action: outcome.action, summary: outcome.summary };
+      this.pendingAgentTool =
+        outcome.kind === "needs_confirm"
+          ? { kind: "action", toolCallId: toolCall.id, action: outcome.action, summary: outcome.summary }
+          : { kind: "effect", toolCallId: toolCall.id, run: outcome.run, summary: outcome.summary };
       this.agentPhase = "awaiting-confirmation";
       this.agentConfirmMessage.textContent = outcome.summary;
       this.agentConfirm.hidden = false;
@@ -487,15 +512,46 @@ export class ChatElement extends ChatBase {
     this.agentConfirm.hidden = true;
   }
 
-  private handleConfirmAgentTool(): void {
+  private async handleConfirmAgentTool(): Promise<void> {
     if (!this.pendingAgentTool || !this.store) {
       return;
     }
-    const { toolCallId, action, summary } = this.pendingAgentTool;
-    this.store.dispatch(action);
-    this.appendAgentMessage({ kind: "tool_result", toolCallId, text: `${summary} — done.`, isError: false, ts: Date.now() });
-    this.clearPendingAgentTool();
-    this.resumeAfterConfirmation();
+    const pending = this.pendingAgentTool;
+    if (pending.kind === "action") {
+      this.store.dispatch(pending.action);
+      this.appendAgentMessage({ kind: "tool_result", toolCallId: pending.toolCallId, text: `${pending.summary} — done.`, isError: false, ts: Date.now() });
+      this.clearPendingAgentTool();
+      this.resumeAfterConfirmation();
+      return;
+    }
+
+    // "effect" - a real async network call. Busy-guarded (disabled
+    // Confirm/Deny, "Sending…" label) since nothing else here prevents a
+    // double-click mid-flight, and handleStopAgentLoop() checks the same
+    // flag to avoid racing a second Deny against this same
+    // pendingAgentTool while its own run() is still pending.
+    this.setConfirmBusy(true);
+    try {
+      const result = await pending.run();
+      this.appendAgentMessage({ kind: "tool_result", toolCallId: pending.toolCallId, text: result.output, isError: result.isError, ts: Date.now() });
+    } catch (e) {
+      // Backstop only - agent_comms_tools.ts's run() already catches its
+      // own real provider/network errors and resolves isError:true
+      // rather than throwing; never swallowed regardless.
+      const message = e instanceof Error ? e.message : String(e);
+      this.appendAgentMessage({ kind: "tool_result", toolCallId: pending.toolCallId, text: `⚠️ ${message}`, isError: true, ts: Date.now() });
+    } finally {
+      this.setConfirmBusy(false);
+      this.clearPendingAgentTool();
+      this.resumeAfterConfirmation();
+    }
+  }
+
+  private setConfirmBusy(busy: boolean): void {
+    this.agentConfirmBusy = busy;
+    this.confirmBtn.disabled = busy;
+    this.denyBtn.disabled = busy;
+    this.confirmBtn.textContent = busy ? "Sending…" : "Confirm";
   }
 
   private handleDenyAgentTool(): void {
@@ -525,14 +581,21 @@ export class ChatElement extends ChatBase {
   // in-flight call itself). Stop while a confirm banner is showing is
   // treated as an immediate Deny-then-terminate - never a silent
   // abandon of the pending tool_use, per continueAgentLoop()'s own
-  // invariant comment.
+  // invariant comment. Exception: while an "effect" confirmation's real
+  // send/post is already in flight (agentConfirmBusy), Deny must not
+  // fire a second time against the same pendingAgentTool
+  // handleConfirmAgentTool() is still awaiting - Stop is honored
+  // instead the moment that awaited call resolves, via
+  // resumeAfterConfirmation()'s own agentStopRequested check (same
+  // "checked at the next safe point, not mid-flight" treatment the
+  // model round-trip itself already gets).
   private handleStopAgentLoop(): void {
     if (this.agentPhase === "idle") {
       return;
     }
     this.agentStopRequested = true;
     this.updateAgentControls();
-    if (this.agentPhase === "awaiting-confirmation") {
+    if (this.agentPhase === "awaiting-confirmation" && !this.agentConfirmBusy) {
       this.handleDenyAgentTool();
     }
   }

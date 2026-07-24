@@ -23,7 +23,7 @@ import "./comms_connector.js";
 import type { CommsCatalogItem, CommsConnectorControl } from "./comms_connector.js";
 import { CommunicationBase } from "../features/communication/communication_component.gen.js";
 
-interface CommsProvider {
+export interface CommsProvider {
   readonly id: string;
   readonly name: string;
   readonly icon: string;
@@ -47,7 +47,7 @@ interface CommsProvider {
 // free-text "type any name" list. All 3 use a single pasted bearer-
 // shaped token (a real bot token or CLI-issued access token), same
 // security posture as the Anthropic key.
-const COMMS_PROVIDER_CATALOG: readonly CommsProvider[] = [
+export const COMMS_PROVIDER_CATALOG: readonly CommsProvider[] = [
   { id: "slack", name: "Slack", icon: "💬", color: "#4A154B", kind: "channels" },
   { id: "discord", name: "Discord", icon: "🎮", color: "#5865F2", logo: discordLogo, kind: "guildsOrTeams" },
   {

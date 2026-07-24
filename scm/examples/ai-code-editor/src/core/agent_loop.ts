@@ -11,6 +11,7 @@ import type { AgentUiMessage } from "./state.js";
 import { findChildren, runCliCommand } from "./cli.js";
 import { buildTree, inferLanguage, normalizePath } from "./fs.js";
 import type { FileMap, TreeNode } from "./fs.js";
+import type { AgentChannel } from "./agent_access.js";
 
 export const AGENT_TOOLS: AgentToolDefinition[] = [
   {
@@ -39,6 +40,14 @@ export const AGENT_TOOLS: AgentToolDefinition[] = [
       required: ["path", "content"],
     },
   },
+  {
+    name: "list_agent_channels",
+    description:
+      "List the communication/social channels (e.g. Slack, Discord, Mastodon) the user has connected AND explicitly " +
+      "enabled for the agent to use, configured in Connect → Agent. Returns none if the user hasn't enabled any yet - " +
+      "there is no tool to post/read on a channel, only to see what's been authorized.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 // A hard, non-configurable bound on how many agentStep() round-trips one
@@ -49,7 +58,16 @@ export const MAX_AGENT_ITERATIONS = 8;
 
 export type AgentToolOutcome =
   | { readonly kind: "immediate"; readonly output: string; readonly isError: boolean; readonly cwd?: string }
-  | { readonly kind: "needs_confirm"; readonly summary: string; readonly action: AppAction };
+  | { readonly kind: "needs_confirm"; readonly summary: string; readonly action: AppAction }
+  // Same confirm-before-apply gate as "needs_confirm", but for an action
+  // whose real effect is a network call (e.g. justjs#136's
+  // send_channel_message/create_social_post), not a synchronous FileMap
+  // reducer dispatch - `run` is a real closure, already carrying whatever
+  // credentials/args it needs (built by whichever component-layer module
+  // classified the tool call - this module itself never touches
+  // credentials, see the file header comment), invoked only once the
+  // user actually confirms.
+  | { readonly kind: "needs_confirm_effect"; readonly summary: string; readonly run: () => Promise<{ readonly output: string; readonly isError: boolean }> };
 
 function findChildrenOutcome(files: FileMap, emptyFolders: string[], rawPath: string | undefined): AgentToolOutcome {
   const path = rawPath ? normalizePath(rawPath) : "";
@@ -72,7 +90,8 @@ export function executeAgentTool(
   input: unknown,
   files: FileMap,
   emptyFolders: string[],
-  cwd: string
+  cwd: string,
+  channels: readonly AgentChannel[] = []
 ): AgentToolOutcome {
   const args = (input ?? {}) as Record<string, unknown>;
   switch (name) {
@@ -102,6 +121,13 @@ export function executeAgentTool(
       const content = String(args.content ?? "");
       const action: AppAction = { type: "CREATE_FILE", path, content, language: inferLanguage(path) };
       return { kind: "needs_confirm", summary: describeAction(action), action };
+    }
+
+    case "list_agent_channels": {
+      if (channels.length === 0) {
+        return { kind: "immediate", output: "No channels enabled. Ask the user to enable some in Connect → Agent.", isError: false };
+      }
+      return { kind: "immediate", output: channels.map((c) => `${c.kind}: ${c.name} (${c.id})`).join("\n"), isError: false };
     }
 
     default:

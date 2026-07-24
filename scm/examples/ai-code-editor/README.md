@@ -531,6 +531,44 @@ confirmed the exact error shape — Mastodon's plain 401, Bluesky's real
 password"}` body, and Reddit's real
 `{"message":"Unauthorized","error":401}` body.
 
+## Agent mode — real send/read tools over Comms/Socials channels
+
+Connect → Agent lets the user pick which connected Comms (Slack/
+Discord/Microsoft Teams) and Socials (Mastodon/Bluesky/Reddit)
+providers Chat's Agent mode (see "Development — CLI"'s agent loop) may
+use. A channel only reaches the agent once it's both connected in its
+own screen *and* explicitly enabled there — enabling one before
+connecting it does nothing until connected.
+
+Three real tools, not a stub:
+- `list_agent_channels` — read-only, lists what's enabled.
+- `read_channel_messages` — Slack/Discord/Teams, real fetched content,
+  no confirmation needed (read-only).
+- `send_channel_message` (Slack/Discord/Teams) / `create_social_post`
+  (Mastodon/Bluesky) — both require explicit user confirmation before
+  the real network call happens, same confirm-before-apply gate
+  `write_file`/mutating CLI commands already use elsewhere in Agent
+  mode, just for a real async send instead of a synchronous file-system
+  reducer dispatch.
+
+**Reddit cannot post as a user, by design, not oversight.** Its stored
+credential here is a real OAuth2 `client_credentials` exchange (see
+"Socials" above) — an app-level-only token that can prove the
+credentials work against public data, but structurally cannot post or
+act as the connecting user's own account. `create_social_post` rejects
+Reddit with that real reason if somehow enabled, the same honest
+"not supported" treatment X (Twitter)/LinkedIn already get above, rather
+than a connect form or tool that might silently fail. Real user-scoped
+Reddit posting would need Reddit's full OAuth authorization-code
+consent flow — a materially bigger addition, not attempted here.
+
+Microsoft Teams' `sendMessage`/`listMessages` both need the real team
+id alongside the channel id (Teams' own Graph API has no channel-only
+endpoint for either) — if the currently-documented CLI-issued token
+(`az account get-access-token`) lacks the `ChannelMessage.Send` Graph
+permission, that surfaces as a real, honest 403 error through the same
+path, not a silent failure.
+
 ## Cartoon Generator — real, 8th top-level tab
 
 Cartoon Generator (`/cartoon`) is a real, fifth framework package,

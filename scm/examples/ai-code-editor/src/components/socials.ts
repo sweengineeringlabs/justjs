@@ -21,7 +21,7 @@ import "@justjs/provider-connect";
 import type { ProviderConnectorControl, ProviderCatalogItem } from "@justjs/provider-connect";
 import { SocialsBase } from "../features/socials/socials_component.gen.js";
 
-interface SocialProvider {
+export interface SocialProvider {
   readonly id: string;
   readonly name: string;
   readonly icon: string;
@@ -48,7 +48,7 @@ interface SocialProvider {
 // "type any name" list. 3 of 5 are real, connectable providers with 3
 // genuinely different auth shapes; X/Twitter and LinkedIn are shown
 // honestly as not available rather than silently omitted.
-const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
+export const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
   { id: "mastodon", name: "Mastodon", icon: "🐘", color: "#6364FF", logo: mastodonLogo, kind: "bearer" },
   { id: "bluesky", name: "Bluesky", icon: "🦋", color: "#1185FE", logo: blueskyLogo, kind: "apppassword" },
   { id: "reddit", name: "Reddit", icon: "👽", color: "#FF4500", logo: redditLogo, kind: "clientcreds" },
@@ -56,7 +56,7 @@ const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
   { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2", kind: "unsupported" },
 ];
 
-function isProviderConnected(p: SocialProvider): boolean {
+export function isProviderConnected(p: SocialProvider): boolean {
   if (p.kind === "apppassword") {
     return getStoredBlueskyCredentials() !== null;
   }

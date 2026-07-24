@@ -34,6 +34,12 @@ export function markSlackRead(token: string, channelId: string, latestTimestamp:
   return createCommsConnectProvider("slack", { token }).markAsRead!(channelId, latestTimestamp);
 }
 
+// Real chat.postMessage, sent as the bot identity - see
+// @justjs/comms-connect's SlackCommsConnectProvider.
+export function sendSlackMessage(token: string, channelId: string, text: string): Promise<void> {
+  return createCommsConnectProvider("slack", { token }).sendMessage!(channelId, text);
+}
+
 // Discord's connect() only returns guilds (one real level shallower
 // than a channel) - these 2 add the real channels-then-messages
 // drill-down. No markAsRead - Discord bot tokens have zero real
@@ -44,6 +50,10 @@ export function listDiscordChannels(token: string, guildId: string): Promise<Com
 
 export function listDiscordMessages(token: string, channelId: string): Promise<CommsMessage[]> {
   return createCommsConnectProvider("discord", { token }).listMessages!(channelId);
+}
+
+export function sendDiscordMessage(token: string, channelId: string, text: string): Promise<void> {
+  return createCommsConnectProvider("discord", { token }).sendMessage!(channelId, text);
 }
 
 // Teams' connect() only returns joined teams - same real 2-level
@@ -58,4 +68,8 @@ export function listTeamsChannels(token: string, teamId: string): Promise<CommsR
 
 export function listTeamsMessages(token: string, channelId: string, teamId: string): Promise<CommsMessage[]> {
   return createCommsConnectProvider("teams", { token }).listMessages!(channelId, teamId);
+}
+
+export function sendTeamsMessage(token: string, channelId: string, text: string, teamId: string): Promise<void> {
+  return createCommsConnectProvider("teams", { token }).sendMessage!(channelId, text, teamId);
 }
