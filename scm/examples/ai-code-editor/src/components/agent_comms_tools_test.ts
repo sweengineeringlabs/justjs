@@ -8,9 +8,11 @@ import { executeAgentCommsTool } from "./agent_comms_tools.js";
 import type { AgentCommsToolDeps } from "./agent_comms_tools.js";
 import type { AgentChannel } from "../core/agent_access.js";
 
+// Channel-level for Comms (Slack channel "C123" specifically enabled,
+// not "all of Slack") - Socials stays provider-level (no channel concept).
 const ENABLED: readonly AgentChannel[] = [
-  { kind: "comms", id: "slack", name: "Slack" },
-  { kind: "socials", id: "mastodon", name: "Mastodon" },
+  { kind: "comms", providerId: "slack", channelId: "C123", channelName: "general" },
+  { kind: "socials", providerId: "mastodon", providerName: "Mastodon" },
 ];
 
 function fakeDeps(overrides: Partial<AgentCommsToolDeps> = {}): AgentCommsToolDeps {
@@ -40,12 +42,29 @@ describe("executeAgentCommsTool send_channel_message", () => {
     );
     expect(outcome).toEqual({
       kind: "immediate",
-      output: '"discord" is not enabled for the agent - ask the user to enable it in Connect → Agent.',
+      output: 'Channel "C1" on discord is not enabled for the agent - ask the user to enable it in Connect → Agent.',
       isError: true,
     });
   });
 
-  it("test_send_channel_message_for_an_enabled_provider_needs_confirmation_with_a_real_summary", async () => {
+  it("test_send_channel_message_rejects_an_unenabled_channel_on_an_otherwise_enabled_provider", async () => {
+    // Real, previously-flagged limitation this test guards against
+    // regressing: enabling one Slack channel must not implicitly enable
+    // every other Slack channel too.
+    const outcome = await executeAgentCommsTool(
+      "send_channel_message",
+      { providerId: "slack", channelId: "C999-not-enabled", text: "hi" },
+      ENABLED,
+      fakeDeps()
+    );
+    expect(outcome).toEqual({
+      kind: "immediate",
+      output: 'Channel "C999-not-enabled" on slack is not enabled for the agent - ask the user to enable it in Connect → Agent.',
+      isError: true,
+    });
+  });
+
+  it("test_send_channel_message_for_an_enabled_channel_needs_confirmation_with_a_real_summary", async () => {
     const outcome = await executeAgentCommsTool(
       "send_channel_message",
       { providerId: "slack", channelId: "C123", text: "hello team" },
@@ -76,7 +95,7 @@ describe("executeAgentCommsTool send_channel_message", () => {
         teams: async () => {},
       },
     });
-    const outcome = await executeAgentCommsTool("send_channel_message", { providerId: "slack", channelId: "bad", text: "hi" }, ENABLED, deps);
+    const outcome = await executeAgentCommsTool("send_channel_message", { providerId: "slack", channelId: "C123", text: "hi" }, ENABLED, deps);
     const result = await (outcome as { run: () => Promise<{ output: string; isError: boolean }> }).run();
     expect(result).toEqual({ output: "Slack: request failed (channel_not_found).", isError: true });
   });
@@ -94,7 +113,7 @@ describe("executeAgentCommsTool read_channel_messages", () => {
   });
 
   it("test_read_channel_messages_reports_no_messages_honestly", async () => {
-    const enabled: readonly AgentChannel[] = [{ kind: "comms", id: "discord", name: "Discord" }];
+    const enabled: readonly AgentChannel[] = [{ kind: "comms", providerId: "discord", channelId: "C1", channelName: "general" }];
     const outcome = await executeAgentCommsTool("read_channel_messages", { providerId: "discord", channelId: "C1" }, enabled, fakeDeps());
     expect(outcome).toEqual({ kind: "immediate", output: "(no messages)", isError: false });
   });
@@ -109,7 +128,7 @@ describe("executeAgentCommsTool read_channel_messages", () => {
         teams: async () => [],
       },
     });
-    const outcome = await executeAgentCommsTool("read_channel_messages", { providerId: "slack", channelId: "bad" }, ENABLED, deps);
+    const outcome = await executeAgentCommsTool("read_channel_messages", { providerId: "slack", channelId: "C123" }, ENABLED, deps);
     expect(outcome).toEqual({ kind: "immediate", output: "Slack: request failed (channel_not_found).", isError: true });
   });
 });
@@ -134,7 +153,7 @@ describe("executeAgentCommsTool create_social_post", () => {
   });
 
   it("test_create_social_post_for_bluesky_needs_confirmation_and_defers_the_real_post", async () => {
-    const enabled: readonly AgentChannel[] = [{ kind: "socials", id: "bluesky", name: "Bluesky" }];
+    const enabled: readonly AgentChannel[] = [{ kind: "socials", providerId: "bluesky", providerName: "Bluesky" }];
     let called = false;
     const deps = fakeDeps({ postBlueskyPost: async () => { called = true; } });
     const outcome = await executeAgentCommsTool("create_social_post", { providerId: "bluesky", text: "hello world" }, enabled, deps);
@@ -146,14 +165,14 @@ describe("executeAgentCommsTool create_social_post", () => {
   });
 
   it("test_create_social_post_for_bluesky_without_stored_credentials_is_a_real_immediate_error", async () => {
-    const enabled: readonly AgentChannel[] = [{ kind: "socials", id: "bluesky", name: "Bluesky" }];
+    const enabled: readonly AgentChannel[] = [{ kind: "socials", providerId: "bluesky", providerName: "Bluesky" }];
     const deps = fakeDeps({ resolveBlueskyCredentials: () => null });
     const outcome = await executeAgentCommsTool("create_social_post", { providerId: "bluesky", text: "hi" }, enabled, deps);
     expect(outcome).toEqual({ kind: "immediate", output: "Bluesky is not connected.", isError: true });
   });
 
   it("test_create_social_post_rejects_reddit_as_structurally_unsupported_even_if_somehow_enabled", async () => {
-    const enabled: readonly AgentChannel[] = [{ kind: "socials", id: "reddit", name: "Reddit" }];
+    const enabled: readonly AgentChannel[] = [{ kind: "socials", providerId: "reddit", providerName: "Reddit" }];
     const outcome = await executeAgentCommsTool("create_social_post", { providerId: "reddit", text: "hi" }, enabled, fakeDeps());
     expect(outcome).toEqual({
       kind: "immediate",

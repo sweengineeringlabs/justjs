@@ -127,7 +127,12 @@ export function executeAgentTool(
       if (channels.length === 0) {
         return { kind: "immediate", output: "No channels enabled. Ask the user to enable some in Connect → Agent.", isError: false };
       }
-      return { kind: "immediate", output: channels.map((c) => `${c.kind}: ${c.name} (${c.id})`).join("\n"), isError: false };
+      const lines = channels.map((c) =>
+        c.kind === "comms"
+          ? `comms: ${c.providerId} #${c.channelName} (channelId=${c.channelId})`
+          : `socials: ${c.providerId} (${c.providerName})`
+      );
+      return { kind: "immediate", output: lines.join("\n"), isError: false };
     }
 
     default:

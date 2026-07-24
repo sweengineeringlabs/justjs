@@ -4,11 +4,13 @@
 // touches (see its own file header comment). Lives in the component
 // layer, like agent_channels.ts, for exactly that reason.
 //
-// Every tool call re-validates the target provider is in
-// `enabledChannels` (already both connected-and-agent-enabled, from
-// getEnabledAgentChannels()) before doing anything - access is
-// provider-level, matching the granularity Connect → Agent's own
-// checkboxes offer, not a new per-channel restriction.
+// Every tool call re-validates the target is in `enabledChannels`
+// (already both connected-and-agent-enabled, from
+// getEnabledAgentChannels()) before doing anything - Comms access is
+// channel-level (enabling "Slack" as a whole would let the agent touch
+// any channel it can name; Connect → Agent lets the user pick specific
+// channels instead), Socials stays provider-level (no "channel" concept
+// exists for a personal timeline).
 import type { AgentToolDefinition } from "@justjs/ai-assist";
 import type { AgentChannel } from "../core/agent_access.js";
 import type { AgentToolOutcome } from "../core/agent_loop.js";
@@ -101,11 +103,23 @@ const REAL_DEPS: AgentCommsToolDeps = {
   postBlueskyPost,
 };
 
-function isEnabled(enabledChannels: readonly AgentChannel[], kind: "comms" | "socials", providerId: string): boolean {
-  return enabledChannels.some((c) => c.kind === kind && c.id === providerId);
+function isCommsChannelEnabled(enabledChannels: readonly AgentChannel[], providerId: string, channelId: string): boolean {
+  return enabledChannels.some((c) => c.kind === "comms" && c.providerId === providerId && c.channelId === channelId);
 }
 
-function notEnabled(providerId: string): AgentToolOutcome {
+function isSocialsProviderEnabled(enabledChannels: readonly AgentChannel[], providerId: string): boolean {
+  return enabledChannels.some((c) => c.kind === "socials" && c.providerId === providerId);
+}
+
+function commsChannelNotEnabled(providerId: string, channelId: string): AgentToolOutcome {
+  return {
+    kind: "immediate",
+    output: `Channel "${channelId}" on ${providerId} is not enabled for the agent - ask the user to enable it in Connect → Agent.`,
+    isError: true,
+  };
+}
+
+function socialsProviderNotEnabled(providerId: string): AgentToolOutcome {
   return {
     kind: "immediate",
     output: `"${providerId}" is not enabled for the agent - ask the user to enable it in Connect → Agent.`,
@@ -127,8 +141,8 @@ export async function executeAgentCommsTool(
       const channelId = String(args.channelId ?? "");
       const text = String(args.text ?? "");
       const parentId = typeof args.parentId === "string" ? args.parentId : "";
-      if (!isEnabled(enabledChannels, "comms", providerId)) {
-        return notEnabled(providerId);
+      if (!isCommsChannelEnabled(enabledChannels, providerId, channelId)) {
+        return commsChannelNotEnabled(providerId, channelId);
       }
       const sendFn = deps.sendCommsMessage[providerId];
       if (!sendFn) {
@@ -153,8 +167,8 @@ export async function executeAgentCommsTool(
       const providerId = String(args.providerId ?? "");
       const channelId = String(args.channelId ?? "");
       const parentId = typeof args.parentId === "string" ? args.parentId : "";
-      if (!isEnabled(enabledChannels, "comms", providerId)) {
-        return notEnabled(providerId);
+      if (!isCommsChannelEnabled(enabledChannels, providerId, channelId)) {
+        return commsChannelNotEnabled(providerId, channelId);
       }
       const listFn = deps.listCommsMessages[providerId];
       if (!listFn) {
@@ -175,8 +189,8 @@ export async function executeAgentCommsTool(
     case "create_social_post": {
       const providerId = String(args.providerId ?? "");
       const text = String(args.text ?? "");
-      if (!isEnabled(enabledChannels, "socials", providerId)) {
-        return notEnabled(providerId);
+      if (!isSocialsProviderEnabled(enabledChannels, providerId)) {
+        return socialsProviderNotEnabled(providerId);
       }
       if (providerId === "mastodon") {
         const token = deps.resolveMastodonToken();

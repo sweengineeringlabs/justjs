@@ -6,14 +6,26 @@
 // elsewhere must not silently leave it agent-enabled, and enabling a
 // provider here before it's connected must not silently expose it either.
 // See components/agent_channels.ts's getEnabledAgentChannels(), which
-// always re-checks both before the agent ever sees a channel.
+// always re-checks both before the agent ever sees anything.
+//
+// Comms is channel-level (Slack/Discord/Teams have real, individually
+// addressable channels - enabling "Slack" as a whole would let the agent
+// touch any channel it can name, a real, previously-flagged limitation).
+// Socials stays provider-level - Mastodon/Bluesky have no "channel"
+// concept, only a single personal timeline to post to, so there is
+// nothing finer-grained to select.
+
+export interface AgentChannelRef {
+  readonly id: string;
+  readonly name: string;
+}
 
 export interface AgentAccessSettings {
-  readonly commsProviderIds: readonly string[];
+  readonly commsChannels: Readonly<Record<string, readonly AgentChannelRef[]>>;
   readonly socialsProviderIds: readonly string[];
 }
 
-const DEFAULT_AGENT_ACCESS: AgentAccessSettings = { commsProviderIds: [], socialsProviderIds: [] };
+const DEFAULT_AGENT_ACCESS: AgentAccessSettings = { commsChannels: {}, socialsProviderIds: [] };
 const AGENT_ACCESS_STORAGE_KEY = "justjs:ai-editor:agent-access";
 
 export function getStoredAgentAccess(): AgentAccessSettings {
@@ -24,7 +36,7 @@ export function getStoredAgentAccess(): AgentAccessSettings {
     }
     const parsed = JSON.parse(raw) as Partial<AgentAccessSettings>;
     return {
-      commsProviderIds: Array.isArray(parsed.commsProviderIds) ? parsed.commsProviderIds : DEFAULT_AGENT_ACCESS.commsProviderIds,
+      commsChannels: parsed.commsChannels && typeof parsed.commsChannels === "object" ? parsed.commsChannels : DEFAULT_AGENT_ACCESS.commsChannels,
       socialsProviderIds: Array.isArray(parsed.socialsProviderIds) ? parsed.socialsProviderIds : DEFAULT_AGENT_ACCESS.socialsProviderIds,
     };
   } catch {
@@ -40,12 +52,11 @@ export function setStoredAgentAccess(settings: AgentAccessSettings): void {
   }
 }
 
-// One connected+agent-enabled channel, kind-tagged so agent_loop.ts's
-// list_agent_channels tool result can tell Slack apart from Mastodon
-// without needing either provider catalog itself - agent_loop.ts stays
-// pure/core (no component imports), per its own file header comment.
-export interface AgentChannel {
-  readonly kind: "comms" | "socials";
-  readonly id: string;
-  readonly name: string;
-}
+// One connected+agent-enabled channel/provider, kind-tagged so
+// agent_loop.ts's list_agent_channels tool result can tell a specific
+// Slack channel apart from a Mastodon account without needing either
+// provider catalog itself - agent_loop.ts stays pure/core (no component
+// imports), per its own file header comment.
+export type AgentChannel =
+  | { readonly kind: "comms"; readonly providerId: string; readonly channelId: string; readonly channelName: string }
+  | { readonly kind: "socials"; readonly providerId: string; readonly providerName: string };

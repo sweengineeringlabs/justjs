@@ -1468,6 +1468,18 @@ textarea:focus {
   line-height: 1.4;
 }
 
+/* Scoped to the Agent widget's own hint only, not every .connect-hint
+   (Comms/Socials/Cartoon all use the shared 12px size and shouldn't
+   shrink just because Agent's text felt big). Gabriola is a Windows-
+   only decorative/calligraphic font (ships with Windows, not installed
+   on Android/macOS/Linux/iOS) - it renders as intended in a Windows
+   desktop browser only; everywhere else (including this app's own
+   Android build) it silently falls back to the next name in the stack. */
+.agent-hint {
+  font-size: 14px;
+  font-family: Gabriola, "Segoe Script", cursive, sans-serif;
+}
+
 /* Real connect form (token, or AWS's two fields) + resource list -
    provider's own drill-down (workspace.ts's renderCloudProviderDetail).
    Reuses the same fade/stage-color language the rest of the drill-down

@@ -85,12 +85,12 @@ describe("executeAgentTool list_agent_channels", () => {
 
   it("test_executeAgentTool_list_agent_channels_lists_each_enabled_channel", () => {
     const outcome = executeAgentTool("list_agent_channels", {}, FILES, EMPTY_FOLDERS, "", [
-      { kind: "comms", id: "slack", name: "Slack" },
-      { kind: "socials", id: "mastodon", name: "Mastodon" },
+      { kind: "comms", providerId: "slack", channelId: "C123", channelName: "general" },
+      { kind: "socials", providerId: "mastodon", providerName: "Mastodon" },
     ]);
     expect(outcome).toEqual({
       kind: "immediate",
-      output: "comms: Slack (slack)\nsocials: Mastodon (mastodon)",
+      output: "comms: slack #general (channelId=C123)\nsocials: mastodon (Mastodon)",
       isError: false,
     });
   });
