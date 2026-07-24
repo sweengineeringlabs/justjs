@@ -17,6 +17,13 @@ export interface SocialProviderDescriptor {
   readonly authScheme?: string;
   readonly extraHeaders?: Readonly<Record<string, string>>;
   readonly parse: (data: unknown) => SocialResource[];
+  // Optional - a real, separate endpoint for posting content, plus the
+  // real per-provider body-shape builder (Mastodon's status-creation API
+  // takes a `status` field, not `text`). Absent means createPost()
+  // throws UNSUPPORTED - matches the optional interface method's own
+  // "not every provider can post" contract in api/provider.ts.
+  readonly postUrl?: string;
+  readonly buildPostBody?: (text: string) => unknown;
 }
 
 // The one real, default implementation Mastodon is just a configured
@@ -65,6 +72,36 @@ export class DefaultSocialConnectProvider implements SocialConnectProvider {
       );
     }
     return this.descriptor.parse(response.data);
+  }
+
+  async createPost(text: string): Promise<void> {
+    if (!this.descriptor.postUrl || !this.descriptor.buildPostBody) {
+      throw new SocialConnectProviderError("UNSUPPORTED", `${this.descriptor.name}: posting is not supported by this provider.`);
+    }
+    const scheme = this.descriptor.authScheme ?? "Bearer";
+    let response;
+    try {
+      response = await this.apiAdapter.post(this.descriptor.postUrl, this.descriptor.buildPostBody(text), {
+        headers: { Authorization: `${scheme} ${this.config.token}`, ...this.descriptor.extraHeaders },
+      });
+    } catch {
+      throw new SocialConnectProviderError(
+        "NETWORK_ERROR",
+        `${this.descriptor.name}: network request failed while posting - check your connection.`
+      );
+    }
+    if (response.error !== undefined) {
+      if (response.status === 401 || response.status === 403) {
+        throw new SocialConnectProviderError(
+          "TOKEN_REJECTED",
+          `${this.descriptor.name}: token rejected (${response.status}) while posting - it may be invalid, expired, or missing a required scope.`
+        );
+      }
+      throw new SocialConnectProviderError(
+        "REQUEST_FAILED",
+        `${this.descriptor.name}: posting failed (${response.status} ${response.error}).`
+      );
+    }
   }
 
   weave(): void {

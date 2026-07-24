@@ -21,6 +21,11 @@ export const MASTODON_PROVIDER: SocialProviderDescriptor = {
       name: l.title,
       status: l.replies_policy ?? "unknown",
     })),
+  // Real POST /api/v1/statuses - Mastodon's own real status-creation API
+  // takes a `status` field (not `text`/`content`), confirmed via
+  // Mastodon's public API docs.
+  postUrl: "https://mastodon.social/api/v1/statuses",
+  buildPostBody: (text) => ({ status: text }),
 };
 
 justjs.providers.register({

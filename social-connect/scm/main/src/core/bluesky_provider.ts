@@ -37,7 +37,11 @@ export class BlueskySocialConnectProvider implements SocialConnectProvider {
     private readonly apiAdapter: ApiAdapter
   ) {}
 
-  async connect(): Promise<SocialResource[]> {
+  // Real com.atproto.server.createSession exchange, extracted so
+  // createPost() below can reuse it - Bluesky's session token is
+  // short-lived ("expires after a few minutes" per Bluesky's docs), so
+  // every real call re-authenticates fresh rather than caching one.
+  private async createSession(): Promise<{ readonly did: string; readonly accessJwt: string }> {
     let sessionResponse;
     try {
       sessionResponse = await this.apiAdapter.post<CreateSessionResponse>(
@@ -62,7 +66,11 @@ export class BlueskySocialConnectProvider implements SocialConnectProvider {
         `Bluesky: sign-in failed (${sessionResponse.status} ${sessionResponse.data.error ?? sessionResponse.error}).`
       );
     }
-    const { did, accessJwt } = sessionResponse.data;
+    return { did: sessionResponse.data.did, accessJwt: sessionResponse.data.accessJwt };
+  }
+
+  async connect(): Promise<SocialResource[]> {
+    const { did, accessJwt } = await this.createSession();
 
     let followsResponse;
     try {
@@ -87,6 +95,35 @@ export class BlueskySocialConnectProvider implements SocialConnectProvider {
       name: f.displayName || f.handle,
       status: f.handle,
     }));
+  }
+
+  // Real com.atproto.repo.createRecord - creates an app.bsky.feed.post
+  // record in the authenticated account's own repo. Re-authenticates via
+  // createSession() first (same short-lived-token reason as connect()),
+  // rather than accepting a cached accessJwt that may already be stale.
+  async createPost(text: string): Promise<void> {
+    const { did, accessJwt } = await this.createSession();
+
+    let response;
+    try {
+      response = await this.apiAdapter.post<{ readonly uri?: string; readonly error?: string; readonly message?: string }>(
+        "https://bsky.social/xrpc/com.atproto.repo.createRecord",
+        {
+          repo: did,
+          collection: "app.bsky.feed.post",
+          record: { $type: "app.bsky.feed.post", text, createdAt: new Date().toISOString() },
+        },
+        { headers: { Authorization: `Bearer ${accessJwt}` } }
+      );
+    } catch {
+      throw new SocialConnectProviderError("NETWORK_ERROR", "Bluesky: network request failed while posting - check your connection.");
+    }
+    if (response.error !== undefined || response.data.error) {
+      throw new SocialConnectProviderError(
+        "REQUEST_FAILED",
+        `Bluesky: posting failed (${response.status} ${response.data.message ?? response.data.error ?? response.error}).`
+      );
+    }
   }
 
   weave(): void {

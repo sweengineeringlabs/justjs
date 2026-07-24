@@ -46,6 +46,14 @@ export interface SocialConnectProvider {
   // specific resource list (Mastodon's lists, Bluesky's follows,
   // Reddit's public r/popular/hot posts).
   connect(): Promise<SocialResource[]>;
+  // Optional - posts real, public content as the authenticated account.
+  // Mastodon and Bluesky implement this (both hold a real user-scoped
+  // credential); Reddit deliberately does not - its stored credential is
+  // an app-only client_credentials grant (see core/reddit_provider.ts),
+  // which structurally cannot post as a user, the same honest
+  // "not supported" treatment X/Twitter and LinkedIn already get in the
+  // consuming app (ai-code-editor/src/components/socials.ts).
+  createPost?(text: string): Promise<void>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)`
   // call for every concern actually listed in the `aspects` config it's
   // given (application/scm/main/src/core/boot.ts) - socialConnect isn't

@@ -71,6 +71,31 @@ describe("DefaultSocialConnectProvider (Mastodon)", () => {
     const provider = new DefaultSocialConnectProvider(MASTODON_PROVIDER, { token: "bad" }, adapter);
     await expect(provider.connect()).rejects.toThrow(/token rejected \(401\)/);
   });
+
+  it("test_create_post_sends_the_real_status_field_to_the_real_statuses_endpoint", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "1" } }));
+    const provider = new DefaultSocialConnectProvider(MASTODON_PROVIDER, { token: "tok" }, adapter);
+    await provider.createPost!("hello world");
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://mastodon.social/api/v1/statuses");
+    expect(adapter.calls[0]!.body).toEqual({ status: "hello world" });
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toBe("Bearer tok");
+  });
+
+  it("test_create_post_with_rejected_token_throws_a_real_actionable_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 401, headers: {}, data: undefined, error: "Unauthorized" }));
+    const provider = new DefaultSocialConnectProvider(MASTODON_PROVIDER, { token: "bad" }, adapter);
+    await expect(provider.createPost!("hi")).rejects.toThrow(/token rejected \(401\)/);
+  });
+
+  it("test_create_post_is_unsupported_for_a_descriptor_without_a_postUrl", async () => {
+    const adapter = new FakeApiAdapter();
+    const readOnlyDescriptor = { ...MASTODON_PROVIDER, postUrl: undefined, buildPostBody: undefined };
+    const provider = new DefaultSocialConnectProvider(readOnlyDescriptor, { token: "tok" }, adapter);
+    await expect(provider.createPost!("hi")).rejects.toThrow(/not supported/);
+  });
 });
 
 describe("BlueskySocialConnectProvider", () => {
@@ -131,6 +156,46 @@ describe("BlueskySocialConnectProvider", () => {
     expect(caught).toBeInstanceOf(SocialConnectProviderError);
     expect((caught as Error).message).not.toContain("super-secret");
   });
+
+  it("test_create_post_does_a_real_2_call_sequence_session_then_create_record", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { did: "did:plc:abc123", handle: "alice.bsky.social", accessJwt: "jwt-token" },
+    }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { uri: "at://did:plc:abc123/app.bsky.feed.post/1" } }));
+    const provider = new BlueskySocialConnectProvider({ identifier: "alice.bsky.social", appPassword: "app-pass" }, adapter);
+    await provider.createPost!("hello world");
+
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://bsky.social/xrpc/com.atproto.server.createSession");
+
+    expect(adapter.calls[1]!.method).toBe("post");
+    expect(adapter.calls[1]!.url).toBe("https://bsky.social/xrpc/com.atproto.repo.createRecord");
+    expect(adapter.calls[1]!.options?.headers?.Authorization).toBe("Bearer jwt-token");
+    const body = adapter.calls[1]!.body as { repo: string; collection: string; record: { text: string } };
+    expect(body.repo).toBe("did:plc:abc123");
+    expect(body.collection).toBe("app.bsky.feed.post");
+    expect(body.record.text).toBe("hello world");
+  });
+
+  it("test_create_post_with_a_real_failed_create_record_body_throws_a_real_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { did: "did:plc:abc123", handle: "alice.bsky.social", accessJwt: "jwt-token" },
+    }));
+    adapter.queueResponse(async () => ({
+      status: 400,
+      headers: {},
+      data: { error: "InvalidRequest", message: "text too long" },
+      error: "Bad Request",
+    }));
+    const provider = new BlueskySocialConnectProvider({ identifier: "alice.bsky.social", appPassword: "app-pass" }, adapter);
+    await expect(provider.createPost!("x".repeat(1000))).rejects.toThrow(/text too long/);
+  });
 });
 
 describe("RedditSocialConnectProvider", () => {
@@ -174,6 +239,14 @@ describe("RedditSocialConnectProvider", () => {
     }));
     const provider = new RedditSocialConnectProvider({ clientId: "bad", clientSecret: "bad" }, adapter);
     await expect(provider.connect()).rejects.toThrow(/rejected \(401\)/);
+  });
+
+  it("test_reddit_does_not_implement_create_post_client_credentials_cannot_post_as_a_user", () => {
+    // Real, structural exclusion, not an oversight - Reddit's stored
+    // credential here is an app-only client_credentials grant, which
+    // cannot post as a user (see api/provider.ts's createPost comment).
+    const provider = new RedditSocialConnectProvider({ clientId: "id", clientSecret: "secret" }, new FakeApiAdapter());
+    expect(provider.createPost).toBeUndefined();
   });
 });
 
