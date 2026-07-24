@@ -161,6 +161,30 @@ export class CommsConnectorControl extends HTMLElement {
     }
   }
 
+  // Real, public reset back to the grid (mirrors @justjs/provider-
+  // connect's ProviderConnectorControl.resetView(), justjs#138/#137) -
+  // this element is kept alive across navigation (never destroyed), so
+  // nothing else ever resets its own selected-provider/channel/message
+  // state, or stops its own auto-refresh timer, once the user navigates
+  // away. Without the #clearAutoRefresh() call here specifically, a
+  // message thread's auto-refresh interval keeps polling Slack/Discord/
+  // Teams in the background indefinitely even after leaving
+  // Communication entirely - a real resource-waste bug, not just a
+  // stale-screen display issue.
+  resetView(): void {
+    this.#clearAutoRefresh();
+    this.#selectedProviderId = null;
+    this.#selectedParentId = null;
+    this.#selectedChannelId = null;
+    this.#error = null;
+    this.#resources = null;
+    this.#channels = null;
+    this.#channelsError = null;
+    this.#messages = null;
+    this.#messagesError = null;
+    this.render();
+  }
+
   #scheduleAutoRefresh(): void {
     this.#clearAutoRefresh();
     if (this.#refreshIntervalSeconds <= 0) {

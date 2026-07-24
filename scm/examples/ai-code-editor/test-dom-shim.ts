@@ -23,3 +23,10 @@ const happyWindow = new Window();
 // bug this exact gap caused: core/socials_analytics_test.ts's "failing
 // token" test read back "" instead of the token it had just "set".
 (globalThis as { localStorage?: unknown }).localStorage = happyWindow.localStorage;
+// A test that mounts a real custom element directly (document.
+// createElement/appendChild) needs a real `document`, not just
+// HTMLElement/customElements - none of this package's other tests
+// called document.createElement() themselves until
+// components/comms_connector_test.ts (justjs#137), which is why this
+// wasn't needed sooner.
+(globalThis as { document?: unknown }).document = happyWindow.document;

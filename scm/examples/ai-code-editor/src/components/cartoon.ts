@@ -251,6 +251,24 @@ export class CartoonElement extends CartoonBase {
       }
     });
 
+    // Real fix for the same "sticking" bug Socials had (justjs#137) -
+    // this element is cached forever by connect.ts (never destroyed/
+    // recreated), so nothing ever reset selectedProviderId on its own
+    // once the user navigated away and back. connect.ts dispatches this
+    // event whenever Cartoon itself is hidden (switched to a different
+    // section, back to Connect's overview/Agent, or a completely
+    // different bottom-nav tab and back).
+    this.addEventListener("connect-section-hidden", () => this.resetToGrid());
+
+    this.renderView();
+  }
+
+  private resetToGrid(): void {
+    this.selectedProviderId = null;
+    this.connectStatusMessage = null;
+    this.connectError = null;
+    this.generatedImageData = null;
+    this.generateError = null;
     this.renderView();
   }
 
