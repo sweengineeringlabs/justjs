@@ -1483,7 +1483,7 @@ textarea:focus {
   border-radius: var(--radius-md);
 }
 
-.connect-form input {
+.connect-form input:not([type="checkbox"]) {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
