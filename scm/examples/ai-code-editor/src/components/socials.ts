@@ -1,10 +1,3 @@
-// Real, official brand marks (CC0, offline - no runtime network call,
-// same posture as workspace.ts/communication.ts) via simple-icons for
-// Mastodon/Bluesky/Reddit/X - all 4 are in simple-icons' catalog for
-// real. LinkedIn is NOT (confirmed - same real gap AWS/Azure/Heroku hit
-// in workspace.ts's CLOUD_PROVIDER_CATALOG), so it falls back to a
-// plain colored monogram instead of a fabricated logo shape.
-import { mastodonLogo, blueskyLogo, redditLogo, xLogo } from "../core/brand_logos.js";
 import {
   getStoredSocialToken,
   setStoredSocialToken,
@@ -15,59 +8,14 @@ import {
 } from "../core/socials_credentials.js";
 import { connectMastodon, connectBluesky, connectReddit } from "../core/socials_connect.js";
 import type { SocialResource } from "../core/socials_connect.js";
+import { SOCIAL_PROVIDER_CATALOG, isSocialProviderConnected } from "../core/socials_catalog.js";
+import type { SocialProvider } from "../core/socials_catalog.js";
+import { fetchSocialsDashboard } from "../core/socials_dashboard.js";
 import "@justjs/component-view";
 import type { NavHeaderView } from "@justjs/component-view";
 import "@justjs/provider-connect";
 import type { ProviderConnectorControl, ProviderCatalogItem } from "@justjs/provider-connect";
 import { SocialsBase } from "../features/socials/socials_component.gen.js";
-
-export interface SocialProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly icon: string;
-  readonly color: string;
-  readonly logo?: string;
-  // "bearer" - Mastodon's single pasted token, sent as `Authorization:
-  // Bearer`, same posture as ai_assist.ts's Anthropic key. "apppassword" -
-  // Bluesky's real 2-field identifier + App Password (AT Protocol's own
-  // real convention, never the account password) - see
-  // core/bluesky_provider.ts for why nothing but these 2 fields is ever
-  // persisted. "clientcreds" - Reddit's real 2-field client ID + secret,
-  // exchanged for an app-level-only token (see the disclosure text
-  // below) - real user-scoped access needs the full OAuth consent flow,
-  // out of scope here. "unsupported" - X/Twitter's and LinkedIn's APIs
-  // did not return CORS headers when checked live; connecting directly
-  // from a browser isn't confirmed possible, so both stay an honest
-  // "not available" state rather than a connect form that might
-  // silently fail, same treatment Cloudflare already gets in
-  // workspace.ts's CLOUD_PROVIDER_CATALOG.
-  readonly kind: "bearer" | "apppassword" | "clientcreds" | "unsupported";
-}
-
-// A real, recognizable set of actual social providers - not a free-text
-// "type any name" list. 3 of 5 are real, connectable providers with 3
-// genuinely different auth shapes; X/Twitter and LinkedIn are shown
-// honestly as not available rather than silently omitted.
-export const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
-  { id: "mastodon", name: "Mastodon", icon: "🐘", color: "#6364FF", logo: mastodonLogo, kind: "bearer" },
-  { id: "bluesky", name: "Bluesky", icon: "🦋", color: "#1185FE", logo: blueskyLogo, kind: "apppassword" },
-  { id: "reddit", name: "Reddit", icon: "👽", color: "#FF4500", logo: redditLogo, kind: "clientcreds" },
-  { id: "x", name: "X (Twitter)", icon: "✕", color: "#000000", logo: xLogo, kind: "unsupported" },
-  { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2", kind: "unsupported" },
-];
-
-export function isProviderConnected(p: SocialProvider): boolean {
-  if (p.kind === "apppassword") {
-    return getStoredBlueskyCredentials() !== null;
-  }
-  if (p.kind === "clientcreds") {
-    return getStoredRedditCredentials() !== null;
-  }
-  if (p.kind === "unsupported") {
-    return false;
-  }
-  return getStoredSocialToken(p.id).length > 0;
-}
 
 const RESOURCE_LIST_LABELS: Record<string, string> = {
   bluesky: "Follows",
@@ -92,7 +40,7 @@ function toCatalogItem(p: SocialProvider): ProviderCatalogItem {
     name: p.name,
     icon: p.icon,
     color: p.color,
-    connected: isProviderConnected(p),
+    connected: isSocialProviderConnected(p),
     resourceListLabel: RESOURCE_LIST_LABELS[p.id] ?? "Lists",
     ...(p.logo !== undefined ? { logo: p.logo } : {}),
   };
@@ -194,11 +142,30 @@ function handleDisconnect(providerId: string): void {
 // that race and permanently lock out this real subclass, since
 // customElements has no redefine/unregister).
 export class SocialsElement extends SocialsBase {
+  private mainView!: HTMLElement;
+  private dashboardBtn!: HTMLButtonElement;
+  private dashboardView!: HTMLElement;
+  private dashboardBackBtn!: HTMLButtonElement;
+  private dashboardList!: HTMLElement;
+
   connectedCallback(): void {
     this.innerHTML = `
-      <view-nav-header data-part="page-header"></view-nav-header>
-      <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-      <control-provider-connector data-part="connector"></control-provider-connector>
+      <div id="socials-main-view">
+        <view-nav-header data-part="page-header"></view-nav-header>
+        <div class="dash-subnav">
+          <button id="socials-dashboard-btn" class="btn-secondary" type="button">📊 Dashboard</button>
+        </div>
+        <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+        <control-provider-connector data-part="connector"></control-provider-connector>
+      </div>
+      <div id="socials-dashboard-view" hidden>
+        <div class="dash-subnav">
+          <button id="socials-dashboard-back-btn" class="dash-back-btn" type="button">← Socials</button>
+          <h2 class="workspace-stage-title">📊 Dashboard</h2>
+        </div>
+        <p class="connect-hint">Real data from every connected Socials provider, merged into one place - not a replacement for the provider grid, just another way to see what's already there.</p>
+        <div id="socials-dashboard-list"></div>
+      </div>
     `;
     // Binds this.pageHeader/this.connector via real data-part lookups -
     // must run after the markup above exists, since SocialsBase's own
@@ -215,6 +182,54 @@ export class SocialsElement extends SocialsBase {
     connector.connect = handleConnect;
     connector.list = async (_providerId, session) => session as SocialResource[];
     connector.disconnect = handleDisconnect;
+
+    this.mainView = this.querySelector<HTMLElement>("#socials-main-view")!;
+    this.dashboardBtn = this.querySelector<HTMLButtonElement>("#socials-dashboard-btn")!;
+    this.dashboardView = this.querySelector<HTMLElement>("#socials-dashboard-view")!;
+    this.dashboardBackBtn = this.querySelector<HTMLButtonElement>("#socials-dashboard-back-btn")!;
+    this.dashboardList = this.querySelector<HTMLElement>("#socials-dashboard-list")!;
+    this.dashboardBtn.addEventListener("click", () => this.showDashboard());
+    this.dashboardBackBtn.addEventListener("click", () => this.showMain());
+  }
+
+  private showMain(): void {
+    this.dashboardView.hidden = true;
+    this.mainView.hidden = false;
+  }
+
+  // Rebuilt fresh every time Dashboard is opened - real data, not a
+  // stale cache, same "no reload needed after disconnecting a provider"
+  // guarantee Connect → Agent's own config screen already established.
+  private showDashboard(): void {
+    this.mainView.hidden = true;
+    this.dashboardView.hidden = false;
+    this.dashboardList.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    void fetchSocialsDashboard().then((result) => this.renderDashboard(result));
+  }
+
+  private renderDashboard(result: Awaited<ReturnType<typeof fetchSocialsDashboard>>): void {
+    if (result.entries.length === 0 && result.errors.length === 0) {
+      this.dashboardList.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above to see its real data here.</p>`;
+      return;
+    }
+    const byProvider = new Map<string, { name: string; icon: string; items: (typeof result.entries)[number][] }>();
+    for (const entry of result.entries) {
+      const group = byProvider.get(entry.providerId) ?? { name: entry.providerName, icon: entry.providerIcon, items: [] };
+      group.items.push(entry);
+      byProvider.set(entry.providerId, group);
+    }
+    const groupsHtml = Array.from(byProvider.values())
+      .map(
+        (group) => `
+          <p class="field-label">${group.icon} ${group.name}</p>
+          ${group.items.map((e) => `<p class="agent-step">${e.resource.name} — ${e.resource.status}</p>`).join("")}
+        `
+      )
+      .join("");
+    const errorsHtml = result.errors
+      .map((e) => `<p class="agent-step agent-step-error">⚠️ ${e.providerName}: ${e.message}</p>`)
+      .join("");
+    this.dashboardList.innerHTML = groupsHtml + errorsHtml;
   }
 }
 

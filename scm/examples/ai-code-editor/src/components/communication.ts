@@ -1,10 +1,3 @@
-// Discord is the only one of the 3 real, official brand marks
-// (CC0, offline) available in simple-icons' catalog - Slack and
-// Microsoft Teams aren't (same real gap AWS/Azure/Heroku hit in
-// workspace.ts's CLOUD_PROVIDER_CATALOG - major, commercially
-// protective brands not in simple-icons at all). Slack/Teams fall back
-// to a plain colored monogram instead of a fabricated logo shape.
-import { discordLogo } from "../core/brand_logos.js";
 import { getStoredCommsToken, setStoredCommsToken, getStoredCommsSettings, setStoredCommsSettings } from "../core/comms_credentials.js";
 import type { CommsSettings } from "../core/comms_credentials.js";
 import {
@@ -19,46 +12,12 @@ import {
   listSlackMessages,
 } from "../core/comms_connect.js";
 import type { CommsResource, CommsMessage } from "../core/comms_connect.js";
+import { COMMS_PROVIDER_CATALOG } from "../core/comms_catalog.js";
+import type { CommsProvider } from "../core/comms_catalog.js";
+import { fetchCommsDashboard } from "../core/comms_dashboard.js";
 import "./comms_connector.js";
 import type { CommsCatalogItem, CommsConnectorControl } from "./comms_connector.js";
 import { CommunicationBase } from "../features/communication/communication_component.gen.js";
-
-export interface CommsProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly icon: string;
-  readonly color: string;
-  readonly logo?: string;
-  // Real command the user runs locally to get a token - only Microsoft
-  // Teams needs this (a short-lived CLI-issued token, matching Azure's
-  // own pattern in workspace.ts's Cloud connect screens). Shown
-  // verbatim in the connect form, along with the token's real expiry.
-  readonly tokenHint?: { readonly command: string; readonly expiry: string };
-  // "channels" - Slack's own connect() already returns real channels
-  // directly; opening one goes straight to its real message thread.
-  // "guildsOrTeams" - Discord's/Teams' own connect() returns the
-  // top-level guild/team, one real level shallower than a channel -
-  // opening one shows a real channel list first (listChannels()),
-  // *then* a message thread.
-  readonly kind: "channels" | "guildsOrTeams";
-}
-
-// A real, recognizable set of actual communication providers - not a
-// free-text "type any name" list. All 3 use a single pasted bearer-
-// shaped token (a real bot token or CLI-issued access token), same
-// security posture as the Anthropic key.
-export const COMMS_PROVIDER_CATALOG: readonly CommsProvider[] = [
-  { id: "slack", name: "Slack", icon: "💬", color: "#4A154B", kind: "channels" },
-  { id: "discord", name: "Discord", icon: "🎮", color: "#5865F2", logo: discordLogo, kind: "guildsOrTeams" },
-  {
-    id: "teams",
-    name: "Microsoft Teams",
-    icon: "👥",
-    color: "#6264A7",
-    tokenHint: { command: "az account get-access-token --resource-type ms-graph --query accessToken -o tsv", expiry: "~60-90 minutes" },
-    kind: "guildsOrTeams",
-  },
-];
 
 const COMMS_CONNECTORS: Record<string, (token: string) => Promise<CommsResource[]>> = {
   slack: connectSlack,
@@ -153,16 +112,29 @@ function handleCommsDisconnect(providerId: string): void {
 // own explicit x-communication registration).
 export class CommunicationElement extends CommunicationBase {
   private settings: CommsSettings = getStoredCommsSettings();
+  private dashboardBtn!: HTMLButtonElement;
+  private dashboardView!: HTMLElement;
+  private dashboardBackBtn!: HTMLButtonElement;
+  private dashboardList!: HTMLElement;
 
   connectedCallback(): void {
     this.innerHTML = `
       <div id="comms-main-view" data-part="main-view">
         <div class="dash-subnav">
           <h2 class="workspace-stage-title">📣 Communication</h2>
+          <button id="comms-dashboard-btn" class="btn-secondary" type="button">📊 Dashboard</button>
           <button id="comms-settings-btn" data-part="settings-btn" class="dash-back-btn" type="button" aria-label="Communication settings">⚙️ Settings</button>
         </div>
         <p class="connect-hint">Tap a provider to connect a real account and see its actual channels/teams. Tokens are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
         <control-comms-connector id="comms-connector" data-part="connector"></control-comms-connector>
+      </div>
+      <div id="comms-dashboard-view" hidden>
+        <div class="dash-subnav">
+          <button id="comms-dashboard-back-btn" class="dash-back-btn" type="button">← Communication</button>
+          <h2 class="workspace-stage-title">📊 Dashboard</h2>
+        </div>
+        <p class="connect-hint">Real data from every connected Comms provider, merged into one place - not a replacement for the provider grid, just another way to see what's already there.</p>
+        <div id="comms-dashboard-list"></div>
       </div>
       <div id="comms-settings-view" data-part="settings-view" hidden>
         <div class="dash-subnav">
@@ -227,6 +199,16 @@ export class CommunicationElement extends CommunicationBase {
       this.mainView.hidden = false;
     });
 
+    this.dashboardBtn = this.querySelector<HTMLButtonElement>("#comms-dashboard-btn")!;
+    this.dashboardView = this.querySelector<HTMLElement>("#comms-dashboard-view")!;
+    this.dashboardBackBtn = this.querySelector<HTMLButtonElement>("#comms-dashboard-back-btn")!;
+    this.dashboardList = this.querySelector<HTMLElement>("#comms-dashboard-list")!;
+    this.dashboardBtn.addEventListener("click", () => this.showDashboard());
+    this.dashboardBackBtn.addEventListener("click", () => {
+      this.dashboardView.hidden = true;
+      this.mainView.hidden = false;
+    });
+
     const persist = (partial: Partial<CommsSettings>): void => {
       this.settings = { ...this.settings, ...partial };
       setStoredCommsSettings(this.settings);
@@ -275,6 +257,39 @@ export class CommunicationElement extends CommunicationBase {
     if (this.settings.defaultProviderId) {
       connector.openProvider(this.settings.defaultProviderId);
     }
+  }
+
+  // Rebuilt fresh every time Dashboard is opened - real data, not a
+  // stale cache, same "no reload needed after disconnecting a provider"
+  // guarantee Connect → Agent's own config screen already established.
+  private showDashboard(): void {
+    this.mainView.hidden = true;
+    this.dashboardView.hidden = false;
+    this.dashboardList.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    void fetchCommsDashboard().then((result) => this.renderDashboard(result));
+  }
+
+  private renderDashboard(result: Awaited<ReturnType<typeof fetchCommsDashboard>>): void {
+    if (result.entries.length === 0 && result.errors.length === 0) {
+      this.dashboardList.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above to see its real data here.</p>`;
+      return;
+    }
+    const byProvider = new Map<string, { name: string; icon: string; items: (typeof result.entries)[number][] }>();
+    for (const entry of result.entries) {
+      const group = byProvider.get(entry.providerId) ?? { name: entry.providerName, icon: entry.providerIcon, items: [] };
+      group.items.push(entry);
+      byProvider.set(entry.providerId, group);
+    }
+    const groupsHtml = Array.from(byProvider.values())
+      .map(
+        (group) => `
+          <p class="field-label">${group.icon} ${group.name}</p>
+          ${group.items.map((e) => `<p class="agent-step">${e.resource.name} — ${e.resource.status}</p>`).join("")}
+        `
+      )
+      .join("");
+    const errorsHtml = result.errors.map((e) => `<p class="agent-step agent-step-error">⚠️ ${e.providerName}: ${e.message}</p>`).join("");
+    this.dashboardList.innerHTML = groupsHtml + errorsHtml;
   }
 }
 
