@@ -1521,44 +1521,72 @@ textarea:focus {
   margin-top: 0;
 }
 
-/* A metric "card" is a real <button> (clickable to expand its own
-   drill-down items below it, justjs#137's "click number -> details
-   show") - not a static row. */
-.metric-card {
-  width: 100%;
+/* Analytics stats - a real single horizontal row, N compact chips
+   (real feedback: a full-width one-per-row list "wastes space" -
+   "1 row, x columns" instead). Scrolls horizontally rather than
+   wrapping if there are more stats than fit, same convention
+   .dashboard-tabs already established. Only one chip's drill-down
+   shows at a time, in the shared panel below the row (see
+   .metric-items) - showing each chip's own items inline no longer
+   makes sense once chips sit side by side instead of stacked. */
+.metrics-row {
   display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.metric-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  gap: 2px;
+  min-width: 84px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  font-size: 13px;
-  margin-bottom: 8px;
-  text-align: left;
+  text-align: center;
 }
 
-.metric-count {
-  font-size: 18px;
+.metric-chip-active {
+  border-color: var(--accent);
+}
+
+.metric-chip-count {
+  font-size: 20px;
   font-weight: 700;
   color: var(--accent);
 }
 
-/* Tags each consolidated Analytics/Trending/Recent-Activity row with
-   its source provider - real necessity now that these 3 tabs aggregate
-   across every connected provider instead of showing one at a time. */
+.metric-chip-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Tags each consolidated Trending/Recent-Activity row with its source
+   provider - real necessity now that these tabs aggregate across every
+   connected provider instead of showing one at a time. */
 .metric-source {
   font-weight: 400;
   color: var(--text-muted);
   font-size: 11px;
 }
 
+.metric-chip-source {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
 .metric-items {
-  padding: 2px 12px 10px;
-  margin: -6px 0 8px;
+  padding: 8px 12px;
+  margin: 0 0 8px;
   background: var(--surface-alt);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: var(--radius-md);
 }
 
 .metric-item {

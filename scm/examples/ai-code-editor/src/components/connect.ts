@@ -195,6 +195,32 @@ export class ConnectElement extends ConnectBase {
     this.addEventListener("connect-section-back-toggle", (e) => {
       this.backBtn.hidden = (e as CustomEvent<{ hideOuterBack: boolean }>).detail.hideOuterBack;
     });
+
+    // Real fix for Dashboard "sticking" across a full tab switch (Home/
+    // Chat, not just switching within Connect) - showSection()/
+    // showOverview()/showAgent() only catch navigation *within*
+    // <x-connect>. This app's Router keeps every top-level route alive
+    // forever (keepAlive: true, justjs#94) and re-navigating to a
+    // different route never unmounts or resets <x-connect> at all, so
+    // leaving via the bottom Home/Chat tabs and coming back left Socials
+    // exactly as it was (still on Dashboard). Router.rerender() also
+    // fires on unrelated background store changes while Connect stays
+    // current, so a naive per-render reset would wrongly clear Dashboard
+    // out from under a user who never navigated away at all - not used
+    // here for that reason. app.ts's showRoute() toggles an "active"
+    // class on this route's own mount container (a real navigate()-away
+    // only, confirmed by reading app.ts directly - never on a
+    // store-triggered rerender), so observing that specific transition
+    // is what safely detects "the user genuinely left this tab."
+    const mountContainer = this.closest(".page");
+    if (mountContainer) {
+      const observer = new MutationObserver(() => {
+        if (!mountContainer.classList.contains("active")) {
+          this.hideCurrentSection();
+        }
+      });
+      observer.observe(mountContainer, { attributes: true, attributeFilter: ["class"] });
+    }
   }
 
   // Rebuilt fresh every time the Agent tile is opened - connected status
@@ -342,7 +368,23 @@ export class ConnectElement extends ConnectBase {
     });
   }
 
+  // A cached section (so far: Socials) can react to being navigated
+  // away from - real on-device feedback: leaving Dashboard open, going
+  // elsewhere, then coming back to Socials landed back on Dashboard
+  // instead of the provider grid, because the section's own custom
+  // element is cached forever (see the class-level comment) and its
+  // connectedCallback() never re-fires, so its own internal
+  // Dashboard-vs-main state was never reset. Bubbles a real event
+  // rather than reaching into the section's internals directly.
+  private hideCurrentSection(): void {
+    if (!this.currentSectionId) {
+      return;
+    }
+    this.sectionEls.get(this.currentSectionId)?.dispatchEvent(new CustomEvent("connect-section-hidden"));
+  }
+
   private showAgent(): void {
+    this.hideCurrentSection();
     this.currentSectionId = null;
     this.overviewGrid.hidden = true;
     this.subscreenView.hidden = true;
@@ -354,6 +396,9 @@ export class ConnectElement extends ConnectBase {
     const section = SECTIONS.find((s) => s.id === sectionId);
     if (!section) {
       return;
+    }
+    if (this.currentSectionId !== sectionId) {
+      this.hideCurrentSection();
     }
     this.currentSectionId = sectionId;
     this.overviewGrid.hidden = true;
@@ -385,6 +430,7 @@ export class ConnectElement extends ConnectBase {
   }
 
   private showOverview(): void {
+    this.hideCurrentSection();
     this.currentSectionId = null;
     this.subscreenView.hidden = true;
     this.agentView.hidden = true;

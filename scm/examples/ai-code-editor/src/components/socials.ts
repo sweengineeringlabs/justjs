@@ -263,6 +263,16 @@ export class SocialsElement extends SocialsBase {
     this.dashboardTileGrid.items = [{ id: "dashboard", label: "Dashboard", icon: "📊" }];
     this.dashboardTileGrid.addEventListener("item-select", () => this.showDashboard());
     this.dashboardBackBtn.addEventListener("click", () => this.showMain());
+
+    // Real fix for Dashboard "sticking" across a navigate-away-and-back
+    // cycle: this custom element is cached forever by connect.ts (never
+    // destroyed/re-created), so connectedCallback() never re-fires to
+    // reset state on its own - connect.ts dispatches this event whenever
+    // Socials itself is hidden (switched to a different section, or back
+    // to Connect's overview/Agent), and resetting to the main view here
+    // is what makes returning to Socials always start fresh on the
+    // provider grid instead of wherever Dashboard was left.
+    this.addEventListener("connect-section-hidden", () => this.showMain());
   }
 
   private showMain(): void {
@@ -348,40 +358,48 @@ export class SocialsElement extends SocialsBase {
       : "Nothing connected yet - connect a provider above to see its real data here.";
   }
 
+  // Stats render as a real single horizontal row of compact chips, not
+  // a full-width one-per-row list (real feedback: the list "wastes
+  // space" - "1 row, x columns" instead). Only one chip's drill-down
+  // shows at a time, in the shared panel below the row - showing every
+  // chip's own items inline no longer fits once chips sit side by side.
   private renderAnalyticsTab(data: ConsolidatedDashboardAnalytics): void {
     if (data.metrics.length === 0 && data.unavailable.length === 0) {
       this.dashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.noDataHint()}</p>`;
       return;
     }
-    const metricsHtml = data.metrics
+    const rowHtml = data.metrics
       .map((metric) => {
         const key = `${metric.providerId}:${metric.label}`;
-        const expanded = this.expandedMetricKeys.has(key);
-        const itemsHtml = expanded
-          ? `<div class="metric-items">${metric.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
-          : "";
+        const active = this.expandedMetricKeys.has(key);
         return `
-          <button type="button" class="metric-card" data-metric-key="${key}">
-            <span>${metric.providerIcon} ${metric.label} <span class="metric-source">· ${metric.providerName}</span></span>
-            <span class="metric-count">${metric.count}</span>
+          <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
+            <span class="metric-chip-count">${metric.count}</span>
+            <span class="metric-chip-label">${metric.providerIcon} ${metric.label}</span>
+            <span class="metric-chip-source">${metric.providerName}</span>
           </button>
-          ${itemsHtml}
         `;
       })
       .join("");
+    const selected = data.metrics.find((m) => this.expandedMetricKeys.has(`${m.providerId}:${m.label}`));
+    const itemsHtml = selected
+      ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
+      : "";
     const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
-    this.dashboardTabContentEl.innerHTML = metricsHtml + unavailableHtml;
+    this.dashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
 
-    // Tapping a metric's own number expands/collapses its real items
-    // list inline (justjs#137: "clicking on number, details show on
-    // workspace") - deliberately inline rather than a new sub-screen, so
-    // this doesn't add another stacked back-button layer.
+    // Tapping a stat's own number shows its real items in the shared
+    // panel below the row (justjs#137: "clicking on number, details
+    // show on workspace") - deliberately inline rather than a new
+    // sub-screen, so this doesn't add another stacked back-button
+    // layer. Only one at a time, since chips now sit side by side.
     this.dashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = btn.dataset["metricKey"]!;
         if (this.expandedMetricKeys.has(key)) {
           this.expandedMetricKeys.delete(key);
         } else {
+          this.expandedMetricKeys.clear();
           this.expandedMetricKeys.add(key);
         }
         this.renderAnalyticsTab(data);
