@@ -208,10 +208,10 @@ export class SocialsElement extends SocialsBase {
   connectedCallback(): void {
     this.innerHTML = `
       <div id="socials-main-view">
-        <view-nav-header data-part="page-header"></view-nav-header>
-        <view-grid id="socials-dashboard-tile-grid"></view-grid>
+        <view-nav-header data-part="page-header" hidden></view-nav-header>
         <p class="connect-hint">Tap a provider to connect a real account and see its actual data. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
         <control-provider-connector data-part="connector"></control-provider-connector>
+        <view-grid id="socials-dashboard-tile-grid"></view-grid>
       </div>
       <div id="socials-dashboard-view" hidden>
         <div class="dash-subnav">
@@ -229,6 +229,13 @@ export class SocialsElement extends SocialsBase {
     // connectedCallback() calls _bindElements() synchronously.
     super.connectedCallback();
 
+    // Kept hidden, not removed - required by SocialsBase's own
+    // _hasAllElements() contract (justweb codegen, socials_component.yaml)
+    // and the generated browser/e2e tests assert `[data-part="page-header"]`
+    // exists. The *visible* "🌐 Socials" title now lives inline with
+    // Connect's own "← Connect" back button instead (connect.ts's
+    // showSection()) - real feedback: this screen's title rendered on its
+    // own row below the back button, not aligned with it.
     const header = this.pageHeader as NavHeaderView;
     header.icon = "🌐";
     header.title = "Socials";

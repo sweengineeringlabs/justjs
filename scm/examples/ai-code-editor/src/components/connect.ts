@@ -126,6 +126,7 @@ interface CommsChannelFetchState {
 export class ConnectElement extends ConnectBase {
   private overviewGrid!: GridView;
   private backBtn!: HTMLButtonElement;
+  private sectionTitleEl!: HTMLElement;
   private subscreenView!: HTMLElement;
   private agentView!: HTMLElement;
   private agentForm!: HTMLElement;
@@ -145,6 +146,7 @@ export class ConnectElement extends ConnectBase {
         <div id="connect-subscreen-view" hidden>
           <div class="dash-subnav">
             <button id="connect-back-btn" class="dash-back-btn" type="button">← Connect</button>
+            <h2 id="connect-section-title" class="workspace-stage-title"></h2>
           </div>
         </div>
         <div id="connect-agent-view" hidden>
@@ -164,6 +166,7 @@ export class ConnectElement extends ConnectBase {
 
     this.overviewGrid = this.querySelector<GridView>("#connect-overview-grid")!;
     this.backBtn = this.querySelector<HTMLButtonElement>("#connect-back-btn")!;
+    this.sectionTitleEl = this.querySelector<HTMLElement>("#connect-section-title")!;
     this.subscreenView = this.querySelector<HTMLElement>("#connect-subscreen-view")!;
     this.agentView = this.querySelector<HTMLElement>("#connect-agent-view")!;
     this.agentForm = this.querySelector<HTMLElement>("#connect-agent-form")!;
@@ -361,6 +364,11 @@ export class ConnectElement extends ConnectBase {
     // above), and that state must not leak into a freshly-opened
     // section.
     this.backBtn.hidden = false;
+    // Socials-only for now (real feedback scoped this to Socials, not a
+    // general redesign) - Comms/Cartoon keep rendering their own
+    // <view-nav-header> below this row, unchanged, until/unless the
+    // same request is made for them.
+    this.sectionTitleEl.textContent = sectionId === "socials" ? `${section.icon} ${section.label}` : "";
 
     let el = this.sectionEls.get(sectionId);
     if (!el) {
