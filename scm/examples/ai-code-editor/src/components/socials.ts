@@ -271,8 +271,16 @@ export class SocialsElement extends SocialsBase {
     // Socials itself is hidden (switched to a different section, or back
     // to Connect's overview/Agent), and resetting to the main view here
     // is what makes returning to Socials always start fresh on the
-    // provider grid instead of wherever Dashboard was left.
-    this.addEventListener("connect-section-hidden", () => this.showMain());
+    // provider grid instead of wherever Dashboard was left. Also resets
+    // the connector's own grid-vs-detail state via its real resetView()
+    // (justjs#138/#137) - a provider's detail view (e.g. Mastodon's own
+    // connect form) has exactly the same "stuck open" problem Dashboard
+    // had, for the same underlying reason (this element is never
+    // destroyed/recreated either).
+    this.addEventListener("connect-section-hidden", () => {
+      this.showMain();
+      (this.connector as ProviderConnectorControl).resetView();
+    });
   }
 
   private showMain(): void {

@@ -205,6 +205,27 @@ export class ProviderConnectorControl extends HTMLElement {
     this.#deviceFlowSession = null;
   }
 
+  // Real, public reset back to the grid (justjs#138) - for consumers
+  // that keep this element alive across navigation (e.g. ai-code-
+  // editor's Socials screen, justjs#137) and need a clean landing state
+  // on return, without destroying/recreating the element (which a
+  // consumer bound to it via justweb's generated, bind-once
+  // _bindElements() can't safely do anyway). A pure *view* reset, not a
+  // connection reset - `#connectedIds` (real, still-valid connection
+  // state) is untouched; `#resources` is cleared so re-selecting any
+  // provider re-fetches fresh instead of showing stale data, matching
+  // #renderGrid()'s own item-select handler's identical clearing when
+  // moving from grid to detail. Safe to call from any state, including
+  // already on the grid (a real no-op then - render() just repaints the
+  // grid it would have shown anyway).
+  resetView(): void {
+    this.#abandonDeviceFlow();
+    this.#selectedProviderId = null;
+    this.#error = null;
+    this.#resources = null;
+    this.render();
+  }
+
   // justjs#135 - device flow's own Connect handler. Unlike
   // #handleOAuthBegin (fire-and-forget navigation, page unloads), this
   // stays on screen the whole time: request the code, render it

@@ -464,4 +464,94 @@ describe("ProviderConnectorControl", () => {
       expect(form?.fields?.map((f) => f.id)).toEqual(["token"]);
     });
   });
+
+  describe("resetView() (justjs#138)", () => {
+    it("returns to the grid from a provider's detail view", () => {
+      const el = mount();
+      el.providers = PROVIDERS;
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "bluesky" } }));
+      expect(el.shadowRoot?.querySelector("view-form")).not.toBeNull();
+
+      el.resetView();
+
+      expect(el.shadowRoot?.querySelector("view-form")).toBeNull();
+      const gridAfter = el.shadowRoot?.querySelector("view-grid") as { items?: readonly { id: string }[] } | null;
+      expect(gridAfter?.items?.map((i) => i.id)).toEqual(["mastodon", "bluesky"]);
+    });
+
+    it("is a safe no-op when already on the grid", () => {
+      const el = mount();
+      el.providers = PROVIDERS;
+      expect(() => el.resetView()).not.toThrow();
+      const grid = el.shadowRoot?.querySelector("view-grid") as { items?: readonly { id: string }[] } | null;
+      expect(grid?.items?.map((i) => i.id)).toEqual(["mastodon", "bluesky"]);
+    });
+
+    it("clears fetched resources so re-selecting an already-connected provider re-fetches fresh instead of showing stale data", async () => {
+      const el = mount();
+      let listCallCount = 0;
+      el.connect = async () => ({ session: "real" });
+      el.list = async () => {
+        listCallCount++;
+        return [{ id: "1", name: "Friends", status: "followed" }];
+      };
+      el.providers = PROVIDERS;
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+      el.shadowRoot!.querySelector("view-form")!.dispatchEvent(new CustomEvent("submit", { detail: { values: { token: "tok" } } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(listCallCount).toBe(1);
+
+      el.resetView();
+
+      // Re-selecting the same, now-connected provider must auto-fetch
+      // again (maybeAutoConnect only does this when #resources is null)
+      // rather than showing whatever was fetched before the reset.
+      el.shadowRoot!.querySelector("view-grid")!.dispatchEvent(new CustomEvent("item-select", { detail: { id: "mastodon" } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(listCallCount).toBe(2);
+    });
+
+    it("aborts an in-progress device-flow poll - a late-resolving token never flips connected after resetView()", async () => {
+      const el = mount();
+      const tokenDeferred = (() => {
+        let resolve!: (value: string) => void;
+        const promise = new Promise<string>((res) => {
+          resolve = res;
+        });
+        return { promise, resolve };
+      })();
+      let connectCalled = false;
+      el.deviceFlowBegin = async () => ({
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        token: tokenDeferred.promise,
+      });
+      el.connect = async () => {
+        connectCalled = true;
+        return undefined;
+      };
+      let connectedFired = false;
+      el.addEventListener("connected", () => {
+        connectedFired = true;
+      });
+      el.providers = [{ id: "github", name: "GitHub", color: "#181717", deviceFlow: true as const, fields: [] }];
+
+      const grid = el.shadowRoot!.querySelector("view-grid")!;
+      grid.dispatchEvent(new CustomEvent("item-select", { detail: { id: "github" } }));
+      el.shadowRoot!.querySelector("view-form")!.dispatchEvent(new CustomEvent("submit", { detail: { values: {} } }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(el.shadowRoot?.querySelector(".device-flow-user-code")?.textContent).toBe("ABCD-1234");
+
+      el.resetView();
+      tokenDeferred.resolve("gho_too_late");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(connectCalled).toBe(false);
+      expect(connectedFired).toBe(false);
+      expect(el.shadowRoot?.querySelector("view-grid")).not.toBeNull();
+    });
+  });
 });
