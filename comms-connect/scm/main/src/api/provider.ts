@@ -69,6 +69,13 @@ export interface CommsConnectProvider {
   // delegated tokens have no read-state capability at all (confirmed
   // via each provider's own docs), so neither ever implements this.
   markAsRead?(channelId: string, latestTimestamp: string): Promise<void>;
+  // All 3 providers, optional in the type (but real and implemented by
+  // every one of them in practice) - sends a real message to a channel.
+  // `parentId` is Teams-only, same reason as listMessages: its real
+  // send endpoint needs both the team id and channel id together (`POST
+  // /teams/{parentId}/channels/{channelId}/messages`) - ignored by
+  // Slack/Discord, whose own send endpoints only need the channel id.
+  sendMessage?(channelId: string, text: string, parentId?: string): Promise<void>;
   // Real no-op, required by boot()'s `spec.factory().weave(target)`
   // call for every concern actually listed in the `aspects` config it's
   // given (application/scm/main/src/core/boot.ts) - commsConnect isn't

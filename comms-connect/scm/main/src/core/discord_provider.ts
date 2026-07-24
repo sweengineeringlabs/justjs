@@ -101,6 +101,28 @@ export class DiscordCommsConnectProvider implements CommsConnectProvider {
     return response.data.map((m) => ({ id: m.id, author: m.author.username, text: m.content, timestamp: m.timestamp }));
   }
 
+  // Real POST /channels/{id}/messages - sends as the bot identity (this
+  // app's bearer-shaped bot token), same posture as every other real
+  // call in this provider.
+  async sendMessage(channelId: string, text: string): Promise<void> {
+    let response;
+    try {
+      response = await this.apiAdapter.post<DiscordMessage>(
+        `https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`,
+        { content: text },
+        { headers: { Authorization: `Bot ${this.config.token}` } }
+      );
+    } catch {
+      throw new CommsConnectProviderError(
+        "NETWORK_ERROR",
+        "Discord: network request failed while sending the message - check your connection."
+      );
+    }
+    if (response.error !== undefined) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Discord: sending the message failed (${response.status} ${response.error}).`);
+    }
+  }
+
   weave(): void {
     // Real no-op - see api/provider.ts's CommsConnectProvider.weave() comment.
   }

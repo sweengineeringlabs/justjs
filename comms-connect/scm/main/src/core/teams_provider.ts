@@ -126,6 +126,37 @@ export class TeamsCommsConnectProvider implements CommsConnectProvider {
     }));
   }
 
+  // Real POST /teams/{parentId}/channels/{channelId}/messages - same
+  // team-id-plus-channel-id requirement as listMessages (Teams' API has
+  // no channel-only send endpoint), and the same real 403 mapping below:
+  // if this CLI-issued token's default Graph scopes don't include
+  // ChannelMessage.Send, that surfaces here as a real, honest
+  // MISSING_CONSENT error rather than a silent no-op.
+  async sendMessage(channelId: string, text: string, parentId?: string): Promise<void> {
+    if (!parentId) {
+      throw new CommsConnectProviderError(
+        "MISSING_TEAM_ID",
+        "Microsoft Teams: sending a message needs the real team id alongside the channel id - Teams' own API has no channel-only message endpoint."
+      );
+    }
+    let response;
+    try {
+      response = await this.apiAdapter.post<unknown>(
+        `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(parentId)}/channels/${encodeURIComponent(channelId)}/messages`,
+        { body: { content: text } },
+        { headers: { Authorization: `Bearer ${this.config.token}` } }
+      );
+    } catch {
+      throw new CommsConnectProviderError(
+        "NETWORK_ERROR",
+        "Microsoft Teams: network request failed while sending the message - check your connection."
+      );
+    }
+    if (response.error !== undefined) {
+      throw this.toChannelOrMessageError(response.status, response.error, "sending the message");
+    }
+  }
+
   private toChannelOrMessageError(status: number, error: string, action: string): CommsConnectProviderError {
     if (status === 403) {
       return new CommsConnectProviderError(

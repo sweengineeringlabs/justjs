@@ -19,6 +19,11 @@ interface SlackConversationsMarkResponse {
   readonly error?: string;
 }
 
+interface SlackChatPostMessageResponse {
+  readonly ok: boolean;
+  readonly error?: string;
+}
+
 // Slack - real distinct logic, not a DefaultCommsConnectProvider
 // instance: Slack's API always returns HTTP 200, even on auth failure -
 // confirmed live (a fake token returns 200 with body
@@ -132,6 +137,31 @@ export class SlackCommsConnectProvider implements CommsConnectProvider {
     }
     if (!response.data.ok) {
       throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: marking the channel read failed (${response.data.error ?? "unknown_error"}).`);
+    }
+  }
+
+  // Real chat.postMessage - sends as the bot identity (this app's bearer
+  // token), never impersonating a human user, same posture as
+  // markAsRead's own bot-only read cursor above.
+  async sendMessage(channelId: string, text: string): Promise<void> {
+    let response;
+    try {
+      response = await this.apiAdapter.post<SlackChatPostMessageResponse>(
+        "https://slack.com/api/chat.postMessage",
+        { channel: channelId, text },
+        { headers: { Authorization: `Bearer ${this.config.token}` } }
+      );
+    } catch {
+      throw new CommsConnectProviderError(
+        "NETWORK_ERROR",
+        "Slack: network request failed while sending the message - check your connection."
+      );
+    }
+    if (response.error !== undefined) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: request failed (${response.status} ${response.error}).`);
+    }
+    if (!response.data.ok) {
+      throw new CommsConnectProviderError("REQUEST_FAILED", `Slack: sending the message failed (${response.data.error ?? "unknown_error"}).`);
     }
   }
 

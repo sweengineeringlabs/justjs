@@ -137,6 +137,40 @@ describe("SlackCommsConnectProvider - messages", () => {
     const provider = new SlackCommsConnectProvider({ token: "tok" }, adapter);
     await expect(provider.markAsRead!("bad-channel", "123.456")).rejects.toThrow(/channel_not_found/);
   });
+
+  it("test_send_message_sends_a_real_post_with_channel_and_text", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { ok: true } }));
+    const provider = new SlackCommsConnectProvider({ token: "tok" }, adapter);
+    await provider.sendMessage!("C123", "hello team");
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://slack.com/api/chat.postMessage");
+    expect(adapter.calls[0]!.body).toEqual({ channel: "C123", text: "hello team" });
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toBe("Bearer tok");
+  });
+
+  it("test_send_message_with_a_real_ok_false_body_throws_a_real_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { ok: false, error: "channel_not_found" } }));
+    const provider = new SlackCommsConnectProvider({ token: "tok" }, adapter);
+    await expect(provider.sendMessage!("bad-channel", "hi")).rejects.toThrow(/channel_not_found/);
+  });
+
+  it("test_send_message_with_a_network_failure_throws_without_leaking_the_token", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => {
+      throw new Error("fetch failed");
+    });
+    const provider = new SlackCommsConnectProvider({ token: "super-secret" }, adapter);
+    let caught: unknown;
+    try {
+      await provider.sendMessage!("C123", "hi");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CommsConnectProviderError);
+    expect((caught as Error).message).not.toContain("super-secret");
+  });
 });
 
 describe("DiscordCommsConnectProvider", () => {
@@ -189,6 +223,24 @@ describe("DiscordCommsConnectProvider", () => {
     const messages = await provider.listMessages!("chan1");
     expect(adapter.calls[0]!.url).toBe("https://discord.com/api/v10/channels/chan1/messages?limit=50");
     expect(messages).toEqual([{ id: "m1", author: "alice", text: "hey there", timestamp: "2026-01-01T00:00:00.000Z" }]);
+  });
+
+  it("test_send_message_posts_the_real_content_body_with_bot_auth", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { id: "m1" } }));
+    const provider = new DiscordCommsConnectProvider({ token: "tok" }, adapter);
+    await provider.sendMessage!("chan1", "hey there");
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://discord.com/api/v10/channels/chan1/messages");
+    expect(adapter.calls[0]!.body).toEqual({ content: "hey there" });
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toBe("Bot tok");
+  });
+
+  it("test_send_message_with_rejected_token_throws_a_real_actionable_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 401, headers: {}, data: undefined, error: "Unauthorized" }));
+    const provider = new DiscordCommsConnectProvider({ token: "bad" }, adapter);
+    await expect(provider.sendMessage!("chan1", "hi")).rejects.toThrow(/401/);
   });
 });
 
@@ -262,6 +314,28 @@ describe("TeamsCommsConnectProvider", () => {
     adapter.queueResponse(async () => ({ status: 403, headers: {}, data: undefined, error: "Forbidden" }));
     const provider = new TeamsCommsConnectProvider({ token: "tok" }, adapter);
     await expect(provider.listChannels!("T1")).rejects.toThrow(/Graph permissions/);
+  });
+
+  it("test_send_message_needs_the_real_team_id_alongside_the_channel_id", async () => {
+    const provider = new TeamsCommsConnectProvider({ token: "tok" }, new FakeApiAdapter());
+    await expect(provider.sendMessage!("ch1", "hi")).rejects.toThrow(/real team id/);
+  });
+
+  it("test_send_message_calls_the_real_team_scoped_url_with_the_real_body_shape", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 201, headers: {}, data: { id: "m1" } }));
+    const provider = new TeamsCommsConnectProvider({ token: "tok" }, adapter);
+    await provider.sendMessage!("ch1", "hello team", "T1");
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://graph.microsoft.com/v1.0/teams/T1/channels/ch1/messages");
+    expect(adapter.calls[0]!.body).toEqual({ body: { content: "hello team" } });
+  });
+
+  it("test_send_message_a_real_403_names_the_real_likely_missing_channel_message_send_consent", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 403, headers: {}, data: undefined, error: "Forbidden" }));
+    const provider = new TeamsCommsConnectProvider({ token: "tok" }, adapter);
+    await expect(provider.sendMessage!("ch1", "hi", "T1")).rejects.toThrow(/Graph permissions/);
   });
 });
 
