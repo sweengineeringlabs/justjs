@@ -5,3 +5,4 @@ import "./linear.js";
 import "./asana.js";
 import "./trello.js";
 import "./jira.js";
+import "./test_dashboard_analytics.js";
