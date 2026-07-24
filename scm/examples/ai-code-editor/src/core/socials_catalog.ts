@@ -38,6 +38,14 @@ export const SOCIAL_PROVIDER_CATALOG: readonly SocialProvider[] = [
   { id: "reddit", name: "Reddit", icon: "👽", color: "#FF4500", logo: redditLogo, kind: "clientcreds" },
   { id: "x", name: "X (Twitter)", icon: "✕", color: "#000000", logo: xLogo, kind: "unsupported" },
   { id: "linkedin", name: "LinkedIn", icon: "💼", color: "#0A66C2", kind: "unsupported" },
+  // Real, in-memory-only strategy (@justjs/social-connect's
+  // core/test_social_provider.ts) - never contacts a real backend. Exists
+  // to make the Dashboard (justjs#137) testable without needing a real
+  // Mastodon/Bluesky/Reddit account: any pasted token "connects" with
+  // canned data; a token containing "fail" simulates a real rejected
+  // call, so Dashboard's per-provider error isolation can be seen live
+  // too - see socials.ts's disclosure text for this provider's tile.
+  { id: "testsocial", name: "Test Social", icon: "🧪", color: "#999999", kind: "bearer" },
 ];
 
 // Named distinctly (not isProviderConnected) - components/cartoon.ts has

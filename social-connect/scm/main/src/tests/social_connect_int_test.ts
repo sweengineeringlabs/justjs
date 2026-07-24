@@ -4,10 +4,14 @@ import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
 import { DefaultSocialConnectProvider } from "../core/default_social_connect_provider.js";
 import { BlueskySocialConnectProvider } from "../core/bluesky_provider.js";
 import { RedditSocialConnectProvider } from "../core/reddit_provider.js";
+import { TestSocialConnectProvider } from "../core/test_social_provider.js";
+import { TestDashboardAnalyticsProvider } from "../core/test_dashboard_analytics_provider.js";
 import { MASTODON_PROVIDER } from "../spi/mastodon.js";
 import { SocialConnectProviderError } from "../api/provider.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
-const ALL_STRATEGIES = ["mastodon", "bluesky", "reddit"];
+const ALL_STRATEGIES = ["mastodon", "bluesky", "reddit", "testsocial"];
+const ALL_DASHBOARD_ANALYTICS_STRATEGIES = ["testsocial"];
 
 // Constructor-injected fake ApiAdapter, matching @justjs/ai-assist's/
 // @justjs/cloud-connect's/@justjs/scm-connect's/@justjs/comms-connect's
@@ -250,6 +254,61 @@ describe("RedditSocialConnectProvider", () => {
   });
 });
 
+describe("TestSocialConnectProvider", () => {
+  it("test_connect_with_no_token_throws_a_real_actionable_error", async () => {
+    const provider = new TestSocialConnectProvider({ token: "" });
+    await expect(provider.connect()).rejects.toThrow(/paste any value/);
+  });
+
+  it("test_connect_with_a_real_token_returns_canned_resources_without_any_network_call", async () => {
+    const provider = new TestSocialConnectProvider({ token: "ok" });
+    const resources = await provider.connect();
+    expect(resources.length).toBeGreaterThan(0);
+    expect(resources.every((r) => typeof r.id === "string" && typeof r.name === "string")).toBe(true);
+  });
+
+  it("test_connect_with_a_token_containing_fail_simulates_a_real_rejected_call", async () => {
+    const provider = new TestSocialConnectProvider({ token: "please-fail-here" });
+    await expect(provider.connect()).rejects.toThrow(SocialConnectProviderError);
+    await expect(provider.connect()).rejects.toThrow(/simulated failure/);
+  });
+
+  it("test_create_post_with_a_real_token_resolves_without_throwing", async () => {
+    const provider = new TestSocialConnectProvider({ token: "ok" });
+    await expect(provider.createPost!("hello")).resolves.toBeUndefined();
+  });
+
+  it("test_create_post_with_a_token_containing_fail_simulates_a_real_posting_failure", async () => {
+    const provider = new TestSocialConnectProvider({ token: "fail" });
+    await expect(provider.createPost!("hello")).rejects.toThrow(/simulated posting failure/);
+  });
+});
+
+describe("TestDashboardAnalyticsProvider", () => {
+  it("test_fetch_analytics_with_no_token_returns_canned_metrics_trending_and_activity", async () => {
+    const provider = new TestDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    expect(snapshot.metrics.length).toBeGreaterThan(0);
+    expect(snapshot.metrics.every((m) => typeof m.label === "string" && typeof m.count === "number")).toBe(true);
+    expect(snapshot.trending.length).toBeGreaterThan(0);
+    expect(snapshot.recentActivity.length).toBeGreaterThan(0);
+  });
+
+  it("test_each_metrics_item_count_matches_its_own_items_length", async () => {
+    const provider = new TestDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    for (const metric of snapshot.metrics) {
+      expect(metric.items.length).toBe(metric.count);
+    }
+  });
+
+  it("test_fetch_analytics_with_a_token_containing_fail_simulates_a_real_rejected_call", async () => {
+    const provider = new TestDashboardAnalyticsProvider({ token: "please-fail" });
+    await expect(provider.fetchAnalytics()).rejects.toThrow(DashboardAnalyticsProviderError);
+    await expect(provider.fetchAnalytics()).rejects.toThrow(/simulated failure/);
+  });
+});
+
 describe("social-connect SPI self-registration", () => {
   it("test_every_strategy_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js");
@@ -257,6 +316,16 @@ describe("social-connect SPI self-registration", () => {
       const resolved = justjs.providers.resolve("socialConnect", strategy);
       expect(resolved).not.toBeNull();
       expect(resolved!.concern).toBe("socialConnect");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_dashboard_analytics_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_DASHBOARD_ANALYTICS_STRATEGIES) {
+      const resolved = justjs.providers.resolve("dashboardAnalytics", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("dashboardAnalytics");
       expect(resolved!.strategy).toBe(strategy);
     }
   });

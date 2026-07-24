@@ -5,3 +5,5 @@
 import "./mastodon.js";
 import "./bluesky.js";
 import "./reddit.js";
+import "./testsocial.js";
+import "./test_dashboard_analytics.js";

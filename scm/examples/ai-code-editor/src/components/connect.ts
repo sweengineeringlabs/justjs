@@ -180,6 +180,18 @@ export class ConnectElement extends ConnectBase {
     });
     this.backBtn.addEventListener("click", () => this.showOverview());
     this.agentBackBtn.addEventListener("click", () => this.showOverview());
+
+    // A mounted section (so far: Socials' Dashboard) can hide this
+    // outer "← Connect" while showing its own back button - real
+    // on-device feedback: "← Connect" + "← Socials" + a Dashboard tab
+    // row all stacked at once reads as 2 redundant back buttons, not 2
+    // real navigation levels. Bubbles up from the section's own custom
+    // element, so this only needs one listener here rather than a
+    // reference threaded into every section - see socials.ts's
+    // showDashboard()/showMain().
+    this.addEventListener("connect-section-back-toggle", (e) => {
+      this.backBtn.hidden = (e as CustomEvent<{ hideOuterBack: boolean }>).detail.hideOuterBack;
+    });
   }
 
   // Rebuilt fresh every time the Agent tile is opened - connected status
@@ -344,6 +356,11 @@ export class ConnectElement extends ConnectBase {
     this.overviewGrid.hidden = true;
     this.agentView.hidden = true;
     this.subscreenView.hidden = false;
+    // Reset to visible - a previously-opened section's Dashboard may
+    // have hidden it (see the connect-section-back-toggle listener
+    // above), and that state must not leak into a freshly-opened
+    // section.
+    this.backBtn.hidden = false;
 
     let el = this.sectionEls.get(sectionId);
     if (!el) {

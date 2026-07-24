@@ -1468,6 +1468,137 @@ textarea:focus {
   line-height: 1.4;
 }
 
+/* Socials Dashboard (justjs#137) - per-provider tabs + Analytics/
+   Trending/Recent-Activity sections below them. Deliberately an
+   underline-tab strip, not another pill/rounded-background row - real
+   on-device feedback was that a single connected provider's tab (a
+   pill, same shape as the back buttons above it) read as a 3rd
+   redundant back-button rather than a tab. Underline + transparent
+   background + a shared bottom border reads as a real tab strip even
+   with just one tab, and stays compact (no button-height padding box)
+   as more providers connect - a real horizontal-scroll row, not
+   wrapping, since the provider count is small but arbitrary. */
+.dashboard-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.dashboard-tab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dashboard-tab-active {
+  background: transparent;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.dashboard-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 18px 0 8px;
+}
+
+.dashboard-section-title:first-child {
+  margin-top: 0;
+}
+
+/* A metric "card" is a real <button> (clickable to expand its own
+   drill-down items below it, justjs#137's "click number -> details
+   show") - not a static row. */
+.metric-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.metric-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Tags each consolidated Analytics/Trending/Recent-Activity row with
+   its source provider - real necessity now that these 3 tabs aggregate
+   across every connected provider instead of showing one at a time. */
+.metric-source {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.metric-items {
+  padding: 2px 12px 10px;
+  margin: -6px 0 8px;
+  background: var(--surface-alt);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.metric-item {
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.metric-item:first-child {
+  border-top: none;
+}
+
+.trending-item,
+.activity-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.trending-item-score {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.activity-item-time {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 /* Scoped to the Agent widget's own hint only, not every .connect-hint
    (Comms/Socials/Cartoon all use the shared 12px size and shouldn't
    shrink just because Agent's text felt big). Gabriola is a Windows-

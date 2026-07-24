@@ -36,3 +36,14 @@ export function postBlueskyPost(identifier: string, appPassword: string, text: s
 export function connectReddit(clientId: string, clientSecret: string): Promise<SocialResource[]> {
   return createSocialConnectProvider("reddit", { clientId, clientSecret }).connect();
 }
+
+// Real, in-memory-only strategy - never contacts a real backend, see
+// @justjs/social-connect's core/test_social_provider.ts. Exists to make
+// Dashboard (justjs#137) testable without a real account.
+export function connectTestSocial(token: string): Promise<SocialResource[]> {
+  return createSocialConnectProvider("testsocial", { token }).connect();
+}
+
+export function postTestSocialStatus(token: string, text: string): Promise<void> {
+  return createSocialConnectProvider("testsocial", { token }).createPost!(text);
+}
