@@ -5,15 +5,41 @@ import { signAwsRequest } from "@justjs/aws-sigv4";
 
 const REGION = "us-east-1";
 
-// Real local/CI testing seam (justjs#143) - overrides only the request's
-// destination URL, never the signing host/region/service, so a real
-// signed request still targets whatever's actually listening at the
-// override (e.g. CloudEmu, which ignores SigV4 entirely) without
-// changing what gets signed. Absent in production - these env vars are
-// read once at construction, Node/bun-process-level only, never bundled
-// into the browser app itself (ai-code-editor never sets them).
+// Real local/CI testing seam (justjs#143, extended by justjs#148) -
+// overrides only the request's destination URL, never the signing
+// host/region/service, so a real signed request still targets whatever
+// actually listening at the override (e.g. CloudEmu, which ignores
+// SigV4 entirely) without changing what gets signed.
+//
+// Two independent seams, checked in order:
+// 1. `process.env[envVar]` - Node/bun-process-level only, genuinely
+//    absent from any real browser bundle (this was the only mechanism
+//    before justjs#148, and every standalone-script verification this
+//    session used it).
+// 2. `localStorage["justjs:aws-endpoint-override:<envVar>"]` -
+//    justjs#148's real addition: the first mechanism this app's actual
+//    running UI (dev server or installed Android build) can use to
+//    redirect at a local cloudemu-server, not just a bun script. A
+//    deliberate, disclosed tradeoff, not an oversight: unlike (1), there
+//    is no structural guarantee this can't be left set in a real
+//    deployment - matching this app's own already-established posture
+//    of storing real pasted AWS credentials in localStorage with no
+//    additional gating (see cloud_credentials.ts) rather than a new,
+//    harder-to-get-right bundler-specific strip mechanism.
 function endpointOverride(envVar: string, realUrl: string): string {
-  return typeof process !== "undefined" ? (process.env[envVar] ?? realUrl) : realUrl;
+  if (typeof process !== "undefined" && process.env[envVar]) {
+    return process.env[envVar]!;
+  }
+  try {
+    const stored = globalThis.localStorage?.getItem(`justjs:aws-endpoint-override:${envVar}`);
+    if (stored) {
+      return stored;
+    }
+  } catch {
+    // Best-effort only, same graceful-degradation shape as
+    // cloud_credentials.ts's own localStorage helpers.
+  }
+  return realUrl;
 }
 
 interface GetCallerIdentityResponse {

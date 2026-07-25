@@ -40,6 +40,18 @@ export class Ec2ProvisioningControl extends HTMLElement {
   #launchError: string | null = null;
   #confirmingLaunch = false;
   #confirmChecked = false;
+  // Real bug found via live UI verification against CloudEmu (not
+  // caught by unit tests, which call #handleLaunch directly and never
+  // exercise render()'s own re-render path): render() rebuilds the
+  // entire Configure form's HTML from scratch whenever #confirmingLaunch
+  // flips true, and none of the plain <input>/<textarea> elements carry
+  // a `value` reflecting what the user typed - so clicking "Launch
+  // Instance" silently wiped imageId/keyName/userData/
+  // iamInstanceProfileName back to empty before Confirm Launch ever
+  // read them. Fixed by reading the form once, in the "Launch Instance"
+  // click handler itself (before the confirm-box re-render happens),
+  // and using this stored config rather than re-querying the DOM later.
+  #pendingLaunchConfig: Ec2InstanceConfig | null = null;
   #pendingActionInstanceId: string | null = null;
   // ADR-0019 Option B redeploy panel - only one instance's panel is
   // open at a time (same single-panel pattern the confirm-launch box
@@ -78,6 +90,7 @@ export class Ec2ProvisioningControl extends HTMLElement {
     this.#launchError = null;
     this.#confirmingLaunch = false;
     this.#confirmChecked = false;
+    this.#pendingLaunchConfig = null;
     this.#pendingActionInstanceId = null;
     this.#resetRedeployPanel();
     this.#resetMetricsPanel();
@@ -128,6 +141,7 @@ export class Ec2ProvisioningControl extends HTMLElement {
     this.#launching = true;
     this.#launchError = null;
     this.#confirmingLaunch = false;
+    this.#pendingLaunchConfig = null;
     this.render();
     try {
       const instance = await runAwsEc2Instance(creds.accessKeyId, creds.secretAccessKey, config);
@@ -358,6 +372,19 @@ export class Ec2ProvisioningControl extends HTMLElement {
     });
 
     this.#root.querySelector<HTMLButtonElement>("#launch-btn")!.addEventListener("click", () => {
+      // Read the Configure form NOW - render()'s own re-render below
+      // (triggered by #confirmingLaunch flipping true) rebuilds every
+      // input from scratch with no preserved value, so reading them
+      // afterward (e.g. inside #confirm-launch-btn's own handler) would
+      // silently read back empty strings instead of what was typed.
+      const val = (id: string) => (this.#root.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`#${id}`)?.value ?? "").trim();
+      this.#pendingLaunchConfig = {
+        imageId: val("imageId"),
+        instanceType: val("instanceType"),
+        ...(val("keyName") ? { keyName: val("keyName") } : {}),
+        ...(val("userData") ? { userData: val("userData") } : {}),
+        ...(val("iamInstanceProfileName") ? { iamInstanceProfileName: val("iamInstanceProfileName") } : {}),
+      };
       this.#confirmingLaunch = true;
       this.#confirmChecked = false;
       this.render();
@@ -372,20 +399,16 @@ export class Ec2ProvisioningControl extends HTMLElement {
     const confirmBtn = this.#root.querySelector<HTMLButtonElement>("#confirm-launch-btn");
     if (confirmBtn) {
       confirmBtn.addEventListener("click", () => {
-        const val = (id: string) => (this.#root.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`#${id}`)?.value ?? "").trim();
-        void this.#handleLaunch({
-          imageId: val("imageId"),
-          instanceType: val("instanceType"),
-          ...(val("keyName") ? { keyName: val("keyName") } : {}),
-          ...(val("userData") ? { userData: val("userData") } : {}),
-          ...(val("iamInstanceProfileName") ? { iamInstanceProfileName: val("iamInstanceProfileName") } : {}),
-        });
+        if (this.#pendingLaunchConfig) {
+          void this.#handleLaunch(this.#pendingLaunchConfig);
+        }
       });
     }
     const cancelBtn = this.#root.querySelector<HTMLButtonElement>("#cancel-launch-btn");
     if (cancelBtn) {
       cancelBtn.addEventListener("click", () => {
         this.#confirmingLaunch = false;
+        this.#pendingLaunchConfig = null;
         this.render();
       });
     }

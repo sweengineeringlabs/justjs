@@ -20,11 +20,24 @@ const EC2_SERVICE = "ec2";
 const SSM_SERVICE = "ssm";
 const SSM_DOCUMENT_NAME = "AWS-RunShellScript";
 
-// Real local/CI testing seam (justjs#143's own pattern) - overrides only
-// the destination URL, signing stays pinned to the real host/region/
-// service. Absent in production.
+// Real local/CI testing seam (justjs#143, extended by justjs#148 for a
+// real in-browser override - see aws_provider.ts's own comment on this
+// exact function for the full reasoning, duplicated per-file rather
+// than shared, same as the rest of this pattern already is).
 function endpointOverride(envVar: string, realUrl: string): string {
-  return typeof process !== "undefined" ? (process.env[envVar] ?? realUrl) : realUrl;
+  if (typeof process !== "undefined" && process.env[envVar]) {
+    return process.env[envVar]!;
+  }
+  try {
+    const stored = globalThis.localStorage?.getItem(`justjs:aws-endpoint-override:${envVar}`);
+    if (stored) {
+      return stored;
+    }
+  } catch {
+    // Best-effort only, same graceful-degradation shape as
+    // cloud_credentials.ts's own localStorage helpers.
+  }
+  return realUrl;
 }
 
 interface CloudWatchErrorResponse {

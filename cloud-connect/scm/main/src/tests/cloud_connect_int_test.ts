@@ -14,6 +14,12 @@ import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
 // behind it (internally references window.XMLDocument), so this uses
 // window.DOMParser rather than the bare top-level export.
 (globalThis as { DOMParser?: unknown }).DOMParser = new Window().DOMParser;
+// justjs#148's own in-browser endpoint-override seam reads
+// globalThis.localStorage - genuinely absent from plain `bun test`
+// (confirmed: `bun -e "localStorage"` throws ReferenceError), shimmed
+// here the same way DOMParser is, real happy-dom localStorage rather
+// than a hand-rolled fake.
+(globalThis as { localStorage?: unknown }).localStorage = new Window().localStorage;
 import { DefaultCloudConnectProvider } from "../core/default_cloud_connect_provider.js";
 import { AwsCloudConnectProvider } from "../core/aws_provider.js";
 import { NetlifyCloudConnectProvider } from "../core/netlify_provider.js";
@@ -531,6 +537,48 @@ describe("AwsCloudProvisioningProvider (EC2, justjs#144)", () => {
     } finally {
       delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
     }
+  });
+
+  // justjs#148 - the real in-browser override seam, no process.env
+  // involved at all (this is what a real running app, not a bun
+  // script, can actually set).
+  it("test_redirects_to_the_ec2_localStorage_override_when_set_and_no_env_var_present", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT", "http://localhost:4566");
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.stopEc2Instance!("i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+    } finally {
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    }
+  });
+
+  it("test_env_var_override_takes_precedence_over_localStorage_override_when_both_are_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"] = "http://localhost:9001";
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT", "http://localhost:9002");
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.stopEc2Instance!("i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:9001/");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    }
+  });
+
+  it("test_no_override_present_at_all_still_hits_the_real_production_ec2_endpoint", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+    globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.stopEc2Instance!("i-abc123");
+    expect(adapter.calls[0]!.url).toBe("https://ec2.amazonaws.com/");
   });
 
   it("test_run_instance_sends_user_data_base64_encoded_when_provided", async () => {

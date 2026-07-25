@@ -6,6 +6,28 @@ import { BedrockAiAssistProvider } from "../core/bedrock_provider.js";
 import { AiAssistProviderError } from "../api/provider.js";
 import { createAiAssistProvider } from "../saf/index.js";
 
+// justjs#148's own in-browser endpoint-override seam reads
+// globalThis.localStorage - genuinely absent from plain `bun test`
+// (confirmed: `bun -e "localStorage"` throws ReferenceError). A minimal
+// real Map-backed Storage implementation, not a mock of this package's
+// own logic - only of a Web API this Node-based test runner doesn't
+// otherwise have (no happy-dom dependency here, unlike @justjs/cloud-connect's
+// own test suite, which already needed it for DOMParser - not worth
+// adding a whole new devDependency just for this).
+class FakeLocalStorage {
+  private readonly store = new Map<string, string>();
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, value);
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+}
+(globalThis as { localStorage?: unknown }).localStorage = new FakeLocalStorage();
+
 // Constructor-injected fake ApiAdapter, not a globalThis.fetch monkey-
 // patch - cleaner than @justjs/network's own tests (which patch fetch
 // directly) and matches this codebase's dependency-inversion rules.
@@ -690,6 +712,53 @@ describe("BedrockAiAssistProvider error handling", () => {
       expect((e as Error).message).not.toContain("sk-should-not-appear");
       expect((e as Error).message).toContain("fetch failed");
     }
+  });
+});
+
+describe("BedrockAiAssistProvider endpoint override (justjs#148)", () => {
+  it("test_redirects_to_the_localStorage_override_when_set_and_no_env_var_present", async () => {
+    delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT", "localhost:4566");
+    try {
+      const fake = new FakeApiAdapter();
+      fake.queueResponse(async () => textResponse("ok"));
+      const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+      await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+      expect(fake.calls[0]!.url).toContain("localhost:4566");
+    } finally {
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    }
+  });
+
+  it("test_env_var_override_takes_precedence_over_localStorage_override_when_both_are_set", async () => {
+    process.env["AI_ASSIST_BEDROCK_ENDPOINT"] = "localhost:9001";
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT", "localhost:9002");
+    try {
+      const fake = new FakeApiAdapter();
+      fake.queueResponse(async () => textResponse("ok"));
+      const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+      await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+      expect(fake.calls[0]!.url).toContain("localhost:9001");
+    } finally {
+      delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    }
+  });
+
+  it("test_no_override_present_at_all_still_hits_the_real_production_bedrock_host", async () => {
+    delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+    globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("ok"));
+    const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+    await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+    expect(fake.calls[0]!.url).toContain("bedrock-runtime.us-east-1.amazonaws.com");
   });
 });
 

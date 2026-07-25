@@ -58,10 +58,24 @@ function toAnthropicMessage(message: ChatMessage): { role: "user" | "assistant";
 }
 
 // Real local/CI testing seam (same pattern justjs#143 established for
-// @justjs/cloud-connect) - overrides only the destination host, signing
-// stays pinned to the real values. Absent in production.
+// @justjs/cloud-connect, extended by justjs#148 for a real in-browser
+// override - see cloud-connect's aws_provider.ts for the full reasoning
+// on the localStorage seam, duplicated per-file same as this function
+// itself already is).
 function endpointOverride(envVar: string, realHost: string): string {
-  return typeof process !== "undefined" ? (process.env[envVar] ?? realHost) : realHost;
+  if (typeof process !== "undefined" && process.env[envVar]) {
+    return process.env[envVar]!;
+  }
+  try {
+    const stored = globalThis.localStorage?.getItem(`justjs:aws-endpoint-override:${envVar}`);
+    if (stored) {
+      return stored;
+    }
+  } catch {
+    // Best-effort only, same graceful-degradation shape as
+    // ai-code-editor's own localStorage helpers.
+  }
+  return realHost;
 }
 
 // AWS Bedrock strategy (justjs#145/ADR-0018) - real SigV4-signed calls

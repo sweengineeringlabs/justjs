@@ -249,3 +249,110 @@ Settings → Security and privacy → Auto Blocker → turn off, retry, then tur
 it back on afterward — see `appsoluxions/docs/7-operations/runbook.md` for
 the full writeup of this and other device-specific gotchas (two-`adb`-entry
 handling via `ANDROID_SERIAL`, etc.).
+
+---
+
+## Build, install, and test `ai-code-editor` against a local CloudEmu server on Android
+
+End-to-end verification of `scm/examples/ai-code-editor`'s AWS-calling
+features (EC2/CloudWatch/SSM, justjs#144/#147/#148) on a real device
+against a real local `cloudemu-server` (`sweengineeringlabs/cloud`)
+instead of real AWS — no mocking, no standalone scripts, the real
+running app. First run end-to-end 2026-07-25.
+
+### Prerequisites
+
+| Tool | Notes |
+|---|---|
+| `adb` | `C:\tools\platform-tools\adb.exe` in this ecosystem's usual layout — not necessarily on `PATH`; `export ADB_PATH="/c/tools/platform-tools/adb.exe"` |
+| `justc`, Android SDK build tools, debug keystore | See the deployment playbook — same prerequisites as any Android build |
+| `browse` CLI | Chromium DevTools Protocol CLI used to drive the installed app's WebView (`browse eval --port <forwarded-port> --script "..."`) |
+| A running `cloudemu-server` | `cloudemu-server.exe` from a built `sweengineeringlabs/cloud` checkout, run locally on the same machine as this repo |
+
+### Build and install
+
+```sh
+export ADB_PATH="/c/tools/platform-tools/adb.exe"
+rm -rf scm/examples/ai-code-editor/dist-android
+bash /c/phd-systems/swelabs/just-mobile/scm/mobile-bridge/scripts/generate-android-app.sh \
+  scm/examples/ai-code-editor/android.manifest.json \
+  scm/examples/ai-code-editor/dist-android --install
+```
+
+Fails with "more than one device/emulator" if the phone shows up twice
+(a wifi `192.168.x.x:port` entry and an `adb-<serial>._adb-tls-connect._tcp`
+mDNS entry for the same physical device) — `adb disconnect <mdns-entry>`
+first. If `adb devices` shows nothing at all (e.g. right after the adb
+daemon restarts), reconnect with `adb connect <ip>:<port>` using the
+device's last-known wifi address.
+
+### Reach a local CloudEmu server from the phone
+
+`cloudemu-server` binds to `127.0.0.1` only — **not** reachable from the
+phone via the PC's LAN IP directly. Use `adb reverse` (the opposite
+direction from the WebView-debugging `adb forward` below) to tunnel the
+phone's own `localhost:4566` back to the PC's real `cloudemu-server`:
+
+```sh
+"$ADB_PATH" reverse tcp:4566 tcp:4566
+"$ADB_PATH" reverse --list   # confirm: host-<n> tcp:4566 tcp:4566
+```
+
+### Connect `browse` to the installed app's WebView
+
+```sh
+"$ADB_PATH" forward --remove-all
+"$ADB_PATH" shell cat /proc/net/unix | grep webview   # look for @webview_devtools_remote_<pid>
+"$ADB_PATH" forward tcp:9350 localabstract:webview_devtools_remote_<pid>
+curl -s http://localhost:9350/json   # confirm the page target ("ai-code-editor: mounted")
+```
+
+The forwarded port occasionally goes stale after a `location.reload()`
+(the WebView's internal target ID changes) — if `browse eval` starts
+failing with `HTTP GET http://localhost:<port>/json failed`, re-run the
+`forward` on a fresh port rather than retrying the same one.
+
+### Point the app at CloudEmu and drive it for real
+
+The app's real in-browser AWS endpoint override (justjs#148) is a
+localStorage key per service, keyed off the same env var name the
+Node/bun-only override already used:
+
+```sh
+browse eval --port 9350 --output json --script "
+localStorage.setItem('justjs:ai-editor:aws-credentials', JSON.stringify({accessKeyId:'test',secretAccessKey:'test'}));
+localStorage.setItem('justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT', 'http://localhost:4566');
+localStorage.setItem('justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT', 'http://localhost:4566');
+localStorage.setItem('justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_SSM_ENDPOINT', 'http://localhost:4566');
+location.reload();
+'set-and-reloading'
+"
+```
+
+From here, real UI interactions (`.click()`, setting `.value` on real
+form inputs, dispatching real `item-select` events on `<view-grid>`
+components to navigate between screens) exercise the actual app code
+against the actual local CloudEmu server — launch/list/redeploy/monitor
+a real EC2 instance, no mocking, no standalone scripts. See justjs#148
+for a full worked example (Configure → Launch → Monitor → Redeploy →
+Terminate, real request/response at every step).
+
+### Common errors
+
+#### `HTTP GET http://localhost:<port>/json failed (exit 28)` from `browse eval`
+
+Either the forwarded WebView port went stale (see above — re-forward on
+a fresh port) or a real, transient WiFi hiccup on the device itself
+(confirmed via `adb shell dumpsys wifi | grep RSSI` showing a weak/
+unstable signal in past incidents) — wait a few seconds and retry
+before assuming a real bug. If a plain `curl -s http://localhost:4566/`
+from the PC itself also fails, the problem is `cloudemu-server`, not
+the phone.
+
+#### A launched instance's fields (AMI ID, IAM profile, etc.) come back empty
+
+Not a CloudEmu or override-mechanism problem — check whether the
+component's own confirm-step re-render is silently clearing the
+Configure form's `<input>` values before they're read (a real bug found
+this way in `Ec2ProvisioningControl`, fixed by reading the form once
+before the confirm-box appears, see justjs#148).
