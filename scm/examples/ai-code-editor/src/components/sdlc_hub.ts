@@ -16,13 +16,6 @@ import { runCliCommand } from "../core/cli.js";
 // of the 3 SCM providers. Linear/Asana/Trello/Jira are all in
 // simple-icons' catalog for real too - no monogram fallback needed for
 // any of the 4 PM providers.
-import {
-  gcpLogo,
-  digitaloceanLogo,
-  cloudflareLogo,
-  vercelLogo,
-  netlifyLogo,
-} from "../core/brand_logos.js";
 import { SCM_PROVIDER_CATALOG, isScmProviderConnected } from "../core/scm_catalog.js";
 import type { ScmProvider } from "../core/scm_catalog.js";
 import { fetchConsolidatedScmDashboardAnalytics } from "../core/scm_dashboard_analytics.js";
@@ -33,6 +26,11 @@ import type { PmProvider } from "../core/pm_catalog.js";
 import { fetchConsolidatedPmDashboardAnalytics } from "../core/pm_dashboard_analytics.js";
 import type { ConsolidatedPmDashboardAnalytics } from "../core/pm_dashboard_analytics.js";
 import { isPmDashboardProviderEnabled, setEnabledPmDashboardProviderIds } from "../core/pm_dashboard_settings.js";
+import { CLOUD_PROVIDER_CATALOG, isCloudProviderConnected } from "../core/cloud_catalog.js";
+import type { CloudProvider } from "../core/cloud_catalog.js";
+import { fetchConsolidatedCloudDashboardAnalytics } from "../core/cloud_dashboard_analytics.js";
+import type { ConsolidatedCloudDashboardAnalytics } from "../core/cloud_dashboard_analytics.js";
+import { isCloudDashboardProviderEnabled, setEnabledCloudDashboardProviderIds } from "../core/cloud_dashboard_settings.js";
 import {
   getStoredCloudToken,
   setStoredCloudToken,
@@ -154,60 +152,6 @@ interface SdlcStage {
   readonly functions: readonly SdlcFunction[];
 }
 
-interface CloudProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly icon: string;
-  // Each provider's real, recognizable brand color (not an arbitrary
-  // palette pick) - used for the badge background regardless of
-  // whether a real `logo` SVG is available.
-  readonly color: string;
-  // Raw SVG markup (simple-icons, single <path>, no fill set) for the
-  // 5 providers actually in that catalog. Recolored to white via a
-  // `fill="currentColor"` injection at render time (renderCloudProviders
-  // below) so it reads clearly against its own colored badge. Absent
-  // for aws/azure/heroku - those render their emoji `icon` instead, not
-  // a fabricated logo.
-  readonly logo?: string;
-  // "bearer" - a single pasted token, sent as `Authorization: Bearer`,
-  // same posture as ai_assist.ts's Anthropic key. "aws" - two fields
-  // (access key ID + secret) and real SigV4 request signing
-  // (core/aws_sigv4.ts) - AWS's own docs are explicit that CORS support
-  // doesn't remove the signing requirement. "unsupported" - Cloudflare's
-  // API did not return CORS headers when checked live; connecting
-  // directly from a browser isn't confirmed possible, so this stays an
-  // honest "not available" state rather than a connect form that might
-  // silently fail.
-  readonly kind: "bearer" | "aws" | "unsupported";
-  // Real command the user runs locally to get a token - only Azure/GCP
-  // need this (a short-lived CLI-issued token, not a full OAuth-in-SPA
-  // flow - see cloud_connect.ts's comments for why). Shown verbatim in
-  // the connect form, along with the token's real expiry.
-  readonly tokenHint?: { readonly command: string; readonly expiry: string };
-  // Netlify/Vercel/Heroku only: a real, direct-from-browser "Deploy this
-  // project" action is available (@justjs/cloud-connect's own optional
-  // deploy() capability) - orthogonal to `kind` (all 3 stay "bearer"),
-  // same reasoning AWS's listInstances-only capability already
-  // established: an extra opt-in action, not a new provider `kind`.
-  readonly supportsDeploy?: boolean;
-}
-
-// A real, recognizable set of actual cloud providers - not arbitrary
-// user-typed strings. 6 of 7 connectable providers use a pasted bearer
-// token (same security posture as the existing Anthropic key); AWS
-// needs real request signing instead (see core/aws_sigv4.ts); Cloudflare
-// stays local-list-only (no confirmed CORS access - see `kind` above).
-const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
-  { id: "aws", name: "AWS", icon: "🟧", color: "#FF9900", kind: "aws" },
-  { id: "gcp", name: "Google Cloud", icon: "🔴", color: "#4285F4", logo: gcpLogo, kind: "bearer", tokenHint: { command: "gcloud auth print-access-token", expiry: "~1 hour" } },
-  { id: "azure", name: "Microsoft Azure", icon: "🔷", color: "#0078D4", kind: "bearer", tokenHint: { command: "az account get-access-token --query accessToken -o tsv", expiry: "~60-90 minutes" } },
-  { id: "digitalocean", name: "DigitalOcean", icon: "💧", color: "#0080FF", logo: digitaloceanLogo, kind: "bearer" },
-  { id: "cloudflare", name: "Cloudflare", icon: "🟠", color: "#F38020", logo: cloudflareLogo, kind: "unsupported" },
-  { id: "vercel", name: "Vercel", icon: "▲", color: "#000000", logo: vercelLogo, kind: "bearer", supportsDeploy: true },
-  { id: "netlify", name: "Netlify", icon: "🟢", color: "#00C7B7", logo: netlifyLogo, kind: "bearer", supportsDeploy: true },
-  { id: "heroku", name: "Heroku", icon: "🟣", color: "#430098", kind: "bearer", supportsDeploy: true },
-];
-
 const CLOUD_DEPLOYERS: Record<string, (token: string, files: readonly CloudDeployFile[], existingTargetId?: string) => Promise<CloudDeployResult>> = {
   netlify: deployToNetlify,
   vercel: deployToVercel,
@@ -222,16 +166,6 @@ const BEARER_CONNECTORS: Record<string, (token: string) => Promise<CloudResource
   netlify: connectNetlify,
   heroku: connectHeroku,
 };
-
-// <control-cloud-connector> (app-local sibling to
-// <control-provider-connector> - Cloud's real extra actions don't fit
-// the shared package's own scope, see cloud_connector.ts's own doc
-// comment) covers this shape. CloudResource{id,name,status} already
-// matches ListItem's shape exactly, same precedent SCM/PM's own real
-// usage established.
-function isCloudProviderConnected(p: CloudProvider): boolean {
-  return p.kind === "aws" ? getStoredAwsCredentials() !== null : getStoredCloudToken(p.id).length > 0;
-}
 
 function toCloudCatalogItem(p: CloudProvider): CloudCatalogItem {
   if (p.kind === "unsupported") {
@@ -702,6 +636,15 @@ export class SdlcHubElement extends HTMLElement {
   // scmScreen/pmScreen.
   private showCloudProviders = false;
   private cloudScreen: HTMLElement | undefined;
+  private cloudMainView!: HTMLElement;
+  private cloudDashboardView!: HTMLElement;
+  private cloudDashboardBackBtn!: HTMLButtonElement;
+  private cloudDashboardTabsEl!: HTMLElement;
+  private cloudDashboardTabContentEl!: HTMLElement;
+  private cloudDashboardActivityEl!: HTMLElement;
+  private cloudDashboardData: ConsolidatedCloudDashboardAnalytics | null = null;
+  private activeCloudDashboardTab: DashboardTabId = "analytics";
+  private readonly expandedCloudMetricKeys = new Set<string>();
 
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
@@ -813,6 +756,7 @@ export class SdlcHubElement extends HTMLElement {
       // cloudScreen was still undefined.
       const cloudConnector = this.cloudScreen?.querySelector<CloudConnectorControl>("#cloud-connector");
       cloudConnector?.resetView();
+      this.resetCloudDashboardToMain();
       this.showScmConnect = false;
       const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
       scmConnector?.resetView();
@@ -1015,9 +959,22 @@ export class SdlcHubElement extends HTMLElement {
     if (!this.cloudScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
-        <view-nav-header id="cloud-header"></view-nav-header>
-        <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
-        <control-cloud-connector id="cloud-connector"></control-cloud-connector>
+        <div id="cloud-main-view">
+          <view-nav-header id="cloud-header"></view-nav-header>
+          <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
+          <control-cloud-connector id="cloud-connector"></control-cloud-connector>
+          <view-grid id="cloud-dashboard-tile-grid"></view-grid>
+        </div>
+        <div id="cloud-dashboard-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-dashboard-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">📊 Dashboard</h2>
+          </div>
+          <div id="cloud-dashboard-tabs" class="dashboard-tabs"></div>
+          <div id="cloud-dashboard-tab-content"></div>
+          <p class="dashboard-section-title">🕒 Recent Activity</p>
+          <div id="cloud-dashboard-activity"></div>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#cloud-header")!;
       header.icon = "🚀";
@@ -1037,9 +994,198 @@ export class SdlcHubElement extends HTMLElement {
       connector.listInstances = handleCloudListInstances;
       connector.deploy = (providerId) => handleCloudDeploy(providerId, this.store);
       connector.catalogLabel = "Cloud Providers";
+
+      this.cloudMainView = screen.querySelector<HTMLElement>("#cloud-main-view")!;
+      this.cloudDashboardView = screen.querySelector<HTMLElement>("#cloud-dashboard-view")!;
+      this.cloudDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-dashboard-back-btn")!;
+      this.cloudDashboardTabsEl = screen.querySelector<HTMLElement>("#cloud-dashboard-tabs")!;
+      this.cloudDashboardTabContentEl = screen.querySelector<HTMLElement>("#cloud-dashboard-tab-content")!;
+      this.cloudDashboardActivityEl = screen.querySelector<HTMLElement>("#cloud-dashboard-activity")!;
+
+      const dashboardTileGrid = screen.querySelector<GridView>("#cloud-dashboard-tile-grid")!;
+      dashboardTileGrid.items = [{ id: "dashboard", label: "Dashboard", icon: "📊" }];
+      dashboardTileGrid.addEventListener("item-select", () => this.showCloudDashboard());
+      this.cloudDashboardBackBtn.addEventListener("click", () => this.resetCloudDashboardToMain());
+
       this.cloudScreen = screen;
     }
     this.subscreenView.appendChild(this.cloudScreen);
+  }
+
+  private showCloudDashboard(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudDashboardView.hidden = false;
+    this.activeCloudDashboardTab = "analytics";
+    this.expandedCloudMetricKeys.clear();
+    this.renderCloudDashboardTabs();
+    void this.loadCloudDashboardData();
+  }
+
+  // Real reset back to the main provider grid - called both by the
+  // Dashboard's own back button and by the overview grid's item-select
+  // handler (alongside cloudConnector.resetView()), same reasoning as
+  // resetScmDashboardToMain()/resetPmDashboardToMain(). Safe no-op if
+  // cloudScreen was never built yet.
+  private resetCloudDashboardToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudDashboardView.hidden = true;
+    this.cloudMainView.hidden = false;
+  }
+
+  private renderCloudDashboardTabs(): void {
+    this.cloudDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
+      (t) => `
+        <button type="button" class="dashboard-tab ${t.id === this.activeCloudDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
+          ${t.icon} ${t.label}
+        </button>
+      `
+    ).join("");
+    this.cloudDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tabId = btn.dataset["tab"] as DashboardTabId;
+        if (tabId === this.activeCloudDashboardTab) {
+          return;
+        }
+        this.activeCloudDashboardTab = tabId;
+        this.renderCloudDashboardTabs();
+        this.renderActiveCloudDashboardTab();
+      });
+    });
+  }
+
+  private async loadCloudDashboardData(): Promise<void> {
+    this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudDashboardData = await fetchConsolidatedCloudDashboardAnalytics();
+    this.renderActiveCloudDashboardTab();
+    this.renderCloudActivitySection(this.cloudDashboardData);
+  }
+
+  private renderActiveCloudDashboardTab(): void {
+    if (this.activeCloudDashboardTab === "settings") {
+      this.renderCloudSettingsTab();
+      return;
+    }
+    if (!this.cloudDashboardData) {
+      return;
+    }
+    if (this.activeCloudDashboardTab === "analytics") {
+      this.renderCloudAnalyticsTab(this.cloudDashboardData);
+    } else {
+      this.renderCloudTrendingTab(this.cloudDashboardData);
+    }
+  }
+
+  private cloudNoDataHint(): string {
+    const anyConnected = CLOUD_PROVIDER_CATALOG.some(isCloudProviderConnected);
+    return anyConnected
+      ? "Nothing enabled - turn a provider back on in the Settings tab."
+      : "Nothing connected yet - connect a provider above to see its real data here.";
+  }
+
+  private renderCloudAnalyticsTab(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.metrics.length === 0 && data.unavailable.length === 0) {
+      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.cloudNoDataHint()}</p>`;
+      return;
+    }
+    const rowHtml = data.metrics
+      .map((metric) => {
+        const key = `${metric.providerId}:${metric.label}`;
+        const active = this.expandedCloudMetricKeys.has(key);
+        return `
+          <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
+            <span class="metric-chip-count">${metric.count}</span>
+            <span class="metric-chip-label">${metric.label}</span>
+            <span class="metric-chip-source">${metric.providerName}</span>
+          </button>
+        `;
+      })
+      .join("");
+    const selected = data.metrics.find((m) => this.expandedCloudMetricKeys.has(`${m.providerId}:${m.label}`));
+    const itemsHtml = selected
+      ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
+      : "";
+    const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
+    this.cloudDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
+
+    this.cloudDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset["metricKey"]!;
+        if (this.expandedCloudMetricKeys.has(key)) {
+          this.expandedCloudMetricKeys.delete(key);
+        } else {
+          this.expandedCloudMetricKeys.clear();
+          this.expandedCloudMetricKeys.add(key);
+        }
+        this.renderCloudAnalyticsTab(data);
+      });
+    });
+  }
+
+  private renderCloudTrendingTab(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.trending.length === 0) {
+      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
+      return;
+    }
+    this.cloudDashboardTabContentEl.innerHTML = data.trending
+      .map(
+        (item) => `
+          <div class="trending-item">
+            <span>${item.title} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="trending-item-score">${item.score}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderCloudActivitySection(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.recentActivity.length === 0) {
+      this.cloudDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
+      return;
+    }
+    this.cloudDashboardActivityEl.innerHTML = data.recentActivity
+      .map(
+        (item) => `
+          <div class="activity-item">
+            <span>${item.summary} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="activity-item-time">${formatDashboardActivityTime(item.timestamp)}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderCloudSettingsTab(): void {
+    const connected = CLOUD_PROVIDER_CATALOG.filter(isCloudProviderConnected);
+    if (connected.length === 0) {
+      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above, then come back here to choose what Dashboard shows.</p>`;
+      return;
+    }
+    this.cloudDashboardTabContentEl.innerHTML = `
+      <p class="connect-hint">Choose which connected providers contribute to Analytics, Trending, and Recent Activity.</p>
+      ${connected
+        .map(
+          (p) => `
+            <label class="field">
+              <input type="checkbox" data-settings-provider="${p.id}" ${isCloudDashboardProviderEnabled(p.id) ? "checked" : ""} />
+              <span class="field-label">${p.name}</span>
+            </label>
+          `
+        )
+        .join("")}
+    `;
+    this.cloudDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const enabledIds = connected
+          .filter((p) => this.cloudDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
+          .map((p) => p.id);
+        setEnabledCloudDashboardProviderIds(enabledIds);
+        void this.loadCloudDashboardData();
+      });
+    });
   }
 
   // ---- Development: source-control connections (opened from Repository
