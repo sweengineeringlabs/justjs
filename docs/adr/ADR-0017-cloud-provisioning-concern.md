@@ -1,6 +1,6 @@
-# ADR-0017: `cloudProvisioning` concern — real AWS resource provisioning, CloudWatch pilot
+# ADR-0017: `cloudProvisioning` concern — real AWS resource provisioning, CloudWatch pilot + EC2 phase
 
-- **Status:** Accepted (written retroactively — CloudWatch already implemented and verified before this ADR was recorded; see [Process note](#process-note))
+- **Status:** Accepted (CloudWatch written retroactively — see [Process note](#process-note); EC2 phase added 2026-07-25, tasks/ACs and ADR updated before/alongside implementation this time)
 - **Date:** 2026-07-25
 
 ## Summary
@@ -87,15 +87,83 @@ cost disclosure and a proven destroy path first, not just a working
   VPC/subnets + node groups already provisioned elsewhere). Full creation
   is explicitly out of scope unless a separate, dedicated ADR/issue
   revisits it.
-- Local/CI test coverage against CloudEmu for any of the above: confirmed
-  via direct reading of CloudEmu's Rust source
-  (`sweengineeringlabs/swe-cloud`) that it doesn't implement
-  `TerminateInstances`, ECS's `CreateService`/`RunTask`, CloudWatch's
-  `PutMetricAlarm`/`GetMetricData`, or any EKS action at all. Whether
-  CloudEmu ever gains these is that project's own call, not gated on here
-  (confirmed with the user directly) — testing beyond what CloudWatch's
-  pilot already proved (via real AWS + a real headless Chromium browser)
-  will need real AWS sandbox accounts for the later phases.
+- ~~Local/CI test coverage against CloudEmu for any of the above~~ —
+  **superseded 2026-07-25.** At the time this ADR was written, direct
+  reading of CloudEmu's Rust source (`sweengineeringlabs/cloud`) confirmed
+  it implemented neither `TerminateInstances` nor ECS's
+  `CreateService`/`RunTask`. CloudEmu has since landed real EC2
+  (`RunInstances`/`StartInstances`/`StopInstances`/`TerminateInstances`)
+  and ECS (`RunTask`/`StopTask`/`DescribeTasks`/`ListTasks`/
+  `CreateService`/`DescribeServices`/`DeleteService`/`DeleteCluster`)
+  lifecycle support, plus CloudWatch's `GetMetricStatistics`/
+  `GetMetricData`/`PutMetricAlarm`/`DescribeAlarms`/`DeleteAlarms`
+  (`sweengineeringlabs/cloud@e04a828`, fixed for the real
+  query-protocol+XML wire format in `@dfceba9`). Independently
+  live-verified (not just trusting the commit or its own unit tests): a
+  full EC2 RunInstances → DescribeInstances → TerminateInstances
+  lifecycle and a full ECS CreateCluster → RegisterTaskDefinition →
+  RunTask → DescribeTasks → StopTask → DeleteCluster lifecycle, both via
+  real SigV4-signed requests from `@justjs/aws-sigv4` against a freshly
+  rebuilt `cloudemu-server`, returned correct real responses end to end.
+  This means the EC2/ECS phases below can now be built with a real local
+  test loop (CloudEmu) in addition to the real-AWS-sandbox path the
+  CloudWatch pilot relied on exclusively — the EC2/ECS phases are moving
+  from "not started" to in progress as a result (tracked in justjs#144).
+
+## EC2 phase (justjs#144, done 2026-07-25)
+
+Implemented once CloudEmu gained a real local test loop for EC2 (see the
+superseded-note above) - built with the same shape as the CloudWatch
+pilot, extended with the two things EC2's real cost/risk profile demands
+that an alarm never needed:
+
+- `runEc2Instance?`/`listEc2Instances?`/`startEc2Instance?`/
+  `stopEc2Instance?`/`terminateEc2Instance?` added to
+  `CloudProvisioningProvider` together, in the same change - no
+  `RunInstances` without a proven `TerminateInstances` alongside it.
+- `AwsCloudWatchProvisioningProvider` renamed to
+  `AwsCloudProvisioningProvider` (it now covers CloudWatch + EC2 under
+  the one "aws" `cloudProvisioning` strategy - only one factory can be
+  registered per concern/strategy pair, so this couldn't be a second,
+  separate class).
+- Real cost disclosure: `core/ec2_cost_estimates.ts`, sourced from AWS's
+  own published us-east-1 on-demand rates for the 6 instance types this
+  app's Configure form offers - disclosed as an estimate, not a live
+  quote (no public unauthenticated AWS pricing API this browser-only app
+  could call).
+- A persisted "resources this app believes it created" ledger
+  (`core/ec2_ledger.ts`, localStorage-backed) - survives reload/tab-close,
+  reconciled against the real, live instance list whenever it loads
+  successfully.
+- A second, distinct confirmation step beyond CloudWatch's own single
+  confirm button: launching requires checking an explicit "I understand
+  this launches a real, billable instance…" checkbox before Confirm
+  Launch even becomes clickable.
+- `ai-code-editor`: `Ec2ProvisioningControl`, a third sibling tile
+  ("Instances") alongside Dashboard/Alarms in Deployment's Cloud screen.
+
+**Verified, not just claimed:**
+- `@justjs/cloud-connect` package suite: 46/46 (was 37, +9 EC2 tests).
+- `ai-code-editor` suite: 66/66 (was 57, +9: 6 ledger tests, 3 cost-
+  estimate tests).
+- Full workspace `bun run build`/`typecheck`/`test`: every package green.
+- Live-verified the real `AwsCloudProvisioningProvider` class (not a
+  standalone script) end to end against a freshly rebuilt CloudEmu:
+  RunInstances → DescribeInstances → StopInstances → TerminateInstances,
+  plus a real `ResourceNotFound` error for an unknown instance ID.
+- Live-verified the real UI (headless Chromium against the actual dev
+  server, `browse` CLI - no Chrome extension available this session):
+  navigated Home → Deployment → Cloud → Instances via the same
+  `item-select` events the real grid components dispatch, confirmed the
+  Configure form's cost estimate renders correctly, confirmed Monitor
+  auto-loads and surfaces a real AWS `AuthFailure` error (proving the
+  full UI → core adapter → cloud-connect → real signed request → real
+  AWS EC2 endpoint path works end to end - the browser can't use the
+  Node/bun-only `CLOUD_CONNECT_AWS_EC2_ENDPOINT` override to redirect to
+  CloudEmu, so real AWS + a deliberately-invalid key is this app's own
+  real verification path from a browser, same as the CloudWatch pilot's),
+  and confirmed the confirm-checkbox gate gates the Confirm Launch button
+  exactly as designed (disabled until checked, Cancel dismisses cleanly).
 
 ## Known limitations (disclosed, not papered over)
 
@@ -131,8 +199,12 @@ cost disclosure and a proven destroy path first, not just a working
       an existing AWS connection, with a real confirm-before-create step
 - [x] Verified against real AWS (not just CloudEmu) from two independent
       environments (desktop Node, real headless Chromium)
-- [ ] EC2/ECS/EKS phases (tracked as follow-up work, not blocking this
-      ADR's own acceptance)
+- [x] EC2 phase: contract + `AwsCloudProvisioningProvider` extension,
+      real tests (46/46), live-verified against CloudEmu (real class,
+      full lifecycle) and against real AWS (real UI, real AuthFailure),
+      cost disclosure, persisted ledger, distinct confirm gate, UI tile
+- [ ] ECS/EKS phases (tracked as follow-up work in justjs#144, not
+      blocking this ADR's own acceptance)
 
 ## Process note
 

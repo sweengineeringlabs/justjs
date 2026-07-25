@@ -4,13 +4,21 @@ import type {
   CloudProvisioningProvider,
   CloudWatchAlarmConfig,
   CloudWatchAlarmState,
+  CloudWatchDimension,
   CloudWatchMetricDatapoint,
+  Ec2CommandResult,
+  Ec2CommandStatus,
+  Ec2InstanceConfig,
+  Ec2InstanceState,
 } from "../api/provisioning.js";
 import { CloudProvisioningProviderError } from "../api/provisioning.js";
-import { signAwsRequest } from "./aws_sigv4.js";
+import { signAwsRequest } from "@justjs/aws-sigv4";
 
 const REGION = "us-east-1";
-const SERVICE = "monitoring";
+const CLOUDWATCH_SERVICE = "monitoring";
+const EC2_SERVICE = "ec2";
+const SSM_SERVICE = "ssm";
+const SSM_DOCUMENT_NAME = "AWS-RunShellScript";
 
 // Real local/CI testing seam (justjs#143's own pattern) - overrides only
 // the destination URL, signing stays pinned to the real host/region/
@@ -59,24 +67,64 @@ interface GetMetricStatisticsResponse extends CloudWatchErrorResponse {
 // urlencoded body (not a GET query string) - the canonical request's
 // own "query" component is empty; the body is what gets sign-hashed
 // (justjs cloud provisioning Phase 0's aws_sigv4.ts body-signing
-// extension). Confirmed against AWS's own published CloudWatch API
-// reference, not yet live-verified against a real AWS account (unlike
-// STS/EC2 in aws_provider.ts, which this session did verify live) -
-// flagged honestly, not silently assumed equivalent.
+// extension, since moved into @justjs/aws-sigv4). Confirmed against
+// AWS's own published CloudWatch API reference, not yet live-verified
+// against a real AWS account (unlike STS/EC2 in aws_provider.ts, which
+// this session did verify live) - flagged honestly, not silently
+// assumed equivalent.
 function encodeParams(params: Record<string, string>): string {
   return Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join("&");
 }
 
-// Real CloudWatch provisioning - the pilot service for justjs's cloud
-// workflow feature (connect -> configure -> deploy -> monitor). Chosen
-// first specifically because an alarm is free and instantly deletable
-// even against a real AWS account - no other AWS service this app talks
-// to has that property. Implements CloudProvisioningProvider's
-// CloudWatch method group only; EC2/ECS/EKS land in their own later
-// phases, each with a real implementation, not a stub.
-export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvider {
+function xmlText(el: Element | Document, tag: string): string | undefined {
+  return el.getElementsByTagName(tag)[0]?.textContent ?? undefined;
+}
+
+// Same UTF-8-safe base64 idiom vercel_provider.ts's own
+// base64EncodeUtf8() already established for this repo - a bare
+// btoa() throws on multi-byte characters, this is the standard,
+// documented JS workaround, no library.
+function base64EncodeUtf8(text: string): string {
+  return btoa(unescape(encodeURIComponent(text)));
+}
+
+// SSM's real error shape (AWS JSON 1.1 protocol, same family
+// DynamoDB/other JSON-protocol AWS services use) - a flat
+// {__type, message}, not CloudWatch/EC2's own Error.Code/Message or
+// query-protocol XML shape. Confirmed against AWS's own published SSM
+// API reference; live-verified below (see the int test suite) against
+// real AWS with deliberately-invalid credentials, the same "correctly-
+// formed request, rejected credentials" signature already confirmed for
+// STS/CloudWatch/EC2/Bedrock this session.
+interface SsmErrorResponse {
+  readonly __type?: string;
+  readonly message?: string;
+  readonly Message?: string;
+}
+
+interface SendCommandResponse extends SsmErrorResponse {
+  readonly Command?: { readonly CommandId: string };
+}
+
+interface GetCommandInvocationResponse extends SsmErrorResponse {
+  readonly Status?: string;
+  readonly StandardOutputContent?: string;
+  readonly StandardErrorContent?: string;
+}
+
+// Real AWS/EC2/CloudWatch provisioning - the AWS "aws" strategy for the
+// cloudProvisioning concern. CloudWatch shipped first (justjs#139/
+// ADR-0017's pilot): the one AWS service here with zero cost and zero
+// irreversible action even against a real account (an alarm is free and
+// instantly deletable). EC2 (justjs#144) is the second, real, billable
+// method group - RunInstances never ships without TerminateInstances
+// (this file implements both together, not across separate commits).
+// One class, not two, because only one factory can be registered per
+// (concern, strategy) pair in the SPI registry (justjs.providers) - see
+// spi/aws_cloud_provisioning.ts.
+export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
   readonly concern = "cloudProvisioning" as const;
   readonly strategy = "aws";
 
@@ -85,13 +133,13 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
     private readonly apiAdapter: ApiAdapter
   ) {}
 
-  private async call<T extends CloudWatchErrorResponse>(action: string, params: Record<string, string>): Promise<T> {
+  private async cloudWatchCall<T extends CloudWatchErrorResponse>(action: string, params: Record<string, string>): Promise<T> {
     const body = encodeParams({ Action: action, Version: "2010-08-01", ...params });
     const headers = await signAwsRequest({
       accessKeyId: this.config.accessKeyId,
       secretAccessKey: this.config.secretAccessKey,
       region: REGION,
-      service: SERVICE,
+      service: CLOUDWATCH_SERVICE,
       method: "POST",
       host: "monitoring.amazonaws.com",
       path: "/",
@@ -111,7 +159,7 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
   }
 
   async putCloudWatchAlarm(config: CloudWatchAlarmConfig): Promise<void> {
-    await this.call<PutMetricAlarmResponse>("PutMetricAlarm", {
+    await this.cloudWatchCall<PutMetricAlarmResponse>("PutMetricAlarm", {
       AlarmName: config.alarmName,
       MetricName: config.metricName,
       Namespace: config.namespace,
@@ -125,7 +173,7 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
   }
 
   async listCloudWatchAlarms(): Promise<readonly CloudWatchAlarmState[]> {
-    const data = await this.call<DescribeAlarmsResponse>("DescribeAlarms", {});
+    const data = await this.cloudWatchCall<DescribeAlarmsResponse>("DescribeAlarms", {});
     const alarms = data.DescribeAlarmsResponse?.DescribeAlarmsResult?.MetricAlarms ?? [];
     return alarms.map((a) => ({
       alarmName: a.AlarmName,
@@ -142,7 +190,7 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
   }
 
   async deleteCloudWatchAlarm(alarmName: string): Promise<void> {
-    await this.call<DeleteAlarmsResponse>("DeleteAlarms", { "AlarmNames.member.1": alarmName });
+    await this.cloudWatchCall<DeleteAlarmsResponse>("DeleteAlarms", { "AlarmNames.member.1": alarmName });
   }
 
   async getCloudWatchMetricStatistics(
@@ -151,15 +199,22 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
     statistic: CloudWatchAlarmConfig["statistic"],
     startTime: string,
     endTime: string,
-    period: number
+    period: number,
+    dimensions?: readonly CloudWatchDimension[]
   ): Promise<readonly CloudWatchMetricDatapoint[]> {
-    const data = await this.call<GetMetricStatisticsResponse>("GetMetricStatistics", {
+    const dimensionParams: Record<string, string> = {};
+    (dimensions ?? []).forEach((d, i) => {
+      dimensionParams[`Dimensions.member.${i + 1}.Name`] = d.name;
+      dimensionParams[`Dimensions.member.${i + 1}.Value`] = d.value;
+    });
+    const data = await this.cloudWatchCall<GetMetricStatisticsResponse>("GetMetricStatistics", {
       Namespace: namespace,
       MetricName: metricName,
       "Statistics.member.1": statistic,
       StartTime: startTime,
       EndTime: endTime,
       Period: String(period),
+      ...dimensionParams,
     });
     const points = data.GetMetricStatisticsResponse?.GetMetricStatisticsResult?.Datapoints ?? [];
     return points.map((p) => ({
@@ -167,6 +222,160 @@ export class AwsCloudWatchProvisioningProvider implements CloudProvisioningProvi
       value: Number(p[statistic] ?? 0),
       unit: String(p["Unit"] ?? "None"),
     }));
+  }
+
+  // EC2's classic Query API does not honor Accept: application/json
+  // (confirmed live against real AWS in aws_provider.ts's listInstances(),
+  // and again this session against CloudEmu's own EC2 fix) - always
+  // returns XML regardless of the Accept header sent, so every EC2 call
+  // here parses the real XML response via DOMParser rather than assuming
+  // JSON. @justjs/transport's ApiAdapter already returns the raw body
+  // string as `data` for any non-JSON content-type.
+  private async ec2Call(action: string, params: Record<string, string> = {}): Promise<Document> {
+    const body = encodeParams({ Action: action, Version: "2016-11-15", ...params });
+    const headers = await signAwsRequest({
+      accessKeyId: this.config.accessKeyId,
+      secretAccessKey: this.config.secretAccessKey,
+      region: REGION,
+      service: EC2_SERVICE,
+      method: "POST",
+      host: "ec2.amazonaws.com",
+      path: "/",
+      query: "",
+      body,
+      extraHeaders: { "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" },
+    });
+    const endpoint = endpointOverride("CLOUD_CONNECT_AWS_EC2_ENDPOINT", "https://ec2.amazonaws.com");
+    const response = await this.apiAdapter.post<string>(endpoint + "/", body, { headers });
+    const doc = new DOMParser().parseFromString(response.data, "text/xml");
+    if (response.error) {
+      const message = doc.getElementsByTagName("Message")[0]?.textContent ?? response.error;
+      const code = doc.getElementsByTagName("Code")[0]?.textContent ?? String(response.status);
+      throw new CloudProvisioningProviderError("AWS_ERROR", `EC2: ${code} - ${message} (action ${action}).`);
+    }
+    return doc;
+  }
+
+  private parseInstanceItem(item: Element): Ec2InstanceState {
+    const privateIpAddress = xmlText(item, "privateIpAddress");
+    const publicIpAddress = xmlText(item, "ipAddress");
+    return {
+      instanceId: xmlText(item, "instanceId") ?? "",
+      imageId: xmlText(item, "imageId") ?? "",
+      instanceType: xmlText(item, "instanceType") ?? "",
+      state: item.getElementsByTagName("instanceState")[0]?.getElementsByTagName("name")[0]?.textContent ?? "unknown",
+      launchTime: xmlText(item, "launchTime") ?? "",
+      ...(privateIpAddress !== undefined ? { privateIpAddress } : {}),
+      ...(publicIpAddress !== undefined ? { publicIpAddress } : {}),
+    };
+  }
+
+  async runEc2Instance(config: Ec2InstanceConfig): Promise<Ec2InstanceState> {
+    const doc = await this.ec2Call("RunInstances", {
+      ImageId: config.imageId,
+      InstanceType: config.instanceType,
+      MinCount: "1",
+      MaxCount: "1",
+      ...(config.keyName !== undefined ? { KeyName: config.keyName } : {}),
+      ...(config.subnetId !== undefined ? { SubnetId: config.subnetId } : {}),
+      // ADR-0019 Option A - RunInstances' own real UserData param is
+      // base64, unlike every other EC2 param here (plain query-protocol
+      // strings) - AWS's documented exception for this one field.
+      ...(config.userData !== undefined ? { UserData: base64EncodeUtf8(config.userData) } : {}),
+      // ADR-0019 Option B, opt-in only - this app never creates the
+      // profile named here, it only ever references one the user
+      // already made (see ADR-0019's IAM policy).
+      ...(config.iamInstanceProfileName !== undefined ? { "IamInstanceProfile.Name": config.iamInstanceProfileName } : {}),
+    });
+    const item = doc.getElementsByTagName("instancesSet")[0]?.getElementsByTagName("item")[0];
+    if (!item) {
+      throw new CloudProvisioningProviderError("AWS_UNEXPECTED_RESPONSE", "EC2: RunInstances returned an unexpected response shape.");
+    }
+    return this.parseInstanceItem(item);
+  }
+
+  async listEc2Instances(): Promise<readonly Ec2InstanceState[]> {
+    const doc = await this.ec2Call("DescribeInstances");
+    return Array.from(doc.getElementsByTagName("instancesSet"))
+      .flatMap((set) => Array.from(set.getElementsByTagName("item")))
+      .map((item) => this.parseInstanceItem(item));
+  }
+
+  async startEc2Instance(instanceId: string): Promise<void> {
+    await this.ec2Call("StartInstances", { "InstanceId.1": instanceId });
+  }
+
+  async stopEc2Instance(instanceId: string): Promise<void> {
+    await this.ec2Call("StopInstances", { "InstanceId.1": instanceId });
+  }
+
+  async terminateEc2Instance(instanceId: string): Promise<void> {
+    await this.ec2Call("TerminateInstances", { "InstanceId.1": instanceId });
+  }
+
+  // SSM is a JSON-protocol service (X-Amz-Target-based), same shape
+  // @justjs/ai-assist's BedrockAiAssistProvider already uses for
+  // Bedrock - not query-protocol+XML like EC2/CloudWatch above. Real
+  // only for instances the caller already opted into via
+  // Ec2InstanceConfig.iamInstanceProfileName at launch (ADR-0019) - this
+  // method never checks that client-side, AWS's own real error (e.g.
+  // "instance ... is not in a valid state for account" /
+  // "TargetNotConnected") surfaces for any instance that isn't actually
+  // SSM-managed.
+  private async ssmCall<T extends SsmErrorResponse>(action: string, body: Record<string, unknown>): Promise<T> {
+    const bodyStr = JSON.stringify(body);
+    const headers = await signAwsRequest({
+      accessKeyId: this.config.accessKeyId,
+      secretAccessKey: this.config.secretAccessKey,
+      region: REGION,
+      service: SSM_SERVICE,
+      method: "POST",
+      host: `ssm.${REGION}.amazonaws.com`,
+      path: "/",
+      query: "",
+      body: bodyStr,
+      extraHeaders: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": `AmazonSSM.${action}` },
+    });
+    const endpoint = endpointOverride("CLOUD_CONNECT_AWS_SSM_ENDPOINT", `https://ssm.${REGION}.amazonaws.com`);
+    const response = await this.apiAdapter.post<T | string>(endpoint + "/", bodyStr, { headers });
+    // SSM's real content-type is application/x-amz-json-1.1, not
+    // application/json - @justjs/transport's ApiAdapter only JSON-
+    // parses bodies whose content-type contains "application/json"
+    // (confirmed live: a real AWS SSM error response arrived here as an
+    // unparsed string, not the object every other JSON-protocol call in
+    // this file/this session got automatically), so this parses it by
+    // hand when the adapter didn't already.
+    const data: T = typeof response.data === "string" ? (response.data.length > 0 ? JSON.parse(response.data) : ({} as T)) : response.data;
+    if (response.error !== undefined) {
+      const message = data.message ?? data.Message ?? response.error;
+      const code = data.__type ?? `HTTP_${response.status}`;
+      throw new CloudProvisioningProviderError(code, `SSM: ${code} - ${message} (action ${action}).`);
+    }
+    return data;
+  }
+
+  async runCommandOnEc2Instance(instanceId: string, commands: readonly string[]): Promise<Ec2CommandResult> {
+    const data = await this.ssmCall<SendCommandResponse>("SendCommand", {
+      DocumentName: SSM_DOCUMENT_NAME,
+      InstanceIds: [instanceId],
+      Parameters: { commands },
+    });
+    if (!data.Command?.CommandId) {
+      throw new CloudProvisioningProviderError("AWS_UNEXPECTED_RESPONSE", "SSM: SendCommand returned an unexpected response shape.");
+    }
+    return { commandId: data.Command.CommandId };
+  }
+
+  async getEc2CommandStatus(commandId: string, instanceId: string): Promise<Ec2CommandStatus> {
+    const data = await this.ssmCall<GetCommandInvocationResponse>("GetCommandInvocation", {
+      CommandId: commandId,
+      InstanceId: instanceId,
+    });
+    return {
+      status: data.Status ?? "Unknown",
+      ...(data.StandardOutputContent ? { output: data.StandardOutputContent } : {}),
+      ...(data.StandardErrorContent ? { errorOutput: data.StandardErrorContent } : {}),
+    };
   }
 
   weave(): void {

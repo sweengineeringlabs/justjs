@@ -13,5 +13,5 @@ import "./heroku.js";
 import "./azure.js";
 import "./gcp.js";
 import "./aws.js";
-import "./aws_cloudwatch.js";
+import "./aws_cloud_provisioning.js";
 import "./test_dashboard_analytics.js";

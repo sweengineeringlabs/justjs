@@ -21,7 +21,12 @@ export type {
   CloudProvisioningProvider,
   CloudWatchAlarmConfig,
   CloudWatchAlarmState,
+  CloudWatchDimension,
   CloudWatchMetricDatapoint,
+  Ec2CommandResult,
+  Ec2CommandStatus,
+  Ec2InstanceConfig,
+  Ec2InstanceState,
 } from "../api/provisioning.js";
 export { CloudProvisioningProviderError } from "../api/provisioning.js";
 
@@ -70,9 +75,10 @@ export function createCloudDashboardAnalyticsProvider(strategy: string, config: 
 }
 
 // Same factory pattern, separate concern ("cloudProvisioning") - only
-// "aws" exists today (CloudWatch alarms - the pilot service, see
-// core/aws_cloudwatch_provider.ts's own comment on why it's first).
-// EC2/ECS/EKS provisioning strategies land in their own later phases.
+// "aws" exists today, covering CloudWatch alarms (the pilot service, see
+// core/aws_cloud_provisioning_provider.ts's own comment on why it's
+// first) and EC2 instances (justjs#144). ECS/EKS provisioning strategies
+// land in their own later phases.
 export function createCloudProvisioningProvider(strategy: string, config: AwsCredentialsConfig): CloudProvisioningProvider {
   const spec = justjs.providers.resolve("cloudProvisioning", strategy);
   if (!spec) {
