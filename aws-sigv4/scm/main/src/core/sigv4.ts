@@ -2,9 +2,10 @@
 // AWS's own published spec (docs.aws.amazon.com/IAM/latest/UserGuide/
 // reference_sigv-create-signed-request.html) using only the Web Crypto
 // API - no AWS SDK dependency. AWS's own CORS documentation is explicit
-// that enabling CORS on an API (confirmed live for EC2/STS) does not
-// remove the signing requirement - every request still needs a valid
-// SigV4 Authorization header, regardless of origin.
+// that enabling CORS on an API (confirmed live for STS/EC2/CloudWatch/
+// Bedrock, each independently) does not remove the signing requirement -
+// every request still needs a valid SigV4 Authorization header,
+// regardless of origin.
 //
 // Consumers of this package (browser apps with no backend) sign here,
 // client-side, using credentials the user provides directly. AWS's own
@@ -17,33 +18,19 @@
 // Structurally verified, not just trusted: cross-checked against an
 // independent Node-crypto (createHash/createHmac) implementation of
 // this same spec (byte-for-byte identical signature on a fixed input),
-// and against a real signed request to AWS's live STS endpoint - which
-// is what caught a real bug (a mixed-case extraHeaders key silently
-// breaking the canonical-header lookup, see the comment inline below)
-// that the synthetic cross-check alone did not exercise. See
-// src/tests/cloud_connect_int_test.ts for the permanent regression test.
-
-export interface AwsSigningRequest {
-  readonly accessKeyId: string;
-  readonly secretAccessKey: string;
-  readonly region: string;
-  readonly service: string;
-  readonly method: string;
-  readonly host: string;
-  readonly path: string;
-  // Already-encoded query string, e.g. "Action=GetCallerIdentity&Version=2011-06-15" -
-  // AWS's canonical form requires params sorted by key; callers pass them
-  // pre-sorted since every call this package makes only ever has 1-2 fixed params.
-  readonly query: string;
-  readonly extraHeaders?: Readonly<Record<string, string>>;
-  // Real request body for JSON-protocol (ECS: X-Amz-Target header, JSON
-  // body) and REST-JSON (EKS: path-based, JSON body on POST/PUT) calls -
-  // absent/"" for the bodyless GETs every call originally supported
-  // (STS/EC2/CloudWatch's Query API). The signature must cover the
-  // actual bytes sent on the wire, so callers must pass the exact same
-  // string as the real fetch() body, not reconstruct it separately.
-  readonly body?: string;
-}
+// and against real signed requests to AWS's live STS, CloudWatch, and
+// Bedrock endpoints - which is what caught a real bug (a mixed-case
+// extraHeaders key silently breaking the canonical-header lookup, see
+// the comment inline below) that the synthetic cross-check alone did
+// not exercise. See src/tests/sigv4_test.ts for the permanent
+// regression tests.
+//
+// Extracted from @justjs/cloud-connect (justjs#145/ADR-0018) once a
+// second, unrelated domain package (@justjs/ai-assist, for AWS Bedrock)
+// needed the exact same signing logic - a generic AWS request-signing
+// utility never belonged inside a package about connecting to cloud
+// resource providers specifically.
+import type { AwsSigningRequest } from "../api/sigv4.js";
 
 async function sha256Hex(data: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));

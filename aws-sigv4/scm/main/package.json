@@ -1,0 +1,20 @@
+{
+  "name": "@justjs/aws-sigv4",
+  "version": "0.1.0",
+  "description": "Real AWS Signature Version 4 request signing (Web Crypto API only, no AWS SDK dependency) - shared by any package making direct-from-browser signed AWS requests.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/saf/index.js",
+      "types": "./dist/saf/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "typecheck": "tsc --build tsconfig.json",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

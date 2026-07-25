@@ -2,7 +2,8 @@ import { justjs } from "@justjs/application";
 import { createApiAdapter } from "@justjs/transport";
 import { createFetchAdapter } from "@justjs/network";
 import { AnthropicAiAssistProvider } from "../core/anthropic_provider.js";
-import type { AiAssistProviderConfig } from "../api/provider.js";
+import { BedrockAiAssistProvider } from "../core/bedrock_provider.js";
+import type { AnthropicAiAssistConfig, BedrockAiAssistConfig } from "../api/provider.js";
 
 // Registered so justjs.providers.has("aiAssist", "anthropic")/
 // strategiesFor() reflect reality, matching @justjs/memory's precedent.
@@ -13,11 +14,22 @@ import type { AiAssistProviderConfig } from "../api/provider.js";
 // `{ apiKey: "" }` below, which still boots but produces a provider that
 // fails on first real call rather than at boot time. Existing callers
 // (e.g. scm/examples/ai-code-editor) build the singleton directly via
-// createAiAssistProvider(config) in saf/index.ts instead, since the key
-// there is loaded from localStorage after boot, not known at boot time.
+// createAiAssistProvider(strategy, config) in saf/index.ts instead,
+// since the key there is loaded from localStorage after boot, not known
+// at boot time.
 justjs.providers.register({
   concern: "aiAssist",
   strategy: "anthropic",
-  factory: (config?: AiAssistProviderConfig) =>
+  factory: (config?: AnthropicAiAssistConfig) =>
     new AnthropicAiAssistProvider(config ?? { apiKey: "" }, createApiAdapter(createFetchAdapter())),
+});
+
+// AWS Bedrock (justjs#145/ADR-0018) - real SigV4-signed InvokeModel
+// calls, same reasoning as the "anthropic" registration above for why
+// config falls back rather than throwing at registration time.
+justjs.providers.register({
+  concern: "aiAssist",
+  strategy: "bedrock",
+  factory: (config?: BedrockAiAssistConfig) =>
+    new BedrockAiAssistProvider(config ?? { accessKeyId: "", secretAccessKey: "", region: "" }, createApiAdapter(createFetchAdapter())),
 });

@@ -30,14 +30,15 @@ export function setStoredApiKey(key: string): void {
   cachedApiKey = null;
 }
 
-// Lazily (re)constructs the one real AnthropicAiAssistProvider singleton
-// this app uses for every AI feature - imported directly by every
-// component (editor/chat/review/scaffold), never resolved through
-// justjs.providers.resolve(). @justjs/ai-assist's spi/index.ts explains
-// why that path can't work here: boot()'s weave loop calls
-// spec.factory() with ZERO arguments, and AiAssistProviderConfig.apiKey
-// is required - this app also never lists "aiAssist" in boot()'s
-// `aspects` config for the same reason (see app.ts).
+// Lazily (re)constructs the one real "anthropic"-strategy AiAssistProvider
+// singleton this app uses for every AI feature - resolved via
+// createAiAssistProvider("anthropic", config) rather than through
+// boot()'s own weave loop, since that loop calls spec.factory() with
+// ZERO arguments and AnthropicAiAssistConfig.apiKey is required - this
+// app also never lists "aiAssist" in boot()'s `aspects` config for the
+// same reason (see app.ts). @justjs/ai-assist also registers a
+// "bedrock" strategy (justjs#145/ADR-0018) - not wired up in this app
+// yet, tracked separately from this file's own scope.
 //
 // Re-reads localStorage on every call rather than caching indefinitely -
 // cheap, and it's what lets Settings' Save/Clear buttons take effect
@@ -48,7 +49,7 @@ export function getAiAssistProvider(): AiAssistProvider | null {
     return null;
   }
   if (!cachedProvider || cachedApiKey !== apiKey) {
-    cachedProvider = createAiAssistProvider({ apiKey });
+    cachedProvider = createAiAssistProvider("anthropic", { apiKey });
     cachedApiKey = apiKey;
   }
   return cachedProvider;

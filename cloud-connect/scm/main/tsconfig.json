@@ -8,6 +8,7 @@
   "include": ["src"],
   "references": [
     { "path": "../../../application/scm/main" },
+    { "path": "../../../aws-sigv4/scm/main" },
     { "path": "../../../network/scm/main" },
     { "path": "../../../transport/scm/main" }
   ],

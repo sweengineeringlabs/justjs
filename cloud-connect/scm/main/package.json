@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@justjs/application": "^0.1.0",
+    "@justjs/aws-sigv4": "^0.1.0",
     "@justjs/network": "^0.1.0",
     "@justjs/transport": "^0.1.0"
   },

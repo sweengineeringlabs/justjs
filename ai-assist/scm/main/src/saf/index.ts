@@ -5,6 +5,8 @@ export type {
   AgentToolDefinition,
   AiAssistProvider,
   AiAssistProviderConfig,
+  AnthropicAiAssistConfig,
+  BedrockAiAssistConfig,
   ChatMessage,
   ChatRequest,
   CompletionRequest,
@@ -24,19 +26,29 @@ export { AiAssistProviderError } from "../api/provider.js";
 // saf/index.ts established this) - importing this module's own
 // spi/index.ts for its side effect means a bare
 // `import { createAiAssistProvider } from "@justjs/ai-assist"` genuinely
-// self-registers the "anthropic" strategy, unlike the six aop-* packages.
+// self-registers every strategy ("anthropic", "bedrock").
 import "../spi/index.js";
 
+import { justjs } from "@justjs/application";
 import type { AiAssistProvider, AiAssistProviderConfig } from "../api/provider.js";
-import { AnthropicAiAssistProvider } from "../core/anthropic_provider.js";
-import { createApiAdapter } from "@justjs/transport";
-import { createFetchAdapter } from "@justjs/network";
+import { AiAssistProviderError } from "../api/provider.js";
 
 // Factory, not a direct class re-export (core_not_exported_directly,
 // scm/config/arch/policy/rules/interface.toml) - callers depend on the
-// AiAssistProvider contract, never the concrete Anthropic* class name.
-// config is required (not optional, unlike createMemoryProvider) since
-// AiAssistProviderConfig.apiKey has no meaningful default.
-export function createAiAssistProvider(config: AiAssistProviderConfig): AiAssistProvider {
-  return new AnthropicAiAssistProvider(config, createApiAdapter(createFetchAdapter()));
+// AiAssistProvider contract, never a concrete provider class name.
+// Resolves through the same justjs.providers registry spi/ already
+// populated (the `import "../spi/index.js"` above guarantees every
+// strategy is registered before this can be called) - this package
+// previously hardcoded AnthropicAiAssistProvider here directly, bypassing
+// its own SPI registration entirely (a real, pre-existing inconsistency
+// with every other *-connect package's saf/index.ts); fixed as part of
+// adding a second real strategy (justjs#145/ADR-0018), since a strategy
+// registered but never actually resolvable is worse than not registering
+// it at all.
+export function createAiAssistProvider(strategy: string, config: AiAssistProviderConfig): AiAssistProvider {
+  const spec = justjs.providers.resolve("aiAssist", strategy);
+  if (!spec) {
+    throw new AiAssistProviderError("UNKNOWN_STRATEGY", `@justjs/ai-assist: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as AiAssistProvider;
 }

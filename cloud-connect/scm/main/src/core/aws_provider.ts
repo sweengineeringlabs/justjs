@@ -1,7 +1,7 @@
 import type { ApiAdapter } from "@justjs/transport";
 import type { CloudConnectProvider, CloudResource, AwsCredentialsConfig } from "../api/provider.js";
 import { CloudConnectProviderError } from "../api/provider.js";
-import { signAwsRequest } from "./aws_sigv4.js";
+import { signAwsRequest } from "@justjs/aws-sigv4";
 
 const REGION = "us-east-1";
 

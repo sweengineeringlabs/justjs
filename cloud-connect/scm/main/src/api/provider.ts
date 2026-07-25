@@ -1,4 +1,7 @@
 import type { AspectTarget } from "@justjs/application";
+import type { AwsCredentialsConfig } from "@justjs/aws-sigv4";
+
+export type { AwsCredentialsConfig };
 
 // A real resource/service returned by a provider's own real list API -
 // never a placeholder. `status` is provider-specific vocabulary as-is
@@ -20,13 +23,11 @@ export interface BearerTokenConfig {
 }
 
 // AWS needs a real access-key-ID + secret-access-key pair and real
-// SigV4 request signing (core/aws_sigv4.ts) - CORS support doesn't
+// SigV4 request signing (@justjs/aws-sigv4) - CORS support doesn't
 // remove AWS's own signing requirement (confirmed against AWS's docs).
-export interface AwsCredentialsConfig {
-  readonly accessKeyId: string;
-  readonly secretAccessKey: string;
-}
-
+// AwsCredentialsConfig itself now lives in @justjs/aws-sigv4
+// (justjs#145/ADR-0018), re-exported above so existing consumers of this
+// module don't need to change their import.
 export type CloudConnectProviderConfig = BearerTokenConfig | AwsCredentialsConfig;
 
 // A single real file this app's own virtual filesystem (core/fs.ts)
