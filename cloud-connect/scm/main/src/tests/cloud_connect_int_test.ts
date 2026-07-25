@@ -25,9 +25,12 @@ import { signAwsRequest } from "../core/aws_sigv4.js";
 import { CloudConnectProviderError } from "../api/provider.js";
 import { TestCloudDashboardAnalyticsProvider } from "../core/test_dashboard_analytics_provider.js";
 import { DashboardAnalyticsProviderError } from "../api/analytics.js";
+import { AwsCloudWatchProvisioningProvider } from "../core/aws_cloudwatch_provider.js";
+import { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 const ALL_STRATEGIES = ["digitalocean", "netlify", "vercel", "heroku", "azure", "gcp", "aws"];
 const ALL_DASHBOARD_ANALYTICS_STRATEGIES = ["testcloud"];
+const ALL_PROVISIONING_STRATEGIES = ["aws"];
 
 // Constructor-injected fake ApiAdapter, matching @justjs/ai-assist's own
 // test harness exactly - zero real network calls in this suite. Also
@@ -211,6 +214,150 @@ describe("AwsCloudConnectProvider", () => {
       expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/sts/aws4_request");
     } finally {
       delete process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"];
+    }
+  });
+});
+
+describe("AwsCloudWatchProvisioningProvider", () => {
+  it("test_put_alarm_sends_the_real_query_protocol_params_as_a_urlencoded_body", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.putCloudWatchAlarm!({
+      alarmName: "high-cpu",
+      metricName: "CPUUtilization",
+      namespace: "AWS/EC2",
+      statistic: "Average",
+      period: 300,
+      evaluationPeriods: 2,
+      threshold: 80,
+      comparisonOperator: "GreaterThanThreshold",
+    });
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://monitoring.amazonaws.com/");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=PutMetricAlarm");
+    expect(body).toContain("AlarmName=high-cpu");
+    expect(body).toContain("Threshold=80");
+    expect(body).toContain("ComparisonOperator=GreaterThanThreshold");
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/monitoring/aws4_request");
+  });
+
+  it("test_list_alarms_parses_the_real_describe_alarms_shape", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: {
+        DescribeAlarmsResponse: {
+          DescribeAlarmsResult: {
+            MetricAlarms: [
+              {
+                AlarmName: "high-cpu",
+                AlarmArn: "arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu",
+                MetricName: "CPUUtilization",
+                Namespace: "AWS/EC2",
+                Statistic: "Average",
+                Period: 300,
+                EvaluationPeriods: 2,
+                Threshold: 80,
+                ComparisonOperator: "GreaterThanThreshold",
+                StateValue: "OK",
+              },
+            ],
+          },
+        },
+      },
+    }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    const alarms = await provider.listCloudWatchAlarms!();
+    expect(alarms).toEqual([
+      {
+        alarmName: "high-cpu",
+        alarmArn: "arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu",
+        metricName: "CPUUtilization",
+        namespace: "AWS/EC2",
+        statistic: "Average",
+        period: 300,
+        evaluationPeriods: 2,
+        threshold: 80,
+        comparisonOperator: "GreaterThanThreshold",
+        stateValue: "OK",
+      },
+    ]);
+  });
+
+  it("test_list_alarms_returns_an_empty_array_when_none_exist_not_an_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { DescribeAlarmsResponse: { DescribeAlarmsResult: {} } } }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    expect(await provider.listCloudWatchAlarms!()).toEqual([]);
+  });
+
+  it("test_delete_alarm_sends_the_real_alarm_name_member_param", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.deleteCloudWatchAlarm!("high-cpu");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=DeleteAlarms");
+    expect(body).toContain("AlarmNames.member.1=high-cpu");
+  });
+
+  it("test_get_metric_statistics_parses_real_datapoints", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: {
+        GetMetricStatisticsResponse: {
+          GetMetricStatisticsResult: {
+            Datapoints: [{ Timestamp: "2026-07-25T00:00:00Z", Average: 42.5, Unit: "Percent" }],
+          },
+        },
+      },
+    }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    const points = await provider.getCloudWatchMetricStatistics!(
+      "AWS/EC2",
+      "CPUUtilization",
+      "Average",
+      "2026-07-25T00:00:00Z",
+      "2026-07-25T01:00:00Z",
+      300
+    );
+    expect(points).toEqual([{ timestamp: "2026-07-25T00:00:00Z", value: 42.5, unit: "Percent" }]);
+  });
+
+  it("test_a_real_cloudwatch_error_body_throws_the_real_error_code", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 400,
+      headers: {},
+      error: "Bad Request",
+      data: { Error: { Code: "ResourceNotFound", Message: "Alarm does not exist." } },
+    }));
+    const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    let caught: unknown;
+    try {
+      await provider.deleteCloudWatchAlarm!("nonexistent");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("ResourceNotFound");
+  });
+
+  it("test_redirects_to_the_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+      const provider = new AwsCloudWatchProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.deleteCloudWatchAlarm!("high-cpu");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT"];
     }
   });
 });
@@ -443,6 +590,89 @@ describe("signAwsRequest", () => {
     });
     expect(headers.Authorization).toContain("accept;host;x-amz-date");
   });
+
+  // Real regression guard for the body-signing extension (justjs cloud
+  // provisioning work) - the signature must change when the body changes,
+  // proving payloadHash actually covers the real request body rather than
+  // silently hashing "" the way every prior call (bodyless GETs) did.
+  it("test_a_real_request_body_changes_the_signature_from_the_bodyless_case", async () => {
+    const base = {
+      accessKeyId: "AKIDEXAMPLE",
+      secretAccessKey: "secret",
+      region: "us-east-1",
+      service: "ecs",
+      method: "POST",
+      host: "ecs.us-east-1.amazonaws.com",
+      path: "/",
+      query: "",
+      extraHeaders: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": "AmazonEC2ContainerServiceV20141113.ListClusters" },
+    };
+    const bodyless = await signAwsRequest(base);
+    const withBody = await signAwsRequest({ ...base, body: '{"maxResults":10}' });
+    expect(withBody.Authorization).not.toBe(bodyless.Authorization);
+  });
+
+  it("test_the_same_body_signs_identically_to_an_independent_node_crypto_hash_of_that_body", async () => {
+    // Cross-checks that payloadHash is a real SHA-256 of the exact body
+    // bytes (not, say, its length or a placeholder) - independently
+    // computed here via node:crypto, same cross-check discipline as the
+    // bodyless test above.
+    function sha256Hex(data: string): string {
+      return createHash("sha256").update(data, "utf8").digest("hex");
+    }
+    const body = '{"clusterName":"demo"}';
+    const req = {
+      accessKeyId: "AKIDEXAMPLE",
+      secretAccessKey: "secret",
+      region: "us-east-1",
+      service: "ecs",
+      method: "POST",
+      host: "ecs.us-east-1.amazonaws.com",
+      path: "/",
+      query: "",
+      body,
+    };
+    // Re-derive the canonical request/string-to-sign independently using
+    // the real payload hash, and confirm signAwsRequest's own signature
+    // matches when everything else (date) is pinned.
+    const originalDateCtor = Date;
+    class FixedDate extends originalDateCtor {
+      constructor() {
+        super("2022-08-30T12:36:00.000Z");
+      }
+      static override now() {
+        return new originalDateCtor("2022-08-30T12:36:00.000Z").getTime();
+      }
+    }
+    const date = "20220830T123600Z";
+    const dateStamp = "20220830";
+    const headers = { host: req.host, "x-amz-date": date };
+    const signedHeaderNames = Object.keys(headers).sort();
+    const canonicalHeaders = signedHeaderNames.map((h) => `${h}:${(headers as Record<string, string>)[h]!.trim()}\n`).join("");
+    const signedHeaders = signedHeaderNames.join(";");
+    const canonicalRequest = [req.method, req.path, req.query, canonicalHeaders, signedHeaders, sha256Hex(body)].join("\n");
+    const credentialScope = `${dateStamp}/${req.region}/${req.service}/aws4_request`;
+    const stringToSign = ["AWS4-HMAC-SHA256", date, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+    function hmac(key: string | Buffer, data: string): Buffer {
+      return createHmac("sha256", key).update(data, "utf8").digest();
+    }
+    const kDate = hmac(`AWS4${req.secretAccessKey}`, dateStamp);
+    const kRegion = hmac(kDate, req.region);
+    const kService = hmac(kRegion, req.service);
+    const kSigning = hmac(kService, "aws4_request");
+    const expectedSignature = hmac(kSigning, stringToSign).toString("hex");
+    const expectedAuth = `AWS4-HMAC-SHA256 Credential=${req.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${expectedSignature}`;
+
+    // @ts-expect-error - test-only global override, restored below
+    globalThis.Date = FixedDate;
+    let actualHeaders: Record<string, string>;
+    try {
+      actualHeaders = await signAwsRequest(req);
+    } finally {
+      globalThis.Date = originalDateCtor;
+    }
+    expect(actualHeaders.Authorization).toBe(expectedAuth);
+  });
 });
 
 describe("TestCloudDashboardAnalyticsProvider", () => {
@@ -487,6 +717,16 @@ describe("cloud-connect SPI self-registration", () => {
       const resolved = justjs.providers.resolve("dashboardAnalytics", strategy);
       expect(resolved).not.toBeNull();
       expect(resolved!.concern).toBe("dashboardAnalytics");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_provisioning_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_PROVISIONING_STRATEGIES) {
+      const resolved = justjs.providers.resolve("cloudProvisioning", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("cloudProvisioning");
       expect(resolved!.strategy).toBe(strategy);
     }
   });

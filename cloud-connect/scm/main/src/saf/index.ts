@@ -17,6 +17,13 @@ export type {
   AnalyticsProviderConfig,
 } from "../api/analytics.js";
 export { DashboardAnalyticsProviderError } from "../api/analytics.js";
+export type {
+  CloudProvisioningProvider,
+  CloudWatchAlarmConfig,
+  CloudWatchAlarmState,
+  CloudWatchMetricDatapoint,
+} from "../api/provisioning.js";
+export { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 // Same justjs#91-pattern fix @justjs/ai-assist's own saf/index.ts
 // applies - importing this module's own spi/index.ts for its side
@@ -27,10 +34,12 @@ export { DashboardAnalyticsProviderError } from "../api/analytics.js";
 import "../spi/index.js";
 
 import { justjs } from "@justjs/application";
-import type { CloudConnectProvider, CloudConnectProviderConfig } from "../api/provider.js";
+import type { CloudConnectProvider, CloudConnectProviderConfig, AwsCredentialsConfig } from "../api/provider.js";
 import { CloudConnectProviderError } from "../api/provider.js";
 import type { DashboardAnalyticsProvider, AnalyticsProviderConfig } from "../api/analytics.js";
 import { DashboardAnalyticsProviderError } from "../api/analytics.js";
+import type { CloudProvisioningProvider } from "../api/provisioning.js";
+import { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 // Factory, not a direct class re-export (core_not_exported_directly,
 // same rule @justjs/ai-assist's saf/index.ts follows) - callers depend
@@ -58,4 +67,16 @@ export function createCloudDashboardAnalyticsProvider(strategy: string, config: 
     throw new DashboardAnalyticsProviderError("UNKNOWN_STRATEGY", `@justjs/cloud-connect: unknown strategy "${strategy}".`);
   }
   return spec.factory(config) as DashboardAnalyticsProvider;
+}
+
+// Same factory pattern, separate concern ("cloudProvisioning") - only
+// "aws" exists today (CloudWatch alarms - the pilot service, see
+// core/aws_cloudwatch_provider.ts's own comment on why it's first).
+// EC2/ECS/EKS provisioning strategies land in their own later phases.
+export function createCloudProvisioningProvider(strategy: string, config: AwsCredentialsConfig): CloudProvisioningProvider {
+  const spec = justjs.providers.resolve("cloudProvisioning", strategy);
+  if (!spec) {
+    throw new CloudProvisioningProviderError("UNKNOWN_STRATEGY", `@justjs/cloud-connect: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as CloudProvisioningProvider;
 }

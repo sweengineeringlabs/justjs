@@ -36,6 +36,13 @@ export interface AwsSigningRequest {
   // pre-sorted since every call this package makes only ever has 1-2 fixed params.
   readonly query: string;
   readonly extraHeaders?: Readonly<Record<string, string>>;
+  // Real request body for JSON-protocol (ECS: X-Amz-Target header, JSON
+  // body) and REST-JSON (EKS: path-based, JSON body on POST/PUT) calls -
+  // absent/"" for the bodyless GETs every call originally supported
+  // (STS/EC2/CloudWatch's Query API). The signature must cover the
+  // actual bytes sent on the wire, so callers must pass the exact same
+  // string as the real fetch() body, not reconstruct it separately.
+  readonly body?: string;
 }
 
 async function sha256Hex(data: string): Promise<string> {
@@ -62,7 +69,7 @@ function amzDate(): { amzDate: string; dateStamp: string } {
 // re-derive them, or the signature won't match what's on the wire).
 export async function signAwsRequest(req: AwsSigningRequest): Promise<Record<string, string>> {
   const { amzDate: date, dateStamp } = amzDate();
-  const payloadHash = await sha256Hex(""); // every call this package makes is a bodyless GET
+  const payloadHash = await sha256Hex(req.body ?? "");
 
   // Keyed by lowercase header name from the start - AWS's canonical
   // form requires lowercase names, and looking a lowercased name back
