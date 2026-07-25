@@ -12,6 +12,14 @@ import {
 import type { CloudWatchMetricDatapoint, Ec2CommandStatus, Ec2InstanceConfig, Ec2InstanceState } from "../core/ec2_provisioning.js";
 import { EC2_INSTANCE_TYPE_OPTIONS, formatEc2HourlyEstimate } from "../core/ec2_cost_estimates.js";
 import { getEc2Ledger, addEc2LedgerEntry, removeEc2LedgerEntry, reconcileEc2Ledger } from "../core/ec2_ledger.js";
+import {
+  generateGitRepoUserData,
+  generateGitRepoRedeployCommands,
+  generateContainerImageUserData,
+  generateContainerImageRedeployCommands,
+} from "../core/ec2_deploy_templates.js";
+
+type DeployMode = "raw" | "git" | "container";
 
 function escapeHtml(text: string): string {
   const div = document.createElement("div");
@@ -52,6 +60,14 @@ export class Ec2ProvisioningControl extends HTMLElement {
   // click handler itself (before the confirm-box re-render happens),
   // and using this stored config rather than re-querying the DOM later.
   #pendingLaunchConfig: Ec2InstanceConfig | null = null;
+  // ADR-0020/justjs#149 - guided deploy-input modes for Configure's
+  // userData and the Redeploy panel's commands, generating the script
+  // instead of asking for hand-written shell every time. Independent
+  // state for each (a user could launch with "Git repo" and redeploy
+  // with "Container image" - not cross-checked, see ADR-0020's own
+  // disclosed limitation on this).
+  #deployMode: DeployMode = "raw";
+  #redeployMode: DeployMode = "raw";
   #pendingActionInstanceId: string | null = null;
   // ADR-0019 Option B redeploy panel - only one instance's panel is
   // open at a time (same single-panel pattern the confirm-launch box
@@ -91,6 +107,7 @@ export class Ec2ProvisioningControl extends HTMLElement {
     this.#confirmingLaunch = false;
     this.#confirmChecked = false;
     this.#pendingLaunchConfig = null;
+    this.#deployMode = "raw";
     this.#pendingActionInstanceId = null;
     this.#resetRedeployPanel();
     this.#resetMetricsPanel();
@@ -99,6 +116,7 @@ export class Ec2ProvisioningControl extends HTMLElement {
 
   #resetRedeployPanel(): void {
     this.#redeployInstanceId = null;
+    this.#redeployMode = "raw";
     this.#redeploySending = false;
     this.#redeployError = null;
     this.#redeployCommandId = null;
@@ -284,6 +302,7 @@ export class Ec2ProvisioningControl extends HTMLElement {
         .metrics-panel { margin: 10px 0 0; padding: 10px; border-radius: var(--radius-md, 8px); background: var(--surface-alt); }
         .metrics-panel table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .metrics-panel th, .metrics-panel td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+        .userdata-preview { white-space: pre-wrap; word-break: break-word; background: var(--surface); padding: 8px; border-radius: var(--radius-md, 8px); margin: 8px 0 0; font-family: ui-monospace, monospace; font-size: 11px; }
         button.btn-primary, button.btn-secondary, button.btn-danger {
           border: none; padding: 10px 18px; font-size: 14px; font-family: inherit; font-weight: 600;
           border-radius: var(--radius-pill); cursor: pointer; transition: opacity 0.15s ease, transform 0.05s ease;
@@ -335,10 +354,58 @@ export class Ec2ProvisioningControl extends HTMLElement {
         <input id="keyName" type="text" placeholder="my-key-pair" />
       </div>
       <div class="field">
-        <label>Startup script / userData (optional)</label>
-        <textarea id="userData" rows="4" placeholder="#!/bin/sh&#10;echo hello"></textarea>
+        <label>Deploy mode</label>
+        <select id="deployMode">
+          <option value="raw" ${this.#deployMode === "raw" ? "selected" : ""}>Raw script</option>
+          <option value="git" ${this.#deployMode === "git" ? "selected" : ""}>Git repo</option>
+          <option value="container" ${this.#deployMode === "container" ? "selected" : ""}>Container image</option>
+        </select>
         <p class="field-hint">Runs once, at first boot only - redeploying a code change means launching a new instance with an updated script, not updating this one.</p>
       </div>
+      ${
+        this.#deployMode === "raw"
+          ? `<div class="field">
+              <label>Startup script / userData (optional)</label>
+              <textarea id="userData" rows="4" placeholder="#!/bin/sh&#10;echo hello"></textarea>
+            </div>`
+          : ""
+      }
+      ${
+        this.#deployMode === "git"
+          ? `<div class="field-row">
+              <div class="field">
+                <label>Git repo URL</label>
+                <input id="gitRepoUrl" type="text" placeholder="https://github.com/example/app.git" />
+              </div>
+              <div class="field">
+                <label>Branch</label>
+                <input id="gitBranch" type="text" placeholder="main" value="main" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Start command</label>
+              <input id="gitStartCommand" type="text" placeholder="npm start" />
+            </div>
+            <p class="field-hint">Public repos only - no dedicated field for a private-repo token (UserData/SSM output are both plaintext-visible on the instance).</p>
+            <pre id="userdata-preview" class="userdata-preview"></pre>`
+          : ""
+      }
+      ${
+        this.#deployMode === "container"
+          ? `<div class="field-row">
+              <div class="field">
+                <label>Container image</label>
+                <input id="containerImage" type="text" placeholder="nginx:latest" />
+              </div>
+              <div class="field">
+                <label>Port</label>
+                <input id="containerPort" type="number" placeholder="8080" value="8080" />
+              </div>
+            </div>
+            <p class="field-hint">Assumes an Amazon Linux 2023 AMI (dnf-based Docker install) - use Raw script for a different base OS.</p>
+            <pre id="userdata-preview" class="userdata-preview"></pre>`
+          : ""
+      }
       <div class="field">
         <label>IAM instance profile name (optional)</label>
         <input id="iamInstanceProfileName" type="text" placeholder="my-ssm-profile" />
@@ -371,6 +438,40 @@ export class Ec2ProvisioningControl extends HTMLElement {
       this.#root.querySelector<HTMLElement>("#cost-hint")!.textContent = formatEc2HourlyEstimate(instanceTypeSelect.value);
     });
 
+    const deployModeSelect = this.#root.querySelector<HTMLSelectElement>("#deployMode");
+    if (deployModeSelect) {
+      deployModeSelect.addEventListener("change", () => {
+        this.#deployMode = deployModeSelect.value as DeployMode;
+        this.render();
+      });
+    }
+    // Live preview of the generated userData for "Git repo"/"Container
+    // image" mode - updates the <pre> directly rather than calling
+    // render(), which would rebuild every input from scratch and drop
+    // focus/cursor position mid-keystroke (the same class of bug the
+    // Configure-form-wipe fix above addressed for the confirm-box
+    // transition).
+    const updateUserDataPreview = (): void => {
+      const preview = this.#root.querySelector<HTMLElement>("#userdata-preview");
+      if (!preview) {
+        return;
+      }
+      const val = (id: string) => this.#root.querySelector<HTMLInputElement>(`#${id}`)?.value ?? "";
+      if (this.#deployMode === "git") {
+        preview.textContent = generateGitRepoUserData({
+          repoUrl: val("gitRepoUrl"),
+          branch: val("gitBranch").trim() || "main",
+          startCommand: val("gitStartCommand"),
+        });
+      } else if (this.#deployMode === "container") {
+        preview.textContent = generateContainerImageUserData({ image: val("containerImage"), port: Number(val("containerPort")) || 0 });
+      }
+    };
+    updateUserDataPreview();
+    ["#gitRepoUrl", "#gitBranch", "#gitStartCommand", "#containerImage", "#containerPort"].forEach((sel) => {
+      this.#root.querySelector<HTMLInputElement>(sel)?.addEventListener("input", updateUserDataPreview);
+    });
+
     this.#root.querySelector<HTMLButtonElement>("#launch-btn")!.addEventListener("click", () => {
       // Read the Configure form NOW - render()'s own re-render below
       // (triggered by #confirmingLaunch flipping true) rebuilds every
@@ -378,11 +479,17 @@ export class Ec2ProvisioningControl extends HTMLElement {
       // afterward (e.g. inside #confirm-launch-btn's own handler) would
       // silently read back empty strings instead of what was typed.
       const val = (id: string) => (this.#root.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`#${id}`)?.value ?? "").trim();
+      const userData =
+        this.#deployMode === "git"
+          ? generateGitRepoUserData({ repoUrl: val("gitRepoUrl"), branch: val("gitBranch") || "main", startCommand: val("gitStartCommand") })
+          : this.#deployMode === "container"
+            ? generateContainerImageUserData({ image: val("containerImage"), port: Number(val("containerPort")) || 0 })
+            : val("userData");
       this.#pendingLaunchConfig = {
         imageId: val("imageId"),
         instanceType: val("instanceType"),
         ...(val("keyName") ? { keyName: val("keyName") } : {}),
-        ...(val("userData") ? { userData: val("userData") } : {}),
+        ...(userData ? { userData } : {}),
         ...(val("iamInstanceProfileName") ? { iamInstanceProfileName: val("iamInstanceProfileName") } : {}),
       };
       this.#confirmingLaunch = true;
@@ -472,7 +579,45 @@ export class Ec2ProvisioningControl extends HTMLElement {
               redeployOpen
                 ? `<div class="redeploy-panel">
                     <p class="field-hint">Runs against this instance right now via SSM - only works if it has a real IAM instance profile with SSM permissions attached (this app never creates or checks that for you; AWS's own error surfaces below if it isn't set up).</p>
-                    <textarea id="redeploy-script" rows="4" placeholder="systemctl restart myapp"></textarea>
+                    <div class="field">
+                      <label>Deploy mode</label>
+                      <select id="redeployMode">
+                        <option value="raw" ${this.#redeployMode === "raw" ? "selected" : ""}>Raw script</option>
+                        <option value="git" ${this.#redeployMode === "git" ? "selected" : ""}>Git repo</option>
+                        <option value="container" ${this.#redeployMode === "container" ? "selected" : ""}>Container image</option>
+                      </select>
+                    </div>
+                    ${
+                      this.#redeployMode === "raw"
+                        ? `<textarea id="redeploy-script" rows="4" placeholder="systemctl restart myapp"></textarea>`
+                        : this.#redeployMode === "git"
+                          ? `<div class="field-row">
+                              <div class="field">
+                                <label>Git repo URL</label>
+                                <input id="redeployGitRepoUrl" type="text" placeholder="https://github.com/example/app.git" />
+                              </div>
+                              <div class="field">
+                                <label>Branch</label>
+                                <input id="redeployGitBranch" type="text" placeholder="main" value="main" />
+                              </div>
+                            </div>
+                            <div class="field">
+                              <label>Start command</label>
+                              <input id="redeployGitStartCommand" type="text" placeholder="npm start" />
+                            </div>
+                            <pre id="redeploy-commands-preview" class="userdata-preview"></pre>`
+                          : `<div class="field-row">
+                              <div class="field">
+                                <label>Container image</label>
+                                <input id="redeployContainerImage" type="text" placeholder="nginx:latest" />
+                              </div>
+                              <div class="field">
+                                <label>Port</label>
+                                <input id="redeployContainerPort" type="number" placeholder="8080" value="8080" />
+                              </div>
+                            </div>
+                            <pre id="redeploy-commands-preview" class="userdata-preview"></pre>`
+                    }
                     <button type="button" class="btn-primary" data-send-command="${escapeHtml(i.instanceId)}" ${this.#redeploySending ? "disabled" : ""}>${this.#redeploySending ? "Sending…" : "Send Command"}</button>
                     ${this.#redeployError ? `<p class="error-text">⚠️ ${escapeHtml(this.#redeployError)}</p>` : ""}
                     ${
@@ -517,11 +662,58 @@ export class Ec2ProvisioningControl extends HTMLElement {
           this.render();
         });
       });
+      const redeployModeSelect = this.#root.querySelector<HTMLSelectElement>("#redeployMode");
+      if (redeployModeSelect) {
+        redeployModeSelect.addEventListener("change", () => {
+          this.#redeployMode = redeployModeSelect.value as DeployMode;
+          this.render();
+        });
+      }
+      // Same reasoning as Configure's own updateUserDataPreview() -
+      // update the <pre> directly, no full re-render mid-keystroke.
+      const updateRedeployCommandsPreview = (): void => {
+        const preview = this.#root.querySelector<HTMLElement>("#redeploy-commands-preview");
+        if (!preview) {
+          return;
+        }
+        const val = (id: string) => this.#root.querySelector<HTMLInputElement>(`#${id}`)?.value ?? "";
+        if (this.#redeployMode === "git") {
+          preview.textContent = generateGitRepoRedeployCommands({
+            repoUrl: val("redeployGitRepoUrl"),
+            branch: val("redeployGitBranch").trim() || "main",
+            startCommand: val("redeployGitStartCommand"),
+          }).join("\n");
+        } else if (this.#redeployMode === "container") {
+          preview.textContent = generateContainerImageRedeployCommands({
+            image: val("redeployContainerImage"),
+            port: Number(val("redeployContainerPort")) || 0,
+          }).join("\n");
+        }
+      };
+      updateRedeployCommandsPreview();
+      ["#redeployGitRepoUrl", "#redeployGitBranch", "#redeployGitStartCommand", "#redeployContainerImage", "#redeployContainerPort"].forEach(
+        (sel) => {
+          this.#root.querySelector<HTMLInputElement>(sel)?.addEventListener("input", updateRedeployCommandsPreview);
+        }
+      );
+
       listEl.querySelectorAll<HTMLButtonElement>("button[data-send-command]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const instanceId = btn.dataset["sendCommand"]!;
-          const script = this.#root.querySelector<HTMLTextAreaElement>("#redeploy-script")?.value ?? "";
-          const commands = script.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+          const val = (id: string) => this.#root.querySelector<HTMLInputElement>(`#${id}`)?.value ?? "";
+          const commands =
+            this.#redeployMode === "git"
+              ? generateGitRepoRedeployCommands({
+                  repoUrl: val("redeployGitRepoUrl"),
+                  branch: val("redeployGitBranch").trim() || "main",
+                  startCommand: val("redeployGitStartCommand"),
+                })
+              : this.#redeployMode === "container"
+                ? generateContainerImageRedeployCommands({ image: val("redeployContainerImage"), port: Number(val("redeployContainerPort")) || 0 })
+                : (this.#root.querySelector<HTMLTextAreaElement>("#redeploy-script")?.value ?? "")
+                    .split("\n")
+                    .map((line) => line.trim())
+                    .filter((line) => line.length > 0);
           void this.#handleSendCommand(instanceId, commands);
         });
       });
