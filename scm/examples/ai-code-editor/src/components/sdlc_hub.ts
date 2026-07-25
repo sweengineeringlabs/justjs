@@ -80,6 +80,8 @@ import "./presentation_generator_control.js";
 import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
 import "./cloud_connector.js";
 import type { CloudCatalogItem, CloudConnectorControl } from "./cloud_connector.js";
+import "./cloud_provisioning.js";
+import type { CloudProvisioningControl } from "./cloud_provisioning.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -645,6 +647,11 @@ export class SdlcHubElement extends HTMLElement {
   private cloudDashboardData: ConsolidatedCloudDashboardAnalytics | null = null;
   private activeCloudDashboardTab: DashboardTabId = "analytics";
   private readonly expandedCloudMetricKeys = new Set<string>();
+  // Real cloud provisioning workflow (connect -> configure -> deploy ->
+  // monitor) - CloudWatch alarms are the pilot service, a second sibling
+  // view alongside Dashboard, same cache/reset pattern.
+  private cloudProvisioningView!: HTMLElement;
+  private cloudProvisioningBackBtn!: HTMLButtonElement;
 
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
@@ -757,6 +764,7 @@ export class SdlcHubElement extends HTMLElement {
       const cloudConnector = this.cloudScreen?.querySelector<CloudConnectorControl>("#cloud-connector");
       cloudConnector?.resetView();
       this.resetCloudDashboardToMain();
+      this.resetCloudProvisioningToMain();
       this.showScmConnect = false;
       const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
       scmConnector?.resetView();
@@ -975,6 +983,13 @@ export class SdlcHubElement extends HTMLElement {
           <p class="dashboard-section-title">🕒 Recent Activity</p>
           <div id="cloud-dashboard-activity"></div>
         </div>
+        <div id="cloud-provisioning-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-provisioning-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">🔔 Alarms</h2>
+          </div>
+          <control-cloud-provisioning id="cloud-provisioning"></control-cloud-provisioning>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#cloud-header")!;
       header.icon = "🚀";
@@ -1002,10 +1017,24 @@ export class SdlcHubElement extends HTMLElement {
       this.cloudDashboardTabContentEl = screen.querySelector<HTMLElement>("#cloud-dashboard-tab-content")!;
       this.cloudDashboardActivityEl = screen.querySelector<HTMLElement>("#cloud-dashboard-activity")!;
 
+      this.cloudProvisioningView = screen.querySelector<HTMLElement>("#cloud-provisioning-view")!;
+      this.cloudProvisioningBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-provisioning-back-btn")!;
+
       const dashboardTileGrid = screen.querySelector<GridView>("#cloud-dashboard-tile-grid")!;
-      dashboardTileGrid.items = [{ id: "dashboard", label: "Dashboard", icon: "📊" }];
-      dashboardTileGrid.addEventListener("item-select", () => this.showCloudDashboard());
+      dashboardTileGrid.items = [
+        { id: "dashboard", label: "Dashboard", icon: "📊" },
+        { id: "alarms", label: "Alarms", icon: "🔔" },
+      ];
+      dashboardTileGrid.addEventListener("item-select", (e) => {
+        const id = (e as CustomEvent<{ id: string }>).detail.id;
+        if (id === "dashboard") {
+          this.showCloudDashboard();
+        } else if (id === "alarms") {
+          this.showCloudProvisioning();
+        }
+      });
       this.cloudDashboardBackBtn.addEventListener("click", () => this.resetCloudDashboardToMain());
+      this.cloudProvisioningBackBtn.addEventListener("click", () => this.resetCloudProvisioningToMain());
 
       this.cloudScreen = screen;
     }
@@ -1032,6 +1061,26 @@ export class SdlcHubElement extends HTMLElement {
     }
     this.cloudDashboardView.hidden = true;
     this.cloudMainView.hidden = false;
+  }
+
+  private showCloudProvisioning(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudProvisioningView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudDashboardToMain() - called both by this
+  // view's own back button and by the overview grid's item-select
+  // handler, plus resets the control's own internal state (the
+  // Configure form / Monitor list) via its resetView(), same pattern
+  // CloudConnectorControl's own resetView() already established.
+  private resetCloudProvisioningToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudProvisioningView.hidden = true;
+    this.cloudMainView.hidden = false;
+    const provisioning = this.cloudScreen.querySelector<CloudProvisioningControl>("#cloud-provisioning");
+    provisioning?.resetView();
   }
 
   private renderCloudDashboardTabs(): void {
