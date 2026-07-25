@@ -5,6 +5,17 @@ import { signAwsRequest } from "./aws_sigv4.js";
 
 const REGION = "us-east-1";
 
+// Real local/CI testing seam (justjs#143) - overrides only the request's
+// destination URL, never the signing host/region/service, so a real
+// signed request still targets whatever's actually listening at the
+// override (e.g. CloudEmu, which ignores SigV4 entirely) without
+// changing what gets signed. Absent in production - these env vars are
+// read once at construction, Node/bun-process-level only, never bundled
+// into the browser app itself (ai-code-editor never sets them).
+function endpointOverride(envVar: string, realUrl: string): string {
+  return typeof process !== "undefined" ? (process.env[envVar] ?? realUrl) : realUrl;
+}
+
 interface GetCallerIdentityResponse {
   readonly GetCallerIdentityResponse?: {
     readonly GetCallerIdentityResult?: { readonly Account: string; readonly Arn: string; readonly UserId: string };
@@ -41,7 +52,8 @@ export class AwsCloudConnectProvider implements CloudConnectProvider {
       query,
       extraHeaders: { Accept: "application/json" },
     });
-    const response = await this.apiAdapter.get<GetCallerIdentityResponse>(`https://sts.amazonaws.com/?${query}`, {
+    const endpoint = endpointOverride("CLOUD_CONNECT_AWS_STS_ENDPOINT", "https://sts.amazonaws.com");
+    const response = await this.apiAdapter.get<GetCallerIdentityResponse>(`${endpoint}/?${query}`, {
       headers,
     });
     if (response.data.Error) {
@@ -71,7 +83,8 @@ export class AwsCloudConnectProvider implements CloudConnectProvider {
       path: "/",
       query,
     });
-    const response = await this.apiAdapter.get<string>(`https://ec2.amazonaws.com/?${query}`, { headers });
+    const endpoint = endpointOverride("CLOUD_CONNECT_AWS_EC2_ENDPOINT", "https://ec2.amazonaws.com");
+    const response = await this.apiAdapter.get<string>(`${endpoint}/?${query}`, { headers });
     const doc = new DOMParser().parseFromString(response.data, "text/xml");
     if (response.error) {
       const message = doc.getElementsByTagName("Message")[0]?.textContent ?? response.error;

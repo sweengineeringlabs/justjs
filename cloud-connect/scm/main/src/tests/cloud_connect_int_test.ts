@@ -23,8 +23,11 @@ import { HerokuCloudConnectProvider } from "../core/heroku_provider.js";
 import { DIGITALOCEAN_PROVIDER } from "../spi/digitalocean.js";
 import { signAwsRequest } from "../core/aws_sigv4.js";
 import { CloudConnectProviderError } from "../api/provider.js";
+import { TestCloudDashboardAnalyticsProvider } from "../core/test_dashboard_analytics_provider.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 const ALL_STRATEGIES = ["digitalocean", "netlify", "vercel", "heroku", "azure", "gcp", "aws"];
+const ALL_DASHBOARD_ANALYTICS_STRATEGIES = ["testcloud"];
 
 // Constructor-injected fake ApiAdapter, matching @justjs/ai-assist's own
 // test harness exactly - zero real network calls in this suite. Also
@@ -104,6 +107,31 @@ describe("DefaultCloudConnectProvider", () => {
     expect(caught).toBeInstanceOf(CloudConnectProviderError);
     expect((caught as Error).message).not.toContain("super-secret");
   });
+
+  // justjs#143 - real local/CI testing seam, verifying both directions:
+  // absent env var changes nothing (no regression to real production
+  // behavior), present env var redirects the request.
+  it("test_connect_hits_the_real_production_url_when_no_endpoint_override_is_set", async () => {
+    delete process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"];
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { droplets: [] } }));
+    const provider = new DefaultCloudConnectProvider(DIGITALOCEAN_PROVIDER, { token: "tok" }, adapter);
+    await provider.connect();
+    expect(adapter.calls[0]!.url).toBe("https://api.digitalocean.com/v2/droplets");
+  });
+
+  it("test_connect_redirects_to_the_override_url_when_the_endpoint_env_var_is_set", async () => {
+    process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"] = "http://localhost:4566/v2/droplets";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { droplets: [] } }));
+      const provider = new DefaultCloudConnectProvider(DIGITALOCEAN_PROVIDER, { token: "tok" }, adapter);
+      await provider.connect();
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/v2/droplets");
+    } finally {
+      delete process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"];
+    }
+  });
 });
 
 describe("AwsCloudConnectProvider", () => {
@@ -145,6 +173,45 @@ describe("AwsCloudConnectProvider", () => {
     const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     const resources = await provider.listInstances!();
     expect(resources).toEqual([{ id: "i-abc123", name: "my-box", status: "running" }]);
+  });
+
+  // justjs#143 - real local/CI testing seam for the STS endpoint
+  // specifically (the call this session's real CloudEmu verification
+  // exercised), verifying both directions.
+  it("test_connect_hits_real_sts_when_no_endpoint_override_is_set", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"];
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { GetCallerIdentityResponse: { GetCallerIdentityResult: { Account: "1", Arn: "a", UserId: "u" } } },
+    }));
+    const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.connect();
+    expect(adapter.calls[0]!.url.startsWith("https://sts.amazonaws.com/")).toBe(true);
+  });
+
+  it("test_connect_redirects_to_the_sts_override_when_the_endpoint_env_var_is_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({
+        status: 200,
+        headers: {},
+        data: { GetCallerIdentityResponse: { GetCallerIdentityResult: { Account: "1", Arn: "a", UserId: "u" } } },
+      }));
+      const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.connect();
+      expect(adapter.calls[0]!.url.startsWith("http://localhost:4566/")).toBe(true);
+      // Signing must stay pinned to the real STS host/region/service even
+      // when the destination is redirected - a real signed request still
+      // proves the signing logic works, matching this session's live
+      // CloudEmu verification (which ignores signatures but still needs a
+      // syntactically real one to reach the handler).
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/sts/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"];
+    }
   });
 });
 
@@ -378,6 +445,31 @@ describe("signAwsRequest", () => {
   });
 });
 
+describe("TestCloudDashboardAnalyticsProvider", () => {
+  it("test_fetch_analytics_with_no_token_returns_canned_metrics_trending_and_activity", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    expect(snapshot.metrics.length).toBeGreaterThan(0);
+    expect(snapshot.metrics.every((m) => typeof m.label === "string" && typeof m.count === "number")).toBe(true);
+    expect(snapshot.trending.length).toBeGreaterThan(0);
+    expect(snapshot.recentActivity.length).toBeGreaterThan(0);
+  });
+
+  it("test_each_metrics_item_count_matches_its_own_items_length", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    for (const metric of snapshot.metrics) {
+      expect(metric.items.length).toBe(metric.count);
+    }
+  });
+
+  it("test_fetch_analytics_with_a_token_containing_fail_simulates_a_real_rejected_call", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({ token: "please-fail" });
+    await expect(provider.fetchAnalytics()).rejects.toThrow(DashboardAnalyticsProviderError);
+    await expect(provider.fetchAnalytics()).rejects.toThrow(/simulated failure/);
+  });
+});
+
 describe("cloud-connect SPI self-registration", () => {
   it("test_every_strategy_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js");
@@ -385,6 +477,16 @@ describe("cloud-connect SPI self-registration", () => {
       const resolved = justjs.providers.resolve("cloudConnect", strategy);
       expect(resolved).not.toBeNull();
       expect(resolved!.concern).toBe("cloudConnect");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_dashboard_analytics_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_DASHBOARD_ANALYTICS_STRATEGIES) {
+      const resolved = justjs.providers.resolve("dashboardAnalytics", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("dashboardAnalytics");
       expect(resolved!.strategy).toBe(strategy);
     }
   });

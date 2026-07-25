@@ -35,10 +35,23 @@ export class DefaultCloudConnectProvider implements CloudConnectProvider {
     this.strategy = descriptor.strategy;
   }
 
+  // Real local/CI testing seam (justjs#143) - overrides only the request
+  // URL, keyed by the descriptor's own strategy name
+  // (CLOUD_CONNECT_AZURE_ENDPOINT, CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT,
+  // etc.), one shared implementation for all 6 bearer providers rather
+  // than repeating this in each spi/<provider>.ts. Absent in production -
+  // read once per connect() call, Node/bun-process-level only, never
+  // bundled into the browser app (ai-code-editor never sets these).
+  private resolvedUrl(): string {
+    const envVar = `CLOUD_CONNECT_${this.descriptor.strategy.toUpperCase()}_ENDPOINT`;
+    return typeof process !== "undefined" ? (process.env[envVar] ?? this.descriptor.url) : this.descriptor.url;
+  }
+
   async connect(): Promise<CloudResource[]> {
+    const url = this.resolvedUrl();
     let response;
     try {
-      response = await this.apiAdapter.get(this.descriptor.url, {
+      response = await this.apiAdapter.get(url, {
         headers: { Authorization: `Bearer ${this.config.token}`, ...this.descriptor.extraHeaders },
       });
     } catch (error) {
@@ -46,7 +59,7 @@ export class DefaultCloudConnectProvider implements CloudConnectProvider {
       // all) - mirrors @justjs/ai-assist's own postToAnthropic() pattern.
       throw new CloudConnectProviderError(
         "NETWORK_ERROR",
-        `${this.descriptor.name}: network request failed - check your connection (no backend proxy, this calls ${new URL(this.descriptor.url).host} directly).`
+        `${this.descriptor.name}: network request failed - check your connection (no backend proxy, this calls ${new URL(url).host} directly).`
       );
     }
     if (response.error !== undefined) {
