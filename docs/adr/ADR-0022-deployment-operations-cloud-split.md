@@ -160,16 +160,19 @@ grid shrank from 4 tiles to 3.
     message showed an empty alarm name. Fixed with the same
     `#pendingCreateConfig` pattern EC2/ECS already use; re-verified live,
     now shows the real typed name.
-  - **A separate, real, pre-existing bug found (not fixed here, out of
-    this ADR's scope, filed as justjs#152):** `cloudWatchCall()` never
-    parses CloudEmu's real XML CloudWatch responses (it assumes JSON) -
+  - **A separate, real, pre-existing bug found (out of this ADR's own
+    scope, fixed separately in justjs#152 - see ADR-0017's own updated
+    ACs for the full writeup):** `cloudWatchCall()` never parsed
+    CloudEmu's real XML CloudWatch responses (it assumed JSON) -
     confirmed via a raw `fetch()` that CloudEmu always returns
     `text/xml` for CloudWatch actions regardless of the `Accept` header
-    sent. This predates justjs#151 entirely (part of the original
-    CloudWatch pilot, ADR-0017) and is unrelated to the Deployment/
-    Operations split itself - `AlarmMonitorControl`'s own list/delete
-    logic is verified correct, it just can't see real data against
-    CloudEmu until justjs#152 is fixed.
+    sent. Predated justjs#151 entirely (part of the original CloudWatch
+    pilot, ADR-0017) and was unrelated to the Deployment/Operations
+    split itself - `AlarmMonitorControl`'s own list/delete logic was
+    already verified correct, it just couldn't see real data until the
+    response-parsing bug was fixed. Now fixed (mirrors `ec2Call()`'s
+    DOMParser approach) and re-verified live: put → list → delete
+    round-trips real field values correctly against a rebuilt CloudEmu.
 - **Real on-device verification** (Samsung physical device, real WebView,
   `adb reverse`/`adb forward` + `browse` CLI against the same local
   CloudEmu instance, per the runbook's own established pipeline): rebuilt

@@ -201,13 +201,37 @@ that an alarm never needed:
 - [x] `api/provisioning.ts` exists with the `CloudProvisioningProvider`
       contract, CloudWatch method group only
 - [x] `AwsCloudWatchProvisioningProvider` implements all 4 methods, real
-      tests (package suite 41/41, up from 33)
+      tests (package suite 41/41, up from 33). **Update (justjs#152,
+      found 2026-07-26):** the original implementation's `cloudWatchCall()`
+      assumed CloudWatch's Query API honors `Accept: application/json`
+      and returns a parsed JSON object - confirmed via a raw `fetch()`
+      against CloudEmu that it always returns real XML regardless of
+      that header (same as EC2's own Query API, which this file's
+      `ec2Call()` already parsed correctly via `DOMParser`). This meant
+      every CloudWatch field read silently produced `undefined` and fell
+      back to empty defaults, and no error ever surfaced even on a real
+      error response, for as long as this method existed. Fixed by
+      rewriting `cloudWatchCall()` to mirror `ec2Call()`'s DOMParser
+      approach exactly; existing tests rewritten to fake real XML
+      strings instead of pre-parsed JSON objects (the same class of fix
+      SSM's own content-type bug and EC2's own XML parsing already
+      established as this repo's convention for real-wire-shape bugs);
+      re-verified live against a rebuilt CloudEmu: put → list → delete
+      round-trips real field values correctly, whereas before the fix
+      every field silently came back empty.
 - [x] `aws_sigv4.ts`'s body-signing extension has a real, independent
       cross-check test (not just "it compiles")
 - [x] `ai-code-editor`'s Cloud screen gets a real "Alarms" tile, gated on
       an existing AWS connection, with a real confirm-before-create step
 - [x] Verified against real AWS (not just CloudEmu) from two independent
-      environments (desktop Node, real headless Chromium)
+      environments (desktop Node, real headless Chromium) - **caveat
+      added retroactively (justjs#152):** this original verification
+      confirmed the *request* side (a correctly-signed, correctly-shaped
+      call reaches AWS without a rejection) but not that *response*
+      fields parsed correctly, since `cloudWatchCall()`'s response-
+      parsing bug meant no field-level assertion could have failed
+      either way - a passing call and a silently-broken one looked
+      identical. Now genuinely fixed and re-verified, see above.
 - [x] EC2 phase: contract + `AwsCloudProvisioningProvider` extension,
       real tests (46/46), live-verified against CloudEmu (real class,
       full lifecycle) and against real AWS (real UI, real AuthFailure),

@@ -45,51 +45,14 @@ function endpointOverride(envVar: string, realUrl: string): string {
   return realUrl;
 }
 
-interface CloudWatchErrorResponse {
-  readonly Error?: { readonly Code: string; readonly Message: string };
-}
-
-interface PutMetricAlarmResponse extends CloudWatchErrorResponse {}
-
-interface DescribeAlarmsResponse extends CloudWatchErrorResponse {
-  readonly DescribeAlarmsResponse?: {
-    readonly DescribeAlarmsResult?: {
-      readonly MetricAlarms?: readonly {
-        readonly AlarmName: string;
-        readonly AlarmArn: string;
-        readonly MetricName: string;
-        readonly Namespace: string;
-        readonly Statistic: string;
-        readonly Period: number;
-        readonly EvaluationPeriods: number;
-        readonly Threshold: number;
-        readonly ComparisonOperator: string;
-        readonly StateValue: string;
-      }[];
-    };
-  };
-}
-
-interface DeleteAlarmsResponse extends CloudWatchErrorResponse {}
-
-interface GetMetricStatisticsResponse extends CloudWatchErrorResponse {
-  readonly GetMetricStatisticsResponse?: {
-    readonly GetMetricStatisticsResult?: {
-      readonly Datapoints?: readonly Record<string, string | number>[];
-    };
-  };
-}
-
 // AWS's real Query-protocol convention for a write call with more than
 // 1-2 params: POST with the params as an application/x-www-form-
 // urlencoded body (not a GET query string) - the canonical request's
 // own "query" component is empty; the body is what gets sign-hashed
 // (justjs cloud provisioning Phase 0's aws_sigv4.ts body-signing
-// extension, since moved into @justjs/aws-sigv4). Confirmed against
-// AWS's own published CloudWatch API reference, not yet live-verified
-// against a real AWS account (unlike STS/EC2 in aws_provider.ts, which
-// this session did verify live) - flagged honestly, not silently
-// assumed equivalent.
+// extension, since moved into @justjs/aws-sigv4). The request-encoding
+// side of this was never the problem (justjs#152) - CloudWatch's own
+// response parsing was the real bug, fixed in cloudWatchCall() below.
 function encodeParams(params: Record<string, string>): string {
   return Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -221,7 +184,19 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
     private readonly apiAdapter: ApiAdapter
   ) {}
 
-  private async cloudWatchCall<T extends CloudWatchErrorResponse>(action: string, params: Record<string, string>): Promise<T> {
+  // Real bug found and fixed (justjs#152): CloudWatch's classic Query
+  // API does not honor Accept: application/json either - same as EC2's
+  // own comment below already documents for that service. Confirmed via
+  // a raw fetch() against CloudEmu that it always returns real XML
+  // (content-type: text/xml) for every CloudWatch action regardless of
+  // the Accept header sent - this method previously assumed a parsed
+  // JSON object matching AWS's JSON wire shape, so every field read
+  // silently produced `undefined` and fell back to empty defaults,
+  // never throwing even on a real error response (since
+  // `response.data.Error` is always undefined when `response.data` is
+  // actually a raw XML string). Rewritten to mirror ec2Call()'s already-
+  // correct DOMParser-based approach exactly.
+  private async cloudWatchCall(action: string, params: Record<string, string>): Promise<Document> {
     const body = encodeParams({ Action: action, Version: "2010-08-01", ...params });
     const headers = await signAwsRequest({
       accessKeyId: this.config.accessKeyId,
@@ -233,21 +208,36 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
       path: "/",
       query: "",
       body,
-      extraHeaders: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" },
+      extraHeaders: { "Content-Type": "application/x-www-form-urlencoded; charset=utf-8" },
     });
     const endpoint = endpointOverride("CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT", "https://monitoring.amazonaws.com");
-    const response = await this.apiAdapter.post<T>(endpoint + "/", body, { headers });
-    if (response.data.Error) {
-      throw new CloudProvisioningProviderError(
-        response.data.Error.Code,
-        `CloudWatch: ${response.data.Error.Code} - ${response.data.Error.Message}`
-      );
+    const response = await this.apiAdapter.post<string>(endpoint + "/", body, { headers });
+    const doc = new DOMParser().parseFromString(response.data, "text/xml");
+    if (response.error) {
+      const message = doc.getElementsByTagName("Message")[0]?.textContent ?? response.error;
+      const code = doc.getElementsByTagName("Code")[0]?.textContent ?? String(response.status);
+      throw new CloudProvisioningProviderError(code, `CloudWatch: ${code} - ${message} (action ${action}).`);
     }
-    return response.data;
+    return doc;
+  }
+
+  private parseAlarmMember(member: Element): CloudWatchAlarmState {
+    return {
+      alarmName: xmlText(member, "AlarmName") ?? "",
+      alarmArn: xmlText(member, "AlarmArn") ?? "",
+      metricName: xmlText(member, "MetricName") ?? "",
+      namespace: xmlText(member, "Namespace") ?? "",
+      statistic: xmlText(member, "Statistic") ?? "",
+      period: Number(xmlText(member, "Period") ?? 0),
+      evaluationPeriods: Number(xmlText(member, "EvaluationPeriods") ?? 0),
+      threshold: Number(xmlText(member, "Threshold") ?? 0),
+      comparisonOperator: xmlText(member, "ComparisonOperator") ?? "",
+      stateValue: xmlText(member, "StateValue") ?? "",
+    };
   }
 
   async putCloudWatchAlarm(config: CloudWatchAlarmConfig): Promise<void> {
-    await this.cloudWatchCall<PutMetricAlarmResponse>("PutMetricAlarm", {
+    await this.cloudWatchCall("PutMetricAlarm", {
       AlarmName: config.alarmName,
       MetricName: config.metricName,
       Namespace: config.namespace,
@@ -261,24 +251,16 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
   }
 
   async listCloudWatchAlarms(): Promise<readonly CloudWatchAlarmState[]> {
-    const data = await this.cloudWatchCall<DescribeAlarmsResponse>("DescribeAlarms", {});
-    const alarms = data.DescribeAlarmsResponse?.DescribeAlarmsResult?.MetricAlarms ?? [];
-    return alarms.map((a) => ({
-      alarmName: a.AlarmName,
-      alarmArn: a.AlarmArn,
-      metricName: a.MetricName,
-      namespace: a.Namespace,
-      statistic: a.Statistic,
-      period: a.Period,
-      evaluationPeriods: a.EvaluationPeriods,
-      threshold: a.Threshold,
-      comparisonOperator: a.ComparisonOperator,
-      stateValue: a.StateValue,
-    }));
+    const doc = await this.cloudWatchCall("DescribeAlarms", {});
+    const metricAlarms = doc.getElementsByTagName("MetricAlarms")[0];
+    if (!metricAlarms) {
+      return [];
+    }
+    return Array.from(metricAlarms.getElementsByTagName("member")).map((m) => this.parseAlarmMember(m));
   }
 
   async deleteCloudWatchAlarm(alarmName: string): Promise<void> {
-    await this.cloudWatchCall<DeleteAlarmsResponse>("DeleteAlarms", { "AlarmNames.member.1": alarmName });
+    await this.cloudWatchCall("DeleteAlarms", { "AlarmNames.member.1": alarmName });
   }
 
   async getCloudWatchMetricStatistics(
@@ -295,7 +277,7 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
       dimensionParams[`Dimensions.member.${i + 1}.Name`] = d.name;
       dimensionParams[`Dimensions.member.${i + 1}.Value`] = d.value;
     });
-    const data = await this.cloudWatchCall<GetMetricStatisticsResponse>("GetMetricStatistics", {
+    const doc = await this.cloudWatchCall("GetMetricStatistics", {
       Namespace: namespace,
       MetricName: metricName,
       "Statistics.member.1": statistic,
@@ -304,11 +286,14 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
       Period: String(period),
       ...dimensionParams,
     });
-    const points = data.GetMetricStatisticsResponse?.GetMetricStatisticsResult?.Datapoints ?? [];
-    return points.map((p) => ({
-      timestamp: String(p["Timestamp"] ?? ""),
-      value: Number(p[statistic] ?? 0),
-      unit: String(p["Unit"] ?? "None"),
+    const datapoints = doc.getElementsByTagName("Datapoints")[0];
+    if (!datapoints) {
+      return [];
+    }
+    return Array.from(datapoints.getElementsByTagName("member")).map((m) => ({
+      timestamp: xmlText(m, "Timestamp") ?? "",
+      value: Number(xmlText(m, statistic) ?? 0),
+      unit: xmlText(m, "Unit") ?? "None",
     }));
   }
 

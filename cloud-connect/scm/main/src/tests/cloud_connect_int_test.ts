@@ -223,9 +223,25 @@ describe("AwsCloudConnectProvider", () => {
 });
 
 describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
+  // Real bug found and fixed via live verification (justjs#152): CloudWatch's
+  // classic Query API never honors Accept: application/json - confirmed by a
+  // raw fetch() against CloudEmu returning real XML (content-type: text/xml)
+  // regardless of that header. Every fixture below is a real XML string, not
+  // a pre-parsed object - a fake JSON response would have hidden this exact
+  // bug the same way it did before the fix (every field silently read
+  // `undefined`, defaulting to empty results, no error ever thrown even on a
+  // real error response).
+  const DESCRIBE_ALARMS_XML =
+    `<?xml version="1.0"?><DescribeAlarmsResponse><DescribeAlarmsResult><MetricAlarms><member>` +
+    `<AlarmName>high-cpu</AlarmName><AlarmArn>arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu</AlarmArn>` +
+    `<MetricName>CPUUtilization</MetricName><Namespace>AWS/EC2</Namespace><Statistic>Average</Statistic>` +
+    `<Period>300</Period><EvaluationPeriods>2</EvaluationPeriods><Threshold>80</Threshold>` +
+    `<ComparisonOperator>GreaterThanThreshold</ComparisonOperator><StateValue>OK</StateValue>` +
+    `</member></MetricAlarms></DescribeAlarmsResult></DescribeAlarmsResponse>`;
+
   it("test_put_alarm_sends_the_real_query_protocol_params_as_a_urlencoded_body", async () => {
     const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><PutMetricAlarmResponse/>` }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     await provider.putCloudWatchAlarm!({
       alarmName: "high-cpu",
@@ -247,32 +263,9 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/monitoring/aws4_request");
   });
 
-  it("test_list_alarms_parses_the_real_describe_alarms_shape", async () => {
+  it("test_list_alarms_parses_the_real_describe_alarms_xml_shape", async () => {
     const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({
-      status: 200,
-      headers: {},
-      data: {
-        DescribeAlarmsResponse: {
-          DescribeAlarmsResult: {
-            MetricAlarms: [
-              {
-                AlarmName: "high-cpu",
-                AlarmArn: "arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu",
-                MetricName: "CPUUtilization",
-                Namespace: "AWS/EC2",
-                Statistic: "Average",
-                Period: 300,
-                EvaluationPeriods: 2,
-                Threshold: 80,
-                ComparisonOperator: "GreaterThanThreshold",
-                StateValue: "OK",
-              },
-            ],
-          },
-        },
-      },
-    }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: DESCRIBE_ALARMS_XML }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     const alarms = await provider.listCloudWatchAlarms!();
     expect(alarms).toEqual([
@@ -293,14 +286,18 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
 
   it("test_list_alarms_returns_an_empty_array_when_none_exist_not_an_error", async () => {
     const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { DescribeAlarmsResponse: { DescribeAlarmsResult: {} } } }));
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: `<?xml version="1.0"?><DescribeAlarmsResponse><DescribeAlarmsResult><MetricAlarms/></DescribeAlarmsResult></DescribeAlarmsResponse>`,
+    }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     expect(await provider.listCloudWatchAlarms!()).toEqual([]);
   });
 
   it("test_delete_alarm_sends_the_real_alarm_name_member_param", async () => {
     const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><DeleteAlarmsResponse/>` }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     await provider.deleteCloudWatchAlarm!("high-cpu");
     const body = adapter.calls[0]!.body as string;
@@ -313,13 +310,10 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     adapter.queueResponse(async () => ({
       status: 200,
       headers: {},
-      data: {
-        GetMetricStatisticsResponse: {
-          GetMetricStatisticsResult: {
-            Datapoints: [{ Timestamp: "2026-07-25T00:00:00Z", Average: 42.5, Unit: "Percent" }],
-          },
-        },
-      },
+      data:
+        `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints><member>` +
+        `<Timestamp>2026-07-25T00:00:00Z</Timestamp><Average>42.5</Average><Unit>Percent</Unit>` +
+        `</member></Datapoints></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
     }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     const points = await provider.getCloudWatchMetricStatistics!(
@@ -338,7 +332,7 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     adapter.queueResponse(async () => ({
       status: 200,
       headers: {},
-      data: { GetMetricStatisticsResponse: { GetMetricStatisticsResult: { Datapoints: [] } } },
+      data: `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints/></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
     }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
 
@@ -362,7 +356,7 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     adapter.queueResponse(async () => ({
       status: 200,
       headers: {},
-      data: { GetMetricStatisticsResponse: { GetMetricStatisticsResult: { Datapoints: [] } } },
+      data: `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints/></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
     }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
 
@@ -371,14 +365,12 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     expect(adapter.calls[0]!.body as string).not.toContain("Dimensions");
   });
 
-  it("test_a_real_cloudwatch_error_body_throws_the_real_error_code", async () => {
+  it("test_a_real_cloudwatch_error_response_throws_with_the_real_error_code_and_message", async () => {
+    const xml =
+      `<?xml version="1.0"?><ErrorResponse><Error><Type>Sender</Type><Code>ResourceNotFound</Code>` +
+      `<Message>Alarm does not exist.</Message></Error><RequestId>req-1</RequestId></ErrorResponse>`;
     const adapter = new FakeApiAdapter();
-    adapter.queueResponse(async () => ({
-      status: 400,
-      headers: {},
-      error: "Bad Request",
-      data: { Error: { Code: "ResourceNotFound", Message: "Alarm does not exist." } },
-    }));
+    adapter.queueResponse(async () => ({ status: 400, headers: {}, error: "Bad Request", data: xml }));
     const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     let caught: unknown;
     try {
@@ -388,13 +380,14 @@ describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
     }
     expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
     expect((caught as Error).message).toContain("ResourceNotFound");
+    expect((caught as Error).message).toContain("Alarm does not exist");
   });
 
   it("test_redirects_to_the_endpoint_override_when_set", async () => {
     process.env["CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT"] = "http://localhost:4566";
     try {
       const adapter = new FakeApiAdapter();
-      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: {} }));
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><DeleteAlarmsResponse/>` }));
       const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
       await provider.deleteCloudWatchAlarm!("high-cpu");
       expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
