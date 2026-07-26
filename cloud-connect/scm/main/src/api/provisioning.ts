@@ -71,6 +71,65 @@ export interface CloudWatchDimension {
   readonly value: string;
 }
 
+// ECS (ADR-0017's next phase after EC2, justjs#144). Fargate tasks are
+// real, billable AWS spend too - same safety gate as EC2: RunTask never
+// ships without a proven StopTask alongside it, CreateCluster never
+// without DeleteCluster, RegisterTaskDefinition never without
+// DeregisterTaskDefinition. listEcsClusters/listEcsTasks are included
+// alongside the create/destroy pairs (not a separate, later addition)
+// because a real Monitor view - the same UI shape EC2's own Instances
+// tile already established - needs a way to see what's actually running,
+// not just fire-and-forget create calls.
+export interface EcsPortMapping {
+  readonly containerPort: number;
+  readonly hostPort: number;
+  readonly protocol?: string;
+}
+
+export interface EcsContainerDefinition {
+  readonly name: string;
+  readonly image: string;
+  readonly cpu?: number;
+  readonly memory?: number;
+  readonly portMappings?: readonly EcsPortMapping[];
+}
+
+// Real AWS requires cpu/memory as strings on Fargate task definitions
+// (e.g. "256"/"512") - kept as the wire type here rather than numbers,
+// same "don't silently reshape a provider's own real vocabulary"
+// reasoning Ec2InstanceState.state/CloudWatchAlarmState.stateValue
+// already follow.
+export interface EcsTaskDefinitionConfig {
+  readonly family: string;
+  readonly containerDefinitions: readonly EcsContainerDefinition[];
+  readonly cpu?: string;
+  readonly memory?: string;
+}
+
+export interface EcsTaskDefinitionState {
+  readonly family: string;
+  readonly taskDefinitionArn: string;
+  readonly revision: number;
+  readonly status: string;
+}
+
+export interface EcsClusterState {
+  readonly clusterName: string;
+  readonly clusterArn: string;
+  readonly status: string;
+}
+
+export interface EcsTaskState {
+  readonly taskArn: string;
+  readonly clusterArn: string;
+  readonly taskDefinitionArn: string;
+  // AWS's own real vocabulary (PROVISIONING/PENDING/RUNNING/STOPPED etc)
+  // - same "keep provider-native" reasoning every other *State's status
+  // field in this file already uses.
+  readonly lastStatus: string;
+  readonly desiredStatus: string;
+}
+
 // EC2 (ADR-0017's "starting now" phase, justjs#144). Unlike CloudWatch,
 // RunInstances is real, billable, hard-to-undo AWS spend - the 5 methods
 // below ship together in the same change, never split across phases:
@@ -156,6 +215,14 @@ export interface CloudProvisioningProvider {
   // this app never predicts eligibility client-side.
   runCommandOnEc2Instance?(instanceId: string, commands: readonly string[]): Promise<Ec2CommandResult>;
   getEc2CommandStatus?(commandId: string, instanceId: string): Promise<Ec2CommandStatus>;
+  createEcsCluster?(clusterName: string): Promise<EcsClusterState>;
+  listEcsClusters?(): Promise<readonly EcsClusterState[]>;
+  deleteEcsCluster?(clusterName: string): Promise<void>;
+  registerEcsTaskDefinition?(config: EcsTaskDefinitionConfig): Promise<EcsTaskDefinitionState>;
+  deregisterEcsTaskDefinition?(taskDefinitionArn: string): Promise<void>;
+  runEcsTask?(clusterName: string, taskDefinitionArn: string, count?: number): Promise<readonly EcsTaskState[]>;
+  listEcsTasks?(clusterName: string): Promise<readonly EcsTaskState[]>;
+  stopEcsTask?(clusterName: string, taskArn: string): Promise<void>;
   // Real no-op, same boot()-contract reason CloudConnectProvider.weave()
   // exists - see api/provider.ts's own comment on that method.
   weave(target: AspectTarget): void;

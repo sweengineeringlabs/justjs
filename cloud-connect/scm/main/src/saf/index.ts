@@ -27,6 +27,12 @@ export type {
   Ec2CommandStatus,
   Ec2InstanceConfig,
   Ec2InstanceState,
+  EcsContainerDefinition,
+  EcsPortMapping,
+  EcsClusterState,
+  EcsTaskDefinitionConfig,
+  EcsTaskDefinitionState,
+  EcsTaskState,
 } from "../api/provisioning.js";
 export { CloudProvisioningProviderError } from "../api/provisioning.js";
 

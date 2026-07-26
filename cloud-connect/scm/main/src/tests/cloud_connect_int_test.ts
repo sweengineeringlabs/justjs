@@ -721,6 +721,235 @@ describe("AwsCloudProvisioningProvider (SSM redeploy, ADR-0019)", () => {
   });
 });
 
+describe("AwsCloudProvisioningProvider (ECS, justjs#144)", () => {
+  // Same real content-type caveat as SSM above - ECS is also
+  // application/x-amz-json-1.1, not application/json, so every response
+  // here is a JSON string rather than a pre-parsed object, exercising
+  // the same real ApiAdapter boundary.
+  function ecsResponse(status: number, body: unknown, error?: string): ApiResponse<unknown> {
+    return { status, headers: {}, data: JSON.stringify(body), ...(error !== undefined ? { error } : {}) };
+  }
+
+  it("test_create_cluster_sends_the_real_cluster_name_and_parses_the_response", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { cluster: { clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.createEcsCluster!("my-cluster");
+
+    expect(result).toEqual({ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" });
+    expect(adapter.calls[0]!.url).toBe("https://ecs.us-east-1.amazonaws.com/");
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.CreateCluster");
+    expect(adapter.calls[0]!.options?.headers?.["Content-Type"]).toBe("application/x-amz-json-1.1");
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { clusterName: string };
+    expect(body).toEqual({ clusterName: "my-cluster" });
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ecs/aws4_request");
+  });
+
+  it("test_create_cluster_throws_a_real_actionable_error_when_the_response_has_no_cluster", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, {}));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.createEcsCluster!("my-cluster")).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_list_clusters_makes_a_real_list_then_describe_round_trip_and_returns_full_state", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { clusterArns: ["arn:aws:ecs:us-east-1:123:cluster/my-cluster"] }));
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { clusters: [{ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" }] })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.listEcsClusters!();
+
+    expect(result).toEqual([{ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" }]);
+    expect(adapter.calls).toHaveLength(2);
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.ListClusters");
+    expect(adapter.calls[1]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DescribeClusters");
+    const describeBody = JSON.parse(adapter.calls[1]!.body as string) as { clusters: string[] };
+    expect(describeBody.clusters).toEqual(["arn:aws:ecs:us-east-1:123:cluster/my-cluster"]);
+  });
+
+  it("test_list_clusters_short_circuits_to_an_empty_array_without_a_describe_call_when_none_exist", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { clusterArns: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    expect(await provider.listEcsClusters!()).toEqual([]);
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  it("test_delete_cluster_sends_the_real_cluster_name", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { cluster: { clusterName: "my-cluster", clusterArn: "arn:1", status: "INACTIVE" } }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.deleteEcsCluster!("my-cluster");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string };
+    expect(body).toEqual({ cluster: "my-cluster" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DeleteCluster");
+  });
+
+  it("test_register_task_definition_sends_the_real_container_definitions_and_fargate_fields_and_parses_the_response", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { taskDefinition: { family: "my-app", taskDefinitionArn: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1", revision: 1, status: "ACTIVE" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.registerEcsTaskDefinition!({
+      family: "my-app",
+      containerDefinitions: [{ name: "app", image: "nginx:latest", cpu: 256, memory: 512, portMappings: [{ containerPort: 8080, hostPort: 8080 }] }],
+      cpu: "256",
+      memory: "512",
+    });
+
+    expect(result).toEqual({ family: "my-app", taskDefinitionArn: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1", revision: 1, status: "ACTIVE" });
+    const body = JSON.parse(adapter.calls[0]!.body as string) as Record<string, unknown>;
+    expect(body["family"]).toBe("my-app");
+    expect(body["cpu"]).toBe("256");
+    expect(body["memory"]).toBe("512");
+    expect(body["requiresCompatibilities"]).toEqual(["FARGATE"]);
+    expect(body["networkMode"]).toBe("awsvpc");
+    const containers = body["containerDefinitions"] as Record<string, unknown>[];
+    expect(containers[0]!["name"]).toBe("app");
+    expect(containers[0]!["image"]).toBe("nginx:latest");
+    expect(containers[0]!["portMappings"]).toEqual([{ containerPort: 8080, hostPort: 8080, protocol: "tcp" }]);
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.RegisterTaskDefinition");
+  });
+
+  it("test_deregister_task_definition_sends_the_real_task_definition_arn", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, {}));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.deregisterEcsTaskDefinition!("arn:aws:ecs:us-east-1:123:task-definition/my-app:1");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { taskDefinition: string };
+    expect(body).toEqual({ taskDefinition: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DeregisterTaskDefinition");
+  });
+
+  it("test_run_task_sends_the_real_cluster_task_definition_and_count_and_parses_the_returned_tasks", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, {
+        tasks: [
+          { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "PROVISIONING", desiredStatus: "RUNNING" },
+        ],
+      })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.runEcsTask!("my-cluster", "arn:task-def/my-app:1");
+
+    expect(result).toEqual([
+      { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "PROVISIONING", desiredStatus: "RUNNING" },
+    ]);
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string; taskDefinition: string; count: number };
+    expect(body).toEqual({ cluster: "my-cluster", taskDefinition: "arn:task-def/my-app:1", count: 1 });
+  });
+
+  it("test_run_task_honors_an_explicit_count", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { tasks: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.runEcsTask!("my-cluster", "arn:task-def/my-app:1", 3);
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { count: number };
+    expect(body.count).toBe(3);
+  });
+
+  it("test_list_tasks_makes_a_real_list_then_describe_round_trip_and_returns_full_state", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { taskArns: ["arn:task/1"] }));
+    adapter.queueResponse(async () =>
+      ecsResponse(200, {
+        tasks: [{ taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "RUNNING", desiredStatus: "RUNNING" }],
+      })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.listEcsTasks!("my-cluster");
+
+    expect(result).toEqual([
+      { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "RUNNING", desiredStatus: "RUNNING" },
+    ]);
+    expect(adapter.calls).toHaveLength(2);
+    const listBody = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string };
+    expect(listBody).toEqual({ cluster: "my-cluster" });
+    const describeBody = JSON.parse(adapter.calls[1]!.body as string) as { cluster: string; tasks: string[] };
+    expect(describeBody).toEqual({ cluster: "my-cluster", tasks: ["arn:task/1"] });
+  });
+
+  it("test_list_tasks_short_circuits_to_an_empty_array_without_a_describe_call_when_none_are_running", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { taskArns: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    expect(await provider.listEcsTasks!("my-cluster")).toEqual([]);
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  it("test_stop_task_sends_the_real_cluster_and_task_arn", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { task: { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "STOPPING", desiredStatus: "STOPPED" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.stopEcsTask!("my-cluster", "arn:task/1");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string; task: string };
+    expect(body).toEqual({ cluster: "my-cluster", task: "arn:task/1" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.StopTask");
+  });
+
+  it("test_a_real_ecs_error_response_throws_with_the_real_type_and_message", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(400, { __type: "ClusterNotFoundException", message: "Cluster not found." }, "Bad Request"));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    let caught: unknown;
+    try {
+      await provider.deleteEcsCluster!("missing-cluster");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("ClusterNotFoundException");
+    expect((caught as Error).message).toContain("Cluster not found");
+  });
+
+  it("test_a_real_ecs_error_with_an_empty_body_still_throws_a_real_error_not_a_json_parse_crash", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 403, headers: {}, error: "Forbidden", data: "" }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.deleteEcsCluster!("my-cluster")).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_redirects_to_the_ecs_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_ECS_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ecsResponse(200, { clusterArns: [] }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.listEcsClusters!();
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ecs/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_ECS_ENDPOINT"];
+    }
+  });
+});
+
 describe("NetlifyCloudConnectProvider", () => {
   it("test_connect_still_lists_real_sites_same_shape_as_before_the_deploy_refactor", async () => {
     const adapter = new FakeApiAdapter();

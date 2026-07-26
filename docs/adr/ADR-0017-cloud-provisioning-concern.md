@@ -1,6 +1,6 @@
-# ADR-0017: `cloudProvisioning` concern — real AWS resource provisioning, CloudWatch pilot + EC2 phase
+# ADR-0017: `cloudProvisioning` concern — real AWS resource provisioning, CloudWatch pilot + EC2 + ECS phases
 
-- **Status:** Accepted (CloudWatch written retroactively — see [Process note](#process-note); EC2 phase added 2026-07-25, tasks/ACs and ADR updated before/alongside implementation this time)
+- **Status:** Accepted (CloudWatch written retroactively — see [Process note](#process-note); EC2 phase added 2026-07-25, ECS phase added 2026-07-26, tasks/ACs and ADR updated before/alongside implementation both times)
 - **Date:** 2026-07-25
 
 ## Summary
@@ -203,8 +203,15 @@ that an alarm never needed:
       real tests (46/46), live-verified against CloudEmu (real class,
       full lifecycle) and against real AWS (real UI, real AuthFailure),
       cost disclosure, persisted ledger, distinct confirm gate, UI tile
-- [ ] ECS/EKS phases (tracked as follow-up work in justjs#144, not
-      blocking this ADR's own acceptance)
+- [x] ECS phase: contract (8 methods) + `AwsCloudProvisioningProvider`
+      extension (`ecsCall()`, JSON protocol), real tests (76/76),
+      live-verified against CloudEmu (real class, full lifecycle - create
+      cluster/register task def/run task/list/stop/deregister/delete)
+      and via a real dev-server UI pass (Configure/confirm gate/Create/
+      Monitor/Tasks/Stop/Delete), cost disclosure, per-cluster reconciled
+      ledger, distinct confirm gate, UI tile - justjs#144
+- [ ] EKS phase (tracked as follow-up work in justjs#144, not blocking
+      this ADR's own acceptance)
 
 ## Process note
 

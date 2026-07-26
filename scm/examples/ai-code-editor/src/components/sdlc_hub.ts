@@ -84,6 +84,8 @@ import "./cloud_provisioning.js";
 import type { CloudProvisioningControl } from "./cloud_provisioning.js";
 import "./ec2_provisioning.js";
 import type { Ec2ProvisioningControl } from "./ec2_provisioning.js";
+import "./ecs_provisioning.js";
+import type { EcsProvisioningControl } from "./ecs_provisioning.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -658,6 +660,10 @@ export class SdlcHubElement extends HTMLElement {
   // sibling view alongside Dashboard/Alarms, same cache/reset pattern.
   private cloudEc2View!: HTMLElement;
   private cloudEc2BackBtn!: HTMLButtonElement;
+  // ECS Clusters view alongside Dashboard/Alarms/Instances, same
+  // cache/reset pattern (justjs#144/ADR-0017's ECS phase).
+  private cloudEcsView!: HTMLElement;
+  private cloudEcsBackBtn!: HTMLButtonElement;
 
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
@@ -772,6 +778,7 @@ export class SdlcHubElement extends HTMLElement {
       this.resetCloudDashboardToMain();
       this.resetCloudProvisioningToMain();
       this.resetCloudEc2ToMain();
+      this.resetCloudEcsToMain();
       this.showScmConnect = false;
       const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
       scmConnector?.resetView();
@@ -1004,6 +1011,13 @@ export class SdlcHubElement extends HTMLElement {
           </div>
           <control-ec2-provisioning id="cloud-ec2"></control-ec2-provisioning>
         </div>
+        <div id="cloud-ecs-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-ecs-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">📦 Clusters</h2>
+          </div>
+          <control-ecs-provisioning id="cloud-ecs"></control-ecs-provisioning>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#cloud-header")!;
       header.icon = "🚀";
@@ -1035,12 +1049,15 @@ export class SdlcHubElement extends HTMLElement {
       this.cloudProvisioningBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-provisioning-back-btn")!;
       this.cloudEc2View = screen.querySelector<HTMLElement>("#cloud-ec2-view")!;
       this.cloudEc2BackBtn = screen.querySelector<HTMLButtonElement>("#cloud-ec2-back-btn")!;
+      this.cloudEcsView = screen.querySelector<HTMLElement>("#cloud-ecs-view")!;
+      this.cloudEcsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-ecs-back-btn")!;
 
       const dashboardTileGrid = screen.querySelector<GridView>("#cloud-dashboard-tile-grid")!;
       dashboardTileGrid.items = [
         { id: "dashboard", label: "Dashboard", icon: "📊" },
         { id: "alarms", label: "Alarms", icon: "🔔" },
         { id: "instances", label: "Instances", icon: "🖥️" },
+        { id: "clusters", label: "Clusters", icon: "📦" },
       ];
       dashboardTileGrid.addEventListener("item-select", (e) => {
         const id = (e as CustomEvent<{ id: string }>).detail.id;
@@ -1050,11 +1067,14 @@ export class SdlcHubElement extends HTMLElement {
           this.showCloudProvisioning();
         } else if (id === "instances") {
           this.showCloudEc2();
+        } else if (id === "clusters") {
+          this.showCloudEcs();
         }
       });
       this.cloudDashboardBackBtn.addEventListener("click", () => this.resetCloudDashboardToMain());
       this.cloudProvisioningBackBtn.addEventListener("click", () => this.resetCloudProvisioningToMain());
       this.cloudEc2BackBtn.addEventListener("click", () => this.resetCloudEc2ToMain());
+      this.cloudEcsBackBtn.addEventListener("click", () => this.resetCloudEcsToMain());
 
       this.cloudScreen = screen;
     }
@@ -1117,6 +1137,22 @@ export class SdlcHubElement extends HTMLElement {
     this.cloudMainView.hidden = false;
     const ec2 = this.cloudScreen.querySelector<Ec2ProvisioningControl>("#cloud-ec2");
     ec2?.resetView();
+  }
+
+  private showCloudEcs(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudEcsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudEc2ToMain().
+  private resetCloudEcsToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudEcsView.hidden = true;
+    this.cloudMainView.hidden = false;
+    const ecs = this.cloudScreen.querySelector<EcsProvisioningControl>("#cloud-ecs");
+    ecs?.resetView();
   }
 
   private renderCloudDashboardTabs(): void {

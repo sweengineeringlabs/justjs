@@ -10,6 +10,10 @@ import type {
   Ec2CommandStatus,
   Ec2InstanceConfig,
   Ec2InstanceState,
+  EcsClusterState,
+  EcsTaskDefinitionConfig,
+  EcsTaskDefinitionState,
+  EcsTaskState,
 } from "../api/provisioning.js";
 import { CloudProvisioningProviderError } from "../api/provisioning.js";
 import { signAwsRequest } from "@justjs/aws-sigv4";
@@ -19,6 +23,7 @@ const CLOUDWATCH_SERVICE = "monitoring";
 const EC2_SERVICE = "ec2";
 const SSM_SERVICE = "ssm";
 const SSM_DOCUMENT_NAME = "AWS-RunShellScript";
+const ECS_SERVICE = "ecs";
 
 // Real local/CI testing seam (justjs#143, extended by justjs#148 for a
 // real in-browser override - see aws_provider.ts's own comment on this
@@ -125,6 +130,76 @@ interface GetCommandInvocationResponse extends SsmErrorResponse {
   readonly Status?: string;
   readonly StandardOutputContent?: string;
   readonly StandardErrorContent?: string;
+}
+
+// ECS is also a JSON-protocol service (X-Amz-Target-based, same family
+// as SSM above) - confirmed against CloudEmu's own real handler
+// (services/ecs/handlers.rs), which deliberately builds a flat
+// {__type, message} error body rather than the shared XML ApiError type
+// other AWS services here use, specifically because the JSON-protocol
+// Go/JS SDKs can't parse XML errors. Matches AWS's own published ECS API
+// reference for this same reason.
+interface EcsErrorResponse {
+  readonly __type?: string;
+  readonly message?: string;
+  readonly Message?: string;
+}
+
+interface EcsClusterWire {
+  readonly clusterName: string;
+  readonly clusterArn: string;
+  readonly status: string;
+}
+
+interface EcsTaskWire {
+  readonly taskArn: string;
+  readonly clusterArn: string;
+  readonly taskDefinitionArn: string;
+  readonly lastStatus: string;
+  readonly desiredStatus: string;
+}
+
+interface EcsTaskDefinitionWire {
+  readonly family: string;
+  readonly taskDefinitionArn: string;
+  readonly revision: number;
+  readonly status: string;
+}
+
+interface CreateClusterResponse extends EcsErrorResponse {
+  readonly cluster?: EcsClusterWire;
+}
+
+interface ListClustersResponse extends EcsErrorResponse {
+  readonly clusterArns?: readonly string[];
+}
+
+interface DescribeClustersResponse extends EcsErrorResponse {
+  readonly clusters?: readonly EcsClusterWire[];
+}
+
+interface DeleteClusterResponse extends EcsErrorResponse {
+  readonly cluster?: EcsClusterWire;
+}
+
+interface RegisterTaskDefinitionResponse extends EcsErrorResponse {
+  readonly taskDefinition?: EcsTaskDefinitionWire;
+}
+
+interface RunTaskResponse extends EcsErrorResponse {
+  readonly tasks?: readonly EcsTaskWire[];
+}
+
+interface StopTaskResponse extends EcsErrorResponse {
+  readonly task?: EcsTaskWire;
+}
+
+interface ListTasksResponse extends EcsErrorResponse {
+  readonly taskArns?: readonly string[];
+}
+
+interface DescribeTasksResponse extends EcsErrorResponse {
+  readonly tasks?: readonly EcsTaskWire[];
 }
 
 // Real AWS/EC2/CloudWatch provisioning - the AWS "aws" strategy for the
@@ -389,6 +464,141 @@ export class AwsCloudProvisioningProvider implements CloudProvisioningProvider {
       ...(data.StandardOutputContent ? { output: data.StandardOutputContent } : {}),
       ...(data.StandardErrorContent ? { errorOutput: data.StandardErrorContent } : {}),
     };
+  }
+
+  // Same JSON-protocol shape as ssmCall() above - ECS uses the identical
+  // X-Amz-Target/application/x-amz-json-1.1 convention, just its own
+  // service name/host/error vocabulary. Not merged into one shared
+  // generic helper: the two services' error shapes differ just enough
+  // (SSM's __type is always populated on error; ECS's own real errors
+  // via CloudEmu use the same field but this hasn't been live-verified
+  // against real AWS ECS yet, unlike SSM which was) that keeping them
+  // separate makes that distinction visible rather than hidden behind a
+  // shared abstraction two services don't quite agree on.
+  private async ecsCall<T extends EcsErrorResponse>(action: string, body: Record<string, unknown>): Promise<T> {
+    const bodyStr = JSON.stringify(body);
+    const headers = await signAwsRequest({
+      accessKeyId: this.config.accessKeyId,
+      secretAccessKey: this.config.secretAccessKey,
+      region: REGION,
+      service: ECS_SERVICE,
+      method: "POST",
+      host: `ecs.${REGION}.amazonaws.com`,
+      path: "/",
+      query: "",
+      body: bodyStr,
+      extraHeaders: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": `AmazonEC2ContainerServiceV20141113.${action}` },
+    });
+    const endpoint = endpointOverride("CLOUD_CONNECT_AWS_ECS_ENDPOINT", `https://ecs.${REGION}.amazonaws.com`);
+    const response = await this.apiAdapter.post<T | string>(endpoint + "/", bodyStr, { headers });
+    // Same real-content-type caveat ssmCall() above already documents -
+    // ECS's application/x-amz-json-1.1 isn't recognized as JSON by
+    // @justjs/transport's ApiAdapter, so an error body can arrive
+    // unparsed.
+    const data: T = typeof response.data === "string" ? (response.data.length > 0 ? JSON.parse(response.data) : ({} as T)) : response.data;
+    if (response.error !== undefined) {
+      const message = data.message ?? data.Message ?? response.error;
+      const code = data.__type ?? `HTTP_${response.status}`;
+      throw new CloudProvisioningProviderError(code, `ECS: ${code} - ${message} (action ${action}).`);
+    }
+    return data;
+  }
+
+  private toClusterState(c: EcsClusterWire): EcsClusterState {
+    return { clusterName: c.clusterName, clusterArn: c.clusterArn, status: c.status };
+  }
+
+  private toTaskState(t: EcsTaskWire): EcsTaskState {
+    return {
+      taskArn: t.taskArn,
+      clusterArn: t.clusterArn,
+      taskDefinitionArn: t.taskDefinitionArn,
+      lastStatus: t.lastStatus,
+      desiredStatus: t.desiredStatus,
+    };
+  }
+
+  async createEcsCluster(clusterName: string): Promise<EcsClusterState> {
+    const data = await this.ecsCall<CreateClusterResponse>("CreateCluster", { clusterName });
+    if (!data.cluster) {
+      throw new CloudProvisioningProviderError("AWS_UNEXPECTED_RESPONSE", "ECS: CreateCluster returned an unexpected response shape.");
+    }
+    return this.toClusterState(data.cluster);
+  }
+
+  async listEcsClusters(): Promise<readonly EcsClusterState[]> {
+    const arns = await this.ecsCall<ListClustersResponse>("ListClusters", {});
+    const clusterArns = arns.clusterArns ?? [];
+    if (clusterArns.length === 0) {
+      return [];
+    }
+    const data = await this.ecsCall<DescribeClustersResponse>("DescribeClusters", { clusters: clusterArns });
+    return (data.clusters ?? []).map((c) => this.toClusterState(c));
+  }
+
+  async deleteEcsCluster(clusterName: string): Promise<void> {
+    await this.ecsCall<DeleteClusterResponse>("DeleteCluster", { cluster: clusterName });
+  }
+
+  async registerEcsTaskDefinition(config: EcsTaskDefinitionConfig): Promise<EcsTaskDefinitionState> {
+    const data = await this.ecsCall<RegisterTaskDefinitionResponse>("RegisterTaskDefinition", {
+      family: config.family,
+      containerDefinitions: config.containerDefinitions.map((c) => ({
+        name: c.name,
+        image: c.image,
+        ...(c.cpu !== undefined ? { cpu: c.cpu } : {}),
+        ...(c.memory !== undefined ? { memory: c.memory } : {}),
+        ...(c.portMappings !== undefined
+          ? {
+              portMappings: c.portMappings.map((p) => ({
+                containerPort: p.containerPort,
+                hostPort: p.hostPort,
+                protocol: p.protocol ?? "tcp",
+              })),
+            }
+          : {}),
+      })),
+      ...(config.cpu !== undefined ? { cpu: config.cpu } : {}),
+      ...(config.memory !== undefined ? { memory: config.memory } : {}),
+      requiresCompatibilities: ["FARGATE"],
+      networkMode: "awsvpc",
+    });
+    if (!data.taskDefinition) {
+      throw new CloudProvisioningProviderError("AWS_UNEXPECTED_RESPONSE", "ECS: RegisterTaskDefinition returned an unexpected response shape.");
+    }
+    return {
+      family: data.taskDefinition.family,
+      taskDefinitionArn: data.taskDefinition.taskDefinitionArn,
+      revision: data.taskDefinition.revision,
+      status: data.taskDefinition.status,
+    };
+  }
+
+  async deregisterEcsTaskDefinition(taskDefinitionArn: string): Promise<void> {
+    await this.ecsCall<EcsErrorResponse>("DeregisterTaskDefinition", { taskDefinition: taskDefinitionArn });
+  }
+
+  async runEcsTask(clusterName: string, taskDefinitionArn: string, count?: number): Promise<readonly EcsTaskState[]> {
+    const data = await this.ecsCall<RunTaskResponse>("RunTask", {
+      cluster: clusterName,
+      taskDefinition: taskDefinitionArn,
+      count: count ?? 1,
+    });
+    return (data.tasks ?? []).map((t) => this.toTaskState(t));
+  }
+
+  async listEcsTasks(clusterName: string): Promise<readonly EcsTaskState[]> {
+    const arns = await this.ecsCall<ListTasksResponse>("ListTasks", { cluster: clusterName });
+    const taskArns = arns.taskArns ?? [];
+    if (taskArns.length === 0) {
+      return [];
+    }
+    const data = await this.ecsCall<DescribeTasksResponse>("DescribeTasks", { cluster: clusterName, tasks: taskArns });
+    return (data.tasks ?? []).map((t) => this.toTaskState(t));
+  }
+
+  async stopEcsTask(clusterName: string, taskArn: string): Promise<void> {
+    await this.ecsCall<StopTaskResponse>("StopTask", { cluster: clusterName, task: taskArn });
   }
 
   weave(): void {
