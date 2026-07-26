@@ -200,7 +200,11 @@ completely decoupled from the client that launched it.
   `userData` textarea and `iamInstanceProfileName` field, both with
   disclosed-limitation copy inline; Monitor gains a "Redeploy" action per
   running instance (script textarea, Send Command, Command ID + Check
-  Status).
+  Status). **Update (justjs#151, ADR-0022):** Configure and Monitor
+  (including this Redeploy action) later split into two separate custom
+  elements on two separate SDLC stages - see ADR-0022. Every "Configure
+  form"/"Monitor" reference on this page describes the pre-split, single-
+  screen shape.
 - Real tests: cloud-connect suite 56/56 (was 46, +10 - 3 for
   `UserData`/`IamInstanceProfile.Name`, 7 for SSM including the string-
   body regression test the live bug produced).

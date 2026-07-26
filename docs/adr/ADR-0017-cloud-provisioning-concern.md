@@ -61,7 +61,12 @@ own STS cross-check used), not just unit-tested for shape.
   Create (with a real, distinct confirm step, not a single click) +
   Monitor (live alarm list, state badges, delete). Mounted as a second
   tile ("Alarms") alongside the existing Dashboard tile in Deployment's
-  Cloud screen.
+  Cloud screen. **Update (justjs#151, ADR-0022):** Configure and Monitor
+  later split into two separate custom elements on two separate SDLC
+  stages — `CloudProvisioningControl` (Configure/Create only, stays
+  under Deployment → Cloud) and the new `AlarmMonitorControl` (list/
+  delete, moved to Operations → Monitoring). See ADR-0022 for the full
+  rationale.
 
 ### Why CloudWatch first
 
@@ -141,6 +146,10 @@ that an alarm never needed:
   Launch even becomes clickable.
 - `ai-code-editor`: `Ec2ProvisioningControl`, a third sibling tile
   ("Instances") alongside Dashboard/Alarms in Deployment's Cloud screen.
+  **Update (justjs#151, ADR-0022):** later split - `Ec2ProvisioningControl`
+  keeps Configure/Launch only under Deployment → Cloud; the new
+  `Ec2MonitorControl` (list/start/stop/terminate/redeploy/metrics) moved
+  to Operations → Monitoring.
 
 **Verified, not just claimed:**
 - `@justjs/cloud-connect` package suite: 46/46 (was 37, +9 EC2 tests).
@@ -209,7 +218,11 @@ that an alarm never needed:
       cluster/register task def/run task/list/stop/deregister/delete)
       and via a real dev-server UI pass (Configure/confirm gate/Create/
       Monitor/Tasks/Stop/Delete), cost disclosure, per-cluster reconciled
-      ledger, distinct confirm gate, UI tile - justjs#144
+      ledger, distinct confirm gate, UI tile - justjs#144. **Update
+      (justjs#151, ADR-0022):** later split - `EcsProvisioningControl`
+      keeps Configure/Create only under Deployment → Cloud; the new
+      `EcsMonitorControl` (list clusters/tasks, stop, delete) moved to
+      Operations → Monitoring.
 - [ ] EKS phase (tracked as follow-up work in justjs#144, not blocking
       this ADR's own acceptance)
 

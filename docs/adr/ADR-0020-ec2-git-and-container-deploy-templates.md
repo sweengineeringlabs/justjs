@@ -133,7 +133,12 @@ this app only ever runs what already exists in a registry).
   preview of the exact generated script/commands - updated directly on
   `input` events (not via a full `render()`, which would rebuild every
   input from scratch mid-keystroke and drop focus, the same class of
-  bug ADR-0019's own Configure-form fix addressed).
+  bug ADR-0019's own Configure-form fix addressed). **Update
+  (justjs#151, ADR-0022):** the Redeploy panel (and its own `Deploy
+  mode` selector) later moved to the new `Ec2MonitorControl` under
+  Operations → Monitoring when Configure/Monitor split into two custom
+  elements on two separate SDLC stages - see ADR-0022. `Ec2ProvisioningControl`
+  keeps only the Configure form's own `Deploy mode` selector.
 - Real tests: `ai-code-editor` suite 72/72 (was 66, +6). Full workspace
   `bun run build`/`typecheck`/`test` green.
 - Live-verified end to end through the actual dev-server UI against a

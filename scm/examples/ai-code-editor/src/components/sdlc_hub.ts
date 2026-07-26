@@ -86,6 +86,12 @@ import "./ec2_provisioning.js";
 import type { Ec2ProvisioningControl } from "./ec2_provisioning.js";
 import "./ecs_provisioning.js";
 import type { EcsProvisioningControl } from "./ecs_provisioning.js";
+import "./alarm_monitor.js";
+import type { AlarmMonitorControl } from "./alarm_monitor.js";
+import "./ec2_monitor.js";
+import type { Ec2MonitorControl } from "./ec2_monitor.js";
+import "./ecs_monitor.js";
+import type { EcsMonitorControl } from "./ecs_monitor.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -148,7 +154,12 @@ interface SdlcFunction {
   // stages (Requirement's "Specs"/"User Stories" and Planning's new
   // "Project Boards"), same one-real-capability-many-entries shape
   // "design-generate" already established within a single stage.
-  readonly action?: "design-generate" | "cloud-providers" | "scm-connect" | "presentation-generate" | "cli" | "pm-connect";
+  // "cloud-monitoring": Operations' real counterpart to "cloud-providers"
+  // (justjs#151) - the same AWS resources "cloud-providers" lets you
+  // configure/create, here shown read/manage-only (list, start/stop/
+  // terminate, redeploy, delete) under a stage that's about operating
+  // what's already running, not deploying something new.
+  readonly action?: "design-generate" | "cloud-providers" | "cloud-monitoring" | "scm-connect" | "presentation-generate" | "cli" | "pm-connect";
 }
 
 interface SdlcStage {
@@ -559,7 +570,7 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     label: "Operations",
     icon: "📈",
     functions: [
-      { label: "Monitoring", icon: "📊" },
+      { label: "Monitoring", icon: "📊", action: "cloud-monitoring" },
       { label: "Logs", icon: "📜" },
     ],
   },
@@ -643,17 +654,11 @@ export class SdlcHubElement extends HTMLElement {
   private showCloudProviders = false;
   private cloudScreen: HTMLElement | undefined;
   private cloudMainView!: HTMLElement;
-  private cloudDashboardView!: HTMLElement;
-  private cloudDashboardBackBtn!: HTMLButtonElement;
-  private cloudDashboardTabsEl!: HTMLElement;
-  private cloudDashboardTabContentEl!: HTMLElement;
-  private cloudDashboardActivityEl!: HTMLElement;
-  private cloudDashboardData: ConsolidatedCloudDashboardAnalytics | null = null;
-  private activeCloudDashboardTab: DashboardTabId = "analytics";
-  private readonly expandedCloudMetricKeys = new Set<string>();
-  // Real cloud provisioning workflow (connect -> configure -> deploy ->
-  // monitor) - CloudWatch alarms are the pilot service, a second sibling
-  // view alongside Dashboard, same cache/reset pattern.
+  // Real cloud provisioning workflow (connect -> configure -> deploy) -
+  // CloudWatch alarms are the pilot service, a second sibling view
+  // alongside Instances/Clusters, same cache/reset pattern. Dashboard
+  // and every Monitor half live under Operations -> Monitoring now
+  // (justjs#151's Deployment/Operations split), not here.
   private cloudProvisioningView!: HTMLElement;
   private cloudProvisioningBackBtn!: HTMLButtonElement;
   // EC2 provisioning (justjs#144/ADR-0017) - the second phase, a third
@@ -664,6 +669,30 @@ export class SdlcHubElement extends HTMLElement {
   // cache/reset pattern (justjs#144/ADR-0017's ECS phase).
   private cloudEcsView!: HTMLElement;
   private cloudEcsBackBtn!: HTMLButtonElement;
+
+  // Operations' Monitoring (justjs#151's Deployment/Operations split) -
+  // the Monitor half of what Cloud used to render as one combined
+  // Configure+Monitor screen. Dashboard moves here too (read-only
+  // cross-provider analytics is an operational concern, not a deploy
+  // one) alongside the 3 Monitor-only controls, same
+  // caching/real-resetView()-on-stage-switch reasoning as cloudScreen.
+  private showCloudMonitoring = false;
+  private cloudMonitoringScreen: HTMLElement | undefined;
+  private cloudMonitoringMainView!: HTMLElement;
+  private cloudMonitoringDashboardView!: HTMLElement;
+  private cloudMonitoringDashboardBackBtn!: HTMLButtonElement;
+  private cloudMonitoringDashboardTabsEl!: HTMLElement;
+  private cloudMonitoringDashboardTabContentEl!: HTMLElement;
+  private cloudMonitoringDashboardActivityEl!: HTMLElement;
+  private cloudMonitoringDashboardData: ConsolidatedCloudDashboardAnalytics | null = null;
+  private activeCloudMonitoringDashboardTab: DashboardTabId = "analytics";
+  private readonly expandedCloudMonitoringMetricKeys = new Set<string>();
+  private cloudMonitoringAlarmsView!: HTMLElement;
+  private cloudMonitoringAlarmsBackBtn!: HTMLButtonElement;
+  private cloudMonitoringEc2View!: HTMLElement;
+  private cloudMonitoringEc2BackBtn!: HTMLButtonElement;
+  private cloudMonitoringEcsView!: HTMLElement;
+  private cloudMonitoringEcsBackBtn!: HTMLButtonElement;
 
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
@@ -775,10 +804,14 @@ export class SdlcHubElement extends HTMLElement {
       // cloudScreen was still undefined.
       const cloudConnector = this.cloudScreen?.querySelector<CloudConnectorControl>("#cloud-connector");
       cloudConnector?.resetView();
-      this.resetCloudDashboardToMain();
       this.resetCloudProvisioningToMain();
       this.resetCloudEc2ToMain();
       this.resetCloudEcsToMain();
+      this.showCloudMonitoring = false;
+      this.resetCloudMonitoringDashboardToMain();
+      this.resetCloudMonitoringAlarmsToMain();
+      this.resetCloudMonitoringEc2ToMain();
+      this.resetCloudMonitoringEcsToMain();
       this.showScmConnect = false;
       const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
       scmConnector?.resetView();
@@ -821,6 +854,10 @@ export class SdlcHubElement extends HTMLElement {
         return;
       case "cloud-providers":
         this.showCloudProviders = true;
+        this.renderView();
+        return;
+      case "cloud-monitoring":
+        this.showCloudMonitoring = true;
         this.renderView();
         return;
       case "scm-connect":
@@ -888,6 +925,10 @@ export class SdlcHubElement extends HTMLElement {
     }
     if (stage.key === "deployment" && this.showCloudProviders) {
       this.renderCloudProviders();
+      return;
+    }
+    if (stage.key === "operations" && this.showCloudMonitoring) {
+      this.renderCloudMonitoring();
       return;
     }
     if (stage.key === "presentation" && this.showPresentationGenerator) {
@@ -987,16 +1028,6 @@ export class SdlcHubElement extends HTMLElement {
           <control-cloud-connector id="cloud-connector"></control-cloud-connector>
           <view-grid id="cloud-dashboard-tile-grid"></view-grid>
         </div>
-        <div id="cloud-dashboard-view" hidden>
-          <div class="dash-subnav">
-            <button id="cloud-dashboard-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
-            <h2 class="workspace-stage-title">📊 Dashboard</h2>
-          </div>
-          <div id="cloud-dashboard-tabs" class="dashboard-tabs"></div>
-          <div id="cloud-dashboard-tab-content"></div>
-          <p class="dashboard-section-title">🕒 Recent Activity</p>
-          <div id="cloud-dashboard-activity"></div>
-        </div>
         <div id="cloud-provisioning-view" hidden>
           <div class="dash-subnav">
             <button id="cloud-provisioning-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
@@ -1039,11 +1070,6 @@ export class SdlcHubElement extends HTMLElement {
       connector.catalogLabel = "Cloud Providers";
 
       this.cloudMainView = screen.querySelector<HTMLElement>("#cloud-main-view")!;
-      this.cloudDashboardView = screen.querySelector<HTMLElement>("#cloud-dashboard-view")!;
-      this.cloudDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-dashboard-back-btn")!;
-      this.cloudDashboardTabsEl = screen.querySelector<HTMLElement>("#cloud-dashboard-tabs")!;
-      this.cloudDashboardTabContentEl = screen.querySelector<HTMLElement>("#cloud-dashboard-tab-content")!;
-      this.cloudDashboardActivityEl = screen.querySelector<HTMLElement>("#cloud-dashboard-activity")!;
 
       this.cloudProvisioningView = screen.querySelector<HTMLElement>("#cloud-provisioning-view")!;
       this.cloudProvisioningBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-provisioning-back-btn")!;
@@ -1054,16 +1080,13 @@ export class SdlcHubElement extends HTMLElement {
 
       const dashboardTileGrid = screen.querySelector<GridView>("#cloud-dashboard-tile-grid")!;
       dashboardTileGrid.items = [
-        { id: "dashboard", label: "Dashboard", icon: "📊" },
         { id: "alarms", label: "Alarms", icon: "🔔" },
         { id: "instances", label: "Instances", icon: "🖥️" },
         { id: "clusters", label: "Clusters", icon: "📦" },
       ];
       dashboardTileGrid.addEventListener("item-select", (e) => {
         const id = (e as CustomEvent<{ id: string }>).detail.id;
-        if (id === "dashboard") {
-          this.showCloudDashboard();
-        } else if (id === "alarms") {
+        if (id === "alarms") {
           this.showCloudProvisioning();
         } else if (id === "instances") {
           this.showCloudEc2();
@@ -1071,7 +1094,6 @@ export class SdlcHubElement extends HTMLElement {
           this.showCloudEcs();
         }
       });
-      this.cloudDashboardBackBtn.addEventListener("click", () => this.resetCloudDashboardToMain());
       this.cloudProvisioningBackBtn.addEventListener("click", () => this.resetCloudProvisioningToMain());
       this.cloudEc2BackBtn.addEventListener("click", () => this.resetCloudEc2ToMain());
       this.cloudEcsBackBtn.addEventListener("click", () => this.resetCloudEcsToMain());
@@ -1081,37 +1103,14 @@ export class SdlcHubElement extends HTMLElement {
     this.subscreenView.appendChild(this.cloudScreen);
   }
 
-  private showCloudDashboard(): void {
-    this.cloudMainView.hidden = true;
-    this.cloudDashboardView.hidden = false;
-    this.activeCloudDashboardTab = "analytics";
-    this.expandedCloudMetricKeys.clear();
-    this.renderCloudDashboardTabs();
-    void this.loadCloudDashboardData();
-  }
-
-  // Real reset back to the main provider grid - called both by the
-  // Dashboard's own back button and by the overview grid's item-select
-  // handler (alongside cloudConnector.resetView()), same reasoning as
-  // resetScmDashboardToMain()/resetPmDashboardToMain(). Safe no-op if
-  // cloudScreen was never built yet.
-  private resetCloudDashboardToMain(): void {
-    if (!this.cloudScreen) {
-      return;
-    }
-    this.cloudDashboardView.hidden = true;
-    this.cloudMainView.hidden = false;
-  }
-
   private showCloudProvisioning(): void {
     this.cloudMainView.hidden = true;
     this.cloudProvisioningView.hidden = false;
   }
 
-  // Same reasoning as resetCloudDashboardToMain() - called both by this
-  // view's own back button and by the overview grid's item-select
-  // handler, plus resets the control's own internal state (the
-  // Configure form / Monitor list) via its resetView(), same pattern
+  // Called both by this view's own back button and by the overview
+  // grid's item-select handler, plus resets the control's own internal
+  // Configure-form state via its resetView(), same pattern
   // CloudConnectorControl's own resetView() already established.
   private resetCloudProvisioningToMain(): void {
     if (!this.cloudScreen) {
@@ -1155,47 +1154,223 @@ export class SdlcHubElement extends HTMLElement {
     ecs?.resetView();
   }
 
-  private renderCloudDashboardTabs(): void {
-    this.cloudDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
+  // ---- Operations: Monitoring (opened from Monitoring above) - the
+  // Monitor half of what Cloud used to render as one combined
+  // Configure+Monitor screen (justjs#151's Deployment/Operations
+  // split). Dashboard moves here too - read-only cross-provider
+  // analytics is an operational concern, not a deploy one. Structural
+  // clone of renderCloudProviders() minus the provider-connector (each
+  // Monitor control already gates on getStoredAwsCredentials() directly
+  // with no connector dependency, same mechanism the 3 Configure
+  // controls above already use). ----
+
+  private renderCloudMonitoring(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
+    if (!this.cloudMonitoringScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <div id="cloud-monitoring-main-view">
+          <view-nav-header id="cloud-monitoring-header"></view-nav-header>
+          <p class="connect-hint">Manage AWS resources already running - launch/create new ones in Deployment → Cloud first.</p>
+          <view-grid id="cloud-monitoring-tile-grid"></view-grid>
+        </div>
+        <div id="cloud-monitoring-dashboard-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-dashboard-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">📊 Dashboard</h2>
+          </div>
+          <div id="cloud-monitoring-dashboard-tabs" class="dashboard-tabs"></div>
+          <div id="cloud-monitoring-dashboard-tab-content"></div>
+          <p class="dashboard-section-title">🕒 Recent Activity</p>
+          <div id="cloud-monitoring-dashboard-activity"></div>
+        </div>
+        <div id="cloud-monitoring-alarms-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-alarms-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">🔔 Alarms</h2>
+          </div>
+          <control-alarm-monitor id="cloud-monitoring-alarms"></control-alarm-monitor>
+        </div>
+        <div id="cloud-monitoring-ec2-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-ec2-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">🖥️ Instances</h2>
+          </div>
+          <control-ec2-monitor id="cloud-monitoring-ec2"></control-ec2-monitor>
+        </div>
+        <div id="cloud-monitoring-ecs-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-ecs-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">📦 Clusters</h2>
+          </div>
+          <control-ecs-monitor id="cloud-monitoring-ecs"></control-ecs-monitor>
+        </div>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#cloud-monitoring-header")!;
+      header.icon = "📈";
+      header.title = "Monitoring";
+      header.backLabel = "Operations";
+      header.addEventListener("nav-back", () => {
+        this.showCloudMonitoring = false;
+        this.renderView();
+      });
+
+      this.cloudMonitoringMainView = screen.querySelector<HTMLElement>("#cloud-monitoring-main-view")!;
+      this.cloudMonitoringDashboardView = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-view")!;
+      this.cloudMonitoringDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-dashboard-back-btn")!;
+      this.cloudMonitoringDashboardTabsEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-tabs")!;
+      this.cloudMonitoringDashboardTabContentEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-tab-content")!;
+      this.cloudMonitoringDashboardActivityEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-activity")!;
+      this.cloudMonitoringAlarmsView = screen.querySelector<HTMLElement>("#cloud-monitoring-alarms-view")!;
+      this.cloudMonitoringAlarmsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-alarms-back-btn")!;
+      this.cloudMonitoringEc2View = screen.querySelector<HTMLElement>("#cloud-monitoring-ec2-view")!;
+      this.cloudMonitoringEc2BackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-ec2-back-btn")!;
+      this.cloudMonitoringEcsView = screen.querySelector<HTMLElement>("#cloud-monitoring-ecs-view")!;
+      this.cloudMonitoringEcsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-ecs-back-btn")!;
+
+      const monitoringTileGrid = screen.querySelector<GridView>("#cloud-monitoring-tile-grid")!;
+      monitoringTileGrid.items = [
+        { id: "dashboard", label: "Dashboard", icon: "📊" },
+        { id: "alarms", label: "Alarms", icon: "🔔" },
+        { id: "instances", label: "Instances", icon: "🖥️" },
+        { id: "clusters", label: "Clusters", icon: "📦" },
+      ];
+      monitoringTileGrid.addEventListener("item-select", (e) => {
+        const id = (e as CustomEvent<{ id: string }>).detail.id;
+        if (id === "dashboard") {
+          this.showCloudMonitoringDashboard();
+        } else if (id === "alarms") {
+          this.showCloudMonitoringAlarms();
+        } else if (id === "instances") {
+          this.showCloudMonitoringEc2();
+        } else if (id === "clusters") {
+          this.showCloudMonitoringEcs();
+        }
+      });
+      this.cloudMonitoringDashboardBackBtn.addEventListener("click", () => this.resetCloudMonitoringDashboardToMain());
+      this.cloudMonitoringAlarmsBackBtn.addEventListener("click", () => this.resetCloudMonitoringAlarmsToMain());
+      this.cloudMonitoringEc2BackBtn.addEventListener("click", () => this.resetCloudMonitoringEc2ToMain());
+      this.cloudMonitoringEcsBackBtn.addEventListener("click", () => this.resetCloudMonitoringEcsToMain());
+
+      this.cloudMonitoringScreen = screen;
+    }
+    this.subscreenView.appendChild(this.cloudMonitoringScreen);
+  }
+
+  private showCloudMonitoringDashboard(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringDashboardView.hidden = false;
+    this.activeCloudMonitoringDashboardTab = "analytics";
+    this.expandedCloudMonitoringMetricKeys.clear();
+    this.renderCloudMonitoringDashboardTabs();
+    void this.loadCloudMonitoringDashboardData();
+  }
+
+  // Real reset back to the main monitoring grid - called both by
+  // Dashboard's own back button and by the overview grid's item-select
+  // handler, same reasoning as resetCloudProvisioningToMain(). Safe
+  // no-op if cloudMonitoringScreen was never built yet.
+  private resetCloudMonitoringDashboardToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringDashboardView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+  }
+
+  private showCloudMonitoringAlarms(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringAlarmsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringDashboardToMain() - plus
+  // resets the control's own internal list state via its resetView(),
+  // same pattern every other Monitor/Configure control here uses.
+  private resetCloudMonitoringAlarmsToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringAlarmsView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const alarms = this.cloudMonitoringScreen.querySelector<AlarmMonitorControl>("#cloud-monitoring-alarms");
+    alarms?.resetView();
+  }
+
+  private showCloudMonitoringEc2(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringEc2View.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringAlarmsToMain().
+  private resetCloudMonitoringEc2ToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringEc2View.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const ec2 = this.cloudMonitoringScreen.querySelector<Ec2MonitorControl>("#cloud-monitoring-ec2");
+    ec2?.resetView();
+  }
+
+  private showCloudMonitoringEcs(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringEcsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringEc2ToMain().
+  private resetCloudMonitoringEcsToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringEcsView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const ecs = this.cloudMonitoringScreen.querySelector<EcsMonitorControl>("#cloud-monitoring-ecs");
+    ecs?.resetView();
+  }
+
+  private renderCloudMonitoringDashboardTabs(): void {
+    this.cloudMonitoringDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
       (t) => `
-        <button type="button" class="dashboard-tab ${t.id === this.activeCloudDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
+        <button type="button" class="dashboard-tab ${t.id === this.activeCloudMonitoringDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
           ${t.icon} ${t.label}
         </button>
       `
     ).join("");
-    this.cloudDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
+    this.cloudMonitoringDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const tabId = btn.dataset["tab"] as DashboardTabId;
-        if (tabId === this.activeCloudDashboardTab) {
+        if (tabId === this.activeCloudMonitoringDashboardTab) {
           return;
         }
-        this.activeCloudDashboardTab = tabId;
-        this.renderCloudDashboardTabs();
-        this.renderActiveCloudDashboardTab();
+        this.activeCloudMonitoringDashboardTab = tabId;
+        this.renderCloudMonitoringDashboardTabs();
+        this.renderActiveCloudMonitoringDashboardTab();
       });
     });
   }
 
-  private async loadCloudDashboardData(): Promise<void> {
-    this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
-    this.cloudDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
-    this.cloudDashboardData = await fetchConsolidatedCloudDashboardAnalytics();
-    this.renderActiveCloudDashboardTab();
-    this.renderCloudActivitySection(this.cloudDashboardData);
+  private async loadCloudMonitoringDashboardData(): Promise<void> {
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudMonitoringDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudMonitoringDashboardData = await fetchConsolidatedCloudDashboardAnalytics();
+    this.renderActiveCloudMonitoringDashboardTab();
+    this.renderCloudMonitoringActivitySection(this.cloudMonitoringDashboardData);
   }
 
-  private renderActiveCloudDashboardTab(): void {
-    if (this.activeCloudDashboardTab === "settings") {
-      this.renderCloudSettingsTab();
+  private renderActiveCloudMonitoringDashboardTab(): void {
+    if (this.activeCloudMonitoringDashboardTab === "settings") {
+      this.renderCloudMonitoringSettingsTab();
       return;
     }
-    if (!this.cloudDashboardData) {
+    if (!this.cloudMonitoringDashboardData) {
       return;
     }
-    if (this.activeCloudDashboardTab === "analytics") {
-      this.renderCloudAnalyticsTab(this.cloudDashboardData);
+    if (this.activeCloudMonitoringDashboardTab === "analytics") {
+      this.renderCloudMonitoringAnalyticsTab(this.cloudMonitoringDashboardData);
     } else {
-      this.renderCloudTrendingTab(this.cloudDashboardData);
+      this.renderCloudMonitoringTrendingTab(this.cloudMonitoringDashboardData);
     }
   }
 
@@ -1203,18 +1378,18 @@ export class SdlcHubElement extends HTMLElement {
     const anyConnected = CLOUD_PROVIDER_CATALOG.some(isCloudProviderConnected);
     return anyConnected
       ? "Nothing enabled - turn a provider back on in the Settings tab."
-      : "Nothing connected yet - connect a provider above to see its real data here.";
+      : "Nothing connected yet - connect a provider in Deployment → Cloud to see its real data here.";
   }
 
-  private renderCloudAnalyticsTab(data: ConsolidatedCloudDashboardAnalytics): void {
+  private renderCloudMonitoringAnalyticsTab(data: ConsolidatedCloudDashboardAnalytics): void {
     if (data.metrics.length === 0 && data.unavailable.length === 0) {
-      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.cloudNoDataHint()}</p>`;
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.cloudNoDataHint()}</p>`;
       return;
     }
     const rowHtml = data.metrics
       .map((metric) => {
         const key = `${metric.providerId}:${metric.label}`;
-        const active = this.expandedCloudMetricKeys.has(key);
+        const active = this.expandedCloudMonitoringMetricKeys.has(key);
         return `
           <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
             <span class="metric-chip-count">${metric.count}</span>
@@ -1224,33 +1399,33 @@ export class SdlcHubElement extends HTMLElement {
         `;
       })
       .join("");
-    const selected = data.metrics.find((m) => this.expandedCloudMetricKeys.has(`${m.providerId}:${m.label}`));
+    const selected = data.metrics.find((m) => this.expandedCloudMonitoringMetricKeys.has(`${m.providerId}:${m.label}`));
     const itemsHtml = selected
       ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
       : "";
     const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
-    this.cloudDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
 
-    this.cloudDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
+    this.cloudMonitoringDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = btn.dataset["metricKey"]!;
-        if (this.expandedCloudMetricKeys.has(key)) {
-          this.expandedCloudMetricKeys.delete(key);
+        if (this.expandedCloudMonitoringMetricKeys.has(key)) {
+          this.expandedCloudMonitoringMetricKeys.delete(key);
         } else {
-          this.expandedCloudMetricKeys.clear();
-          this.expandedCloudMetricKeys.add(key);
+          this.expandedCloudMonitoringMetricKeys.clear();
+          this.expandedCloudMonitoringMetricKeys.add(key);
         }
-        this.renderCloudAnalyticsTab(data);
+        this.renderCloudMonitoringAnalyticsTab(data);
       });
     });
   }
 
-  private renderCloudTrendingTab(data: ConsolidatedCloudDashboardAnalytics): void {
+  private renderCloudMonitoringTrendingTab(data: ConsolidatedCloudDashboardAnalytics): void {
     if (data.trending.length === 0) {
-      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
       return;
     }
-    this.cloudDashboardTabContentEl.innerHTML = data.trending
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = data.trending
       .map(
         (item) => `
           <div class="trending-item">
@@ -1262,12 +1437,12 @@ export class SdlcHubElement extends HTMLElement {
       .join("");
   }
 
-  private renderCloudActivitySection(data: ConsolidatedCloudDashboardAnalytics): void {
+  private renderCloudMonitoringActivitySection(data: ConsolidatedCloudDashboardAnalytics): void {
     if (data.recentActivity.length === 0) {
-      this.cloudDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
+      this.cloudMonitoringDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
       return;
     }
-    this.cloudDashboardActivityEl.innerHTML = data.recentActivity
+    this.cloudMonitoringDashboardActivityEl.innerHTML = data.recentActivity
       .map(
         (item) => `
           <div class="activity-item">
@@ -1279,13 +1454,13 @@ export class SdlcHubElement extends HTMLElement {
       .join("");
   }
 
-  private renderCloudSettingsTab(): void {
+  private renderCloudMonitoringSettingsTab(): void {
     const connected = CLOUD_PROVIDER_CATALOG.filter(isCloudProviderConnected);
     if (connected.length === 0) {
-      this.cloudDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above, then come back here to choose what Dashboard shows.</p>`;
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider in Deployment → Cloud, then come back here to choose what Dashboard shows.</p>`;
       return;
     }
-    this.cloudDashboardTabContentEl.innerHTML = `
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `
       <p class="connect-hint">Choose which connected providers contribute to Analytics, Trending, and Recent Activity.</p>
       ${connected
         .map(
@@ -1298,13 +1473,13 @@ export class SdlcHubElement extends HTMLElement {
         )
         .join("")}
     `;
-    this.cloudDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
+    this.cloudMonitoringDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
       input.addEventListener("change", () => {
         const enabledIds = connected
-          .filter((p) => this.cloudDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
+          .filter((p) => this.cloudMonitoringDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
           .map((p) => p.id);
         setEnabledCloudDashboardProviderIds(enabledIds);
-        void this.loadCloudDashboardData();
+        void this.loadCloudMonitoringDashboardData();
       });
     });
   }
