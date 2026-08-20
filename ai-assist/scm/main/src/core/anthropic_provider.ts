@@ -5,7 +5,7 @@ import type {
   AgentStepRequest,
   AgentStepResult,
   AiAssistProvider,
-  AiAssistProviderConfig,
+  AnthropicAiAssistConfig,
   ChatMessage,
   ChatRequest,
   CompletionRequest,
@@ -289,11 +289,11 @@ export class AnthropicAiAssistProvider implements AiAssistProvider {
   private readonly capableModel: string;
 
   constructor(
-    config: AiAssistProviderConfig,
+    config: AnthropicAiAssistConfig,
     private readonly apiAdapter: ApiAdapter
   ) {
     if (!config.apiKey) {
-      throw new AiAssistProviderError("MISSING_API_KEY", "AiAssistProviderConfig.apiKey is required");
+      throw new AiAssistProviderError("MISSING_API_KEY", "AnthropicAiAssistConfig.apiKey is required");
     }
     this.apiKey = config.apiKey;
     this.completeModel = config.completeModel ?? DEFAULT_COMPLETE_MODEL;

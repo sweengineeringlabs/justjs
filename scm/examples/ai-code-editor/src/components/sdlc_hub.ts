@@ -16,20 +16,21 @@ import { runCliCommand } from "../core/cli.js";
 // of the 3 SCM providers. Linear/Asana/Trello/Jira are all in
 // simple-icons' catalog for real too - no monogram fallback needed for
 // any of the 4 PM providers.
-import {
-  gcpLogo,
-  digitaloceanLogo,
-  cloudflareLogo,
-  vercelLogo,
-  netlifyLogo,
-  githubLogo,
-  gitlabLogo,
-  bitbucketLogo,
-  linearLogo,
-  asanaLogo,
-  trelloLogo,
-  jiraLogo,
-} from "../core/brand_logos.js";
+import { SCM_PROVIDER_CATALOG, isScmProviderConnected } from "../core/scm_catalog.js";
+import type { ScmProvider } from "../core/scm_catalog.js";
+import { fetchConsolidatedScmDashboardAnalytics } from "../core/scm_dashboard_analytics.js";
+import type { ConsolidatedScmDashboardAnalytics } from "../core/scm_dashboard_analytics.js";
+import { isScmDashboardProviderEnabled, setEnabledScmDashboardProviderIds } from "../core/scm_dashboard_settings.js";
+import { PM_PROVIDER_CATALOG, isPmProviderConnected } from "../core/pm_catalog.js";
+import type { PmProvider } from "../core/pm_catalog.js";
+import { fetchConsolidatedPmDashboardAnalytics } from "../core/pm_dashboard_analytics.js";
+import type { ConsolidatedPmDashboardAnalytics } from "../core/pm_dashboard_analytics.js";
+import { isPmDashboardProviderEnabled, setEnabledPmDashboardProviderIds } from "../core/pm_dashboard_settings.js";
+import { CLOUD_PROVIDER_CATALOG, isCloudProviderConnected } from "../core/cloud_catalog.js";
+import type { CloudProvider } from "../core/cloud_catalog.js";
+import { fetchConsolidatedCloudDashboardAnalytics } from "../core/cloud_dashboard_analytics.js";
+import type { ConsolidatedCloudDashboardAnalytics } from "../core/cloud_dashboard_analytics.js";
+import { isCloudDashboardProviderEnabled, setEnabledCloudDashboardProviderIds } from "../core/cloud_dashboard_settings.js";
 import {
   getStoredCloudToken,
   setStoredCloudToken,
@@ -79,6 +80,20 @@ import "./presentation_generator_control.js";
 import type { PresentationGeneratorControl } from "./presentation_generator_control.js";
 import "./cloud_connector.js";
 import type { CloudCatalogItem, CloudConnectorControl } from "./cloud_connector.js";
+import "./cloud_provisioning.js";
+import type { CloudProvisioningControl } from "./cloud_provisioning.js";
+import "./ec2_provisioning.js";
+import type { Ec2ProvisioningControl } from "./ec2_provisioning.js";
+import "./ecs_provisioning.js";
+import type { EcsProvisioningControl } from "./ecs_provisioning.js";
+import "./alarm_monitor.js";
+import type { AlarmMonitorControl } from "./alarm_monitor.js";
+import "./ec2_monitor.js";
+import type { Ec2MonitorControl } from "./ec2_monitor.js";
+import "./ecs_monitor.js";
+import type { EcsMonitorControl } from "./ecs_monitor.js";
+import "./deployment_pipeline.js";
+import type { DeploymentPipelineControl } from "./deployment_pipeline.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -141,7 +156,27 @@ interface SdlcFunction {
   // stages (Requirement's "Specs"/"User Stories" and Planning's new
   // "Project Boards"), same one-real-capability-many-entries shape
   // "design-generate" already established within a single stage.
-  readonly action?: "design-generate" | "cloud-providers" | "scm-connect" | "presentation-generate" | "cli" | "pm-connect";
+  // "cloud-monitoring": Operations' real counterpart to "cloud-providers"
+  // (justjs#151) - the same AWS resources "cloud-providers" lets you
+  // configure/create, here shown read/manage-only (list, start/stop/
+  // terminate, redeploy, delete) under a stage that's about operating
+  // what's already running, not deploying something new.
+  // "deployment-pipeline": the real 6-stage deployment-workflow model
+  // (justjs#153/#154) - Build/Test-verify/Provision/Release/Rollout-
+  // strategy/Rollback, gated so a step can't be actioned until the one
+  // before it is satisfied. A second, distinct function alongside
+  // "cloud-providers" under Deployment, not a replacement for it - this
+  // is the ordered-workflow view, "cloud-providers" stays the direct
+  // per-resource Configure/Create view.
+  readonly action?:
+    | "design-generate"
+    | "cloud-providers"
+    | "cloud-monitoring"
+    | "deployment-pipeline"
+    | "scm-connect"
+    | "presentation-generate"
+    | "cli"
+    | "pm-connect";
 }
 
 interface SdlcStage {
@@ -150,60 +185,6 @@ interface SdlcStage {
   readonly icon: string;
   readonly functions: readonly SdlcFunction[];
 }
-
-interface CloudProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly icon: string;
-  // Each provider's real, recognizable brand color (not an arbitrary
-  // palette pick) - used for the badge background regardless of
-  // whether a real `logo` SVG is available.
-  readonly color: string;
-  // Raw SVG markup (simple-icons, single <path>, no fill set) for the
-  // 5 providers actually in that catalog. Recolored to white via a
-  // `fill="currentColor"` injection at render time (renderCloudProviders
-  // below) so it reads clearly against its own colored badge. Absent
-  // for aws/azure/heroku - those render their emoji `icon` instead, not
-  // a fabricated logo.
-  readonly logo?: string;
-  // "bearer" - a single pasted token, sent as `Authorization: Bearer`,
-  // same posture as ai_assist.ts's Anthropic key. "aws" - two fields
-  // (access key ID + secret) and real SigV4 request signing
-  // (core/aws_sigv4.ts) - AWS's own docs are explicit that CORS support
-  // doesn't remove the signing requirement. "unsupported" - Cloudflare's
-  // API did not return CORS headers when checked live; connecting
-  // directly from a browser isn't confirmed possible, so this stays an
-  // honest "not available" state rather than a connect form that might
-  // silently fail.
-  readonly kind: "bearer" | "aws" | "unsupported";
-  // Real command the user runs locally to get a token - only Azure/GCP
-  // need this (a short-lived CLI-issued token, not a full OAuth-in-SPA
-  // flow - see cloud_connect.ts's comments for why). Shown verbatim in
-  // the connect form, along with the token's real expiry.
-  readonly tokenHint?: { readonly command: string; readonly expiry: string };
-  // Netlify/Vercel/Heroku only: a real, direct-from-browser "Deploy this
-  // project" action is available (@justjs/cloud-connect's own optional
-  // deploy() capability) - orthogonal to `kind` (all 3 stay "bearer"),
-  // same reasoning AWS's listInstances-only capability already
-  // established: an extra opt-in action, not a new provider `kind`.
-  readonly supportsDeploy?: boolean;
-}
-
-// A real, recognizable set of actual cloud providers - not arbitrary
-// user-typed strings. 6 of 7 connectable providers use a pasted bearer
-// token (same security posture as the existing Anthropic key); AWS
-// needs real request signing instead (see core/aws_sigv4.ts); Cloudflare
-// stays local-list-only (no confirmed CORS access - see `kind` above).
-const CLOUD_PROVIDER_CATALOG: readonly CloudProvider[] = [
-  { id: "aws", name: "AWS", icon: "🟧", color: "#FF9900", kind: "aws" },
-  { id: "gcp", name: "Google Cloud", icon: "🔴", color: "#4285F4", logo: gcpLogo, kind: "bearer", tokenHint: { command: "gcloud auth print-access-token", expiry: "~1 hour" } },
-  { id: "azure", name: "Microsoft Azure", icon: "🔷", color: "#0078D4", kind: "bearer", tokenHint: { command: "az account get-access-token --query accessToken -o tsv", expiry: "~60-90 minutes" } },
-  { id: "digitalocean", name: "DigitalOcean", icon: "💧", color: "#0080FF", logo: digitaloceanLogo, kind: "bearer" },
-  { id: "cloudflare", name: "Cloudflare", icon: "🟠", color: "#F38020", logo: cloudflareLogo, kind: "unsupported" },
-  { id: "vercel", name: "Vercel", icon: "▲", color: "#000000", logo: vercelLogo, kind: "bearer", supportsDeploy: true },
-  { id: "netlify", name: "Netlify", icon: "🟢", color: "#00C7B7", logo: netlifyLogo, kind: "bearer", supportsDeploy: true },
-  { id: "heroku", name: "Heroku", icon: "🟣", color: "#430098", kind: "bearer", supportsDeploy: true },
-];
 
 const CLOUD_DEPLOYERS: Record<string, (token: string, files: readonly CloudDeployFile[], existingTargetId?: string) => Promise<CloudDeployResult>> = {
   netlify: deployToNetlify,
@@ -219,16 +200,6 @@ const BEARER_CONNECTORS: Record<string, (token: string) => Promise<CloudResource
   netlify: connectNetlify,
   heroku: connectHeroku,
 };
-
-// <control-cloud-connector> (app-local sibling to
-// <control-provider-connector> - Cloud's real extra actions don't fit
-// the shared package's own scope, see cloud_connector.ts's own doc
-// comment) covers this shape. CloudResource{id,name,status} already
-// matches ListItem's shape exactly, same precedent SCM/PM's own real
-// usage established.
-function isCloudProviderConnected(p: CloudProvider): boolean {
-  return p.kind === "aws" ? getStoredAwsCredentials() !== null : getStoredCloudToken(p.id).length > 0;
-}
 
 function toCloudCatalogItem(p: CloudProvider): CloudCatalogItem {
   if (p.kind === "unsupported") {
@@ -342,31 +313,6 @@ async function handleCloudDeploy(providerId: string, store: FeatureStore<AppStat
   return result;
 }
 
-interface ScmProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly color: string;
-  readonly logo: string;
-  // "deviceFlow" (GitHub only, justjs#135) signs in via GitHub's OAuth
-  // Device Authorization Flow - no token to paste, no redirect URI
-  // (works in the packaged Android WebView, unlike Jira's redirect-based
-  // flow). GitLab/Bitbucket stay "bearer" - GitLab also supports device
-  // flow but is a follow-up, not this pass; Bitbucket's OAuth is
-  // redirect-only, out of scope for the same reason Jira's redirect flow
-  // doesn't fit here.
-  readonly kind: "bearer" | "deviceFlow";
-}
-
-// A real, recognizable set of actual source-control providers - all 3
-// are in simple-icons' catalog for real, so no emoji-monogram fallback
-// is needed here (unlike CLOUD_PROVIDER_CATALOG's AWS/Azure/Heroku
-// gap).
-const SCM_PROVIDER_CATALOG: readonly ScmProvider[] = [
-  { id: "github", name: "GitHub", color: "#181717", logo: githubLogo, kind: "deviceFlow" },
-  { id: "gitlab", name: "GitLab", color: "#FC6D26", logo: gitlabLogo, kind: "bearer" },
-  { id: "bitbucket", name: "Bitbucket", color: "#0052CC", logo: bitbucketLogo, kind: "bearer" },
-];
-
 const SCM_CONNECTORS: Record<string, (token: string) => Promise<ScmResource[]>> = {
   github: connectGithub,
   gitlab: connectGitlab,
@@ -437,37 +383,6 @@ async function handleScmDeviceFlowBegin(
 function handleScmDisconnect(providerId: string): void {
   setStoredScmToken(providerId, "");
 }
-
-interface PmProvider {
-  readonly id: string;
-  readonly name: string;
-  readonly color: string;
-  readonly logo: string;
-  // "bearer" - Linear/Asana's single pasted token (Linear's own header
-  // convention omits the "Bearer" prefix entirely - real, handled
-  // inside @justjs/pm-connect, not a UI concern). "keytoken" - Trello's
-  // real 2-field API key + token (sent as query params, not a header -
-  // also handled inside the package). "oauth" - Jira's real OAuth 2.0
-  // redirect flow: the connect screen collects the user's own Atlassian
-  // OAuth app Client ID + Secret (never hardcoded/shipped in this app -
-  // same bring-your-own-app-credentials posture Reddit's own connect
-  // screen already established), and "Connect" navigates the real
-  // browser to Atlassian's consent screen rather than resolving in
-  // place like every other provider here.
-  readonly kind: "bearer" | "keytoken" | "oauth";
-}
-
-// A real, recognizable set of actual project-management providers -
-// all 4 are in simple-icons' catalog for real. Notion (confirmed no
-// CORS support at all when checked live) isn't offered here even as an
-// honest "not available" card - unlike Cloudflare/X/LinkedIn elsewhere,
-// it was never in the confirmed provider set this feature shipped with.
-const PM_PROVIDER_CATALOG: readonly PmProvider[] = [
-  { id: "linear", name: "Linear", color: "#5E6AD2", logo: linearLogo, kind: "bearer" },
-  { id: "asana", name: "Asana", color: "#F06A6A", logo: asanaLogo, kind: "bearer" },
-  { id: "trello", name: "Trello", color: "#0052CC", logo: trelloLogo, kind: "keytoken" },
-  { id: "jira", name: "Jira", color: "#0052CC", logo: jiraLogo, kind: "oauth" },
-];
 
 const PM_CONNECTORS: Record<string, (token: string) => Promise<PmResource[]>> = {
   linear: connectLinear,
@@ -665,14 +580,17 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "deployment",
     label: "Deployment",
     icon: "🚀",
-    functions: [{ label: "Cloud", icon: "☁️", action: "cloud-providers" }],
+    functions: [
+      { label: "Cloud", icon: "☁️", action: "cloud-providers" },
+      { label: "Workflow", icon: "🪜", action: "deployment-pipeline" },
+    ],
   },
   {
     key: "operations",
     label: "Operations",
     icon: "📈",
     functions: [
-      { label: "Monitoring", icon: "📊" },
+      { label: "Monitoring", icon: "📊", action: "cloud-monitoring" },
       { label: "Logs", icon: "📜" },
     ],
   },
@@ -683,6 +601,28 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     functions: [{ label: "Slides", icon: "📽️", action: "presentation-generate" }],
   },
 ];
+
+type DashboardTabId = "analytics" | "trending" | "settings";
+
+// Dashboard's own 3 switchable tabs - Analytics/Trending/Settings, NOT
+// one tab per connected provider (justjs#137's established pattern,
+// replicated here for SCM's own Dashboard, justjs#139). Recent Activity
+// is NOT one of these tabs - it's a permanent section pinned at the
+// bottom of the workspace regardless of which tab is active, same as
+// Socials' own Dashboard.
+const DASHBOARD_TABS: readonly { readonly id: DashboardTabId; readonly label: string; readonly icon: string }[] = [
+  { id: "analytics", label: "Analytics", icon: "📊" },
+  { id: "trending", label: "Trending", icon: "🔥" },
+  { id: "settings", label: "Settings", icon: "⚙️" },
+];
+
+function formatDashboardActivityTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 // The SDLC hub: a 9-widget overview (8 SDLC stages plus Presentation),
 // drilling into each stage's function list on tap. Design, Development's
@@ -729,23 +669,80 @@ export class SdlcHubElement extends HTMLElement {
   // app-local sibling to <control-provider-connector> since AWS's List
   // EC2 Instances and 3 providers' Deploy don't fit the shared
   // package's own scope - see cloud_connector.ts's own doc comment).
-  // Same caching/reset-on-stage-switch/no-public-reset-API reasoning as
+  // Same caching/real-resetView()-on-stage-switch reasoning as
   // scmScreen/pmScreen.
   private showCloudProviders = false;
   private cloudScreen: HTMLElement | undefined;
+  private cloudMainView!: HTMLElement;
+  // Real cloud provisioning workflow (connect -> configure -> deploy) -
+  // CloudWatch alarms are the pilot service, a second sibling view
+  // alongside Instances/Clusters, same cache/reset pattern. Dashboard
+  // and every Monitor half live under Operations -> Monitoring now
+  // (justjs#151's Deployment/Operations split), not here.
+  private cloudProvisioningView!: HTMLElement;
+  private cloudProvisioningBackBtn!: HTMLButtonElement;
+  // EC2 provisioning (justjs#144/ADR-0017) - the second phase, a third
+  // sibling view alongside Dashboard/Alarms, same cache/reset pattern.
+  private cloudEc2View!: HTMLElement;
+  private cloudEc2BackBtn!: HTMLButtonElement;
+  // ECS Clusters view alongside Dashboard/Alarms/Instances, same
+  // cache/reset pattern (justjs#144/ADR-0017's ECS phase).
+  private cloudEcsView!: HTMLElement;
+  private cloudEcsBackBtn!: HTMLButtonElement;
+
+  // Operations' Monitoring (justjs#151's Deployment/Operations split) -
+  // the Monitor half of what Cloud used to render as one combined
+  // Configure+Monitor screen. Dashboard moves here too (read-only
+  // cross-provider analytics is an operational concern, not a deploy
+  // one) alongside the 3 Monitor-only controls, same
+  // caching/real-resetView()-on-stage-switch reasoning as cloudScreen.
+  private showCloudMonitoring = false;
+  private cloudMonitoringScreen: HTMLElement | undefined;
+  private cloudMonitoringMainView!: HTMLElement;
+  private cloudMonitoringDashboardView!: HTMLElement;
+  private cloudMonitoringDashboardBackBtn!: HTMLButtonElement;
+  private cloudMonitoringDashboardTabsEl!: HTMLElement;
+  private cloudMonitoringDashboardTabContentEl!: HTMLElement;
+  private cloudMonitoringDashboardActivityEl!: HTMLElement;
+  private cloudMonitoringDashboardData: ConsolidatedCloudDashboardAnalytics | null = null;
+  private activeCloudMonitoringDashboardTab: DashboardTabId = "analytics";
+  private readonly expandedCloudMonitoringMetricKeys = new Set<string>();
+  private cloudMonitoringAlarmsView!: HTMLElement;
+  private cloudMonitoringAlarmsBackBtn!: HTMLButtonElement;
+  private cloudMonitoringEc2View!: HTMLElement;
+  private cloudMonitoringEc2BackBtn!: HTMLButtonElement;
+  private cloudMonitoringEcsView!: HTMLElement;
+  private cloudMonitoringEcsBackBtn!: HTMLButtonElement;
+
+  // Deployment's Workflow (justjs#153/#154) - the real 6-stage
+  // deployment-workflow pipeline, a second function alongside Cloud
+  // under Deployment. Single-screen (no tile grid, unlike Cloud/
+  // Monitoring) - <control-deployment-pipeline> owns its own list-of-
+  // pipelines/step-gating state internally.
+  private showDeploymentPipeline = false;
+  private deploymentPipelineScreen: HTMLElement | undefined;
 
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
   // scmScreen caches the whole composed wrapper (header + hint +
-  // connector) so that state (and grid<->detail position) survives
-  // leaving and re-entering Repository within Development, and across
-  // tab switches - but the control has no public reset API, so
-  // renderOverview's item-select handler below discards this reference
-  // entirely (forcing a fresh instance next visit) to preserve the
-  // original's own reset-on-stage-switch behavior for
-  // selectedScmProviderId/scmResources.
+  // connector + Dashboard tile/view) so that state (and grid<->detail
+  // position) survives leaving and re-entering Repository within
+  // Development, and across tab switches - real reset via the
+  // connector's own resetView() (justjs#138/#139) plus this screen's own
+  // resetScmDashboardToMain(), both called from the overview grid's
+  // item-select handler below, instead of discarding and rebuilding the
+  // whole wrapper.
   private showScmConnect = false;
   private scmScreen: HTMLElement | undefined;
+  private scmMainView!: HTMLElement;
+  private scmDashboardView!: HTMLElement;
+  private scmDashboardBackBtn!: HTMLButtonElement;
+  private scmDashboardTabsEl!: HTMLElement;
+  private scmDashboardTabContentEl!: HTMLElement;
+  private scmDashboardActivityEl!: HTMLElement;
+  private scmDashboardData: ConsolidatedScmDashboardAnalytics | null = null;
+  private activeScmDashboardTab: DashboardTabId = "analytics";
+  private readonly expandedScmMetricKeys = new Set<string>();
 
   // Requirement's/Planning's project-management connections -
   // <control-provider-connector>, same caching/reset-on-stage-switch
@@ -756,6 +753,15 @@ export class SdlcHubElement extends HTMLElement {
   // "← Planning"), unlike scmScreen's single fixed "← Development".
   private showPmConnect = false;
   private pmScreen: HTMLElement | undefined;
+  private pmMainView!: HTMLElement;
+  private pmDashboardView!: HTMLElement;
+  private pmDashboardBackBtn!: HTMLButtonElement;
+  private pmDashboardTabsEl!: HTMLElement;
+  private pmDashboardTabContentEl!: HTMLElement;
+  private pmDashboardActivityEl!: HTMLElement;
+  private pmDashboardData: ConsolidatedPmDashboardAnalytics | null = null;
+  private activePmDashboardTab: DashboardTabId = "analytics";
+  private readonly expandedPmMetricKeys = new Set<string>();
 
   // Presentation-stage generator - <control-presentation-generator>,
   // same caching reasoning as designGenerator above.
@@ -812,15 +818,38 @@ export class SdlcHubElement extends HTMLElement {
       // mid-generator/mid-provider-list from a previous visit.
       this.showDesignGenerator = false;
       this.showCloudProviders = false;
-      // No public reset API on CloudConnectorControl either - same
-      // discard-and-recreate reasoning as scmScreen/pmScreen.
-      this.cloudScreen = undefined;
+      // Real reset instead of discard-and-recreate (justjs#138/#139) -
+      // CloudConnectorControl/ProviderConnectorControl now both expose a
+      // public resetView(), so the cached wrapper (and the real state a
+      // future Dashboard would add) survives a stage switch instead of
+      // being thrown away and rebuilt from scratch every time. Guarded
+      // on the screen actually existing - first visit to a stage never
+      // created scmScreen/pmScreen/cloudScreen yet. Split into two
+      // statements (not a single `a?.b(...)?.c()` chain) - justc's
+      // optional-chaining transpile drops the guard on the leading `?.`
+      // in a chained double-optional call, only guarding the trailing
+      // one, which threw on `this.cloudScreen.querySelector` when
+      // cloudScreen was still undefined.
+      const cloudConnector = this.cloudScreen?.querySelector<CloudConnectorControl>("#cloud-connector");
+      cloudConnector?.resetView();
+      this.resetCloudProvisioningToMain();
+      this.resetCloudEc2ToMain();
+      this.resetCloudEcsToMain();
+      this.showCloudMonitoring = false;
+      this.resetCloudMonitoringDashboardToMain();
+      this.resetCloudMonitoringAlarmsToMain();
+      this.resetCloudMonitoringEc2ToMain();
+      this.resetCloudMonitoringEcsToMain();
+      this.showDeploymentPipeline = false;
+      this.deploymentPipelineScreen?.querySelector<DeploymentPipelineControl>("#deployment-pipeline")?.resetView();
       this.showScmConnect = false;
-      // No public reset API on ProviderConnectorControl - discarding the
-      // cached wrapper is the only way to force a fresh grid view.
-      this.scmScreen = undefined;
+      const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
+      scmConnector?.resetView();
+      this.resetScmDashboardToMain();
       this.showPmConnect = false;
-      this.pmScreen = undefined;
+      const pmConnector = this.pmScreen?.querySelector<ProviderConnectorControl>("#pm-connector");
+      pmConnector?.resetView();
+      this.resetPmDashboardToMain();
       this.showPresentationGenerator = false;
       this.showCliTerminal = false;
       this.renderView();
@@ -855,6 +884,14 @@ export class SdlcHubElement extends HTMLElement {
         return;
       case "cloud-providers":
         this.showCloudProviders = true;
+        this.renderView();
+        return;
+      case "cloud-monitoring":
+        this.showCloudMonitoring = true;
+        this.renderView();
+        return;
+      case "deployment-pipeline":
+        this.showDeploymentPipeline = true;
         this.renderView();
         return;
       case "scm-connect":
@@ -922,6 +959,14 @@ export class SdlcHubElement extends HTMLElement {
     }
     if (stage.key === "deployment" && this.showCloudProviders) {
       this.renderCloudProviders();
+      return;
+    }
+    if (stage.key === "deployment" && this.showDeploymentPipeline) {
+      this.renderDeploymentPipeline();
+      return;
+    }
+    if (stage.key === "operations" && this.showCloudMonitoring) {
+      this.renderCloudMonitoring();
       return;
     }
     if (stage.key === "presentation" && this.showPresentationGenerator) {
@@ -1015,9 +1060,33 @@ export class SdlcHubElement extends HTMLElement {
     if (!this.cloudScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
-        <view-nav-header id="cloud-header"></view-nav-header>
-        <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
-        <control-cloud-connector id="cloud-connector"></control-cloud-connector>
+        <div id="cloud-main-view">
+          <view-nav-header id="cloud-header"></view-nav-header>
+          <p class="connect-hint">Tap a provider to connect a real account and see its actual resources. Tokens/credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none). See each provider's own connect screen for the exact security tradeoff.</p>
+          <control-cloud-connector id="cloud-connector"></control-cloud-connector>
+          <view-grid id="cloud-dashboard-tile-grid"></view-grid>
+        </div>
+        <div id="cloud-provisioning-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-provisioning-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">🔔 Alarms</h2>
+          </div>
+          <control-cloud-provisioning id="cloud-provisioning"></control-cloud-provisioning>
+        </div>
+        <div id="cloud-ec2-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-ec2-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">🖥️ Instances</h2>
+          </div>
+          <control-ec2-provisioning id="cloud-ec2"></control-ec2-provisioning>
+        </div>
+        <div id="cloud-ecs-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-ecs-back-btn" class="dash-back-btn" type="button">← Cloud Providers</button>
+            <h2 class="workspace-stage-title">📦 Clusters</h2>
+          </div>
+          <control-ecs-provisioning id="cloud-ecs"></control-ecs-provisioning>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#cloud-header")!;
       header.icon = "🚀";
@@ -1037,9 +1106,450 @@ export class SdlcHubElement extends HTMLElement {
       connector.listInstances = handleCloudListInstances;
       connector.deploy = (providerId) => handleCloudDeploy(providerId, this.store);
       connector.catalogLabel = "Cloud Providers";
+
+      this.cloudMainView = screen.querySelector<HTMLElement>("#cloud-main-view")!;
+
+      this.cloudProvisioningView = screen.querySelector<HTMLElement>("#cloud-provisioning-view")!;
+      this.cloudProvisioningBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-provisioning-back-btn")!;
+      this.cloudEc2View = screen.querySelector<HTMLElement>("#cloud-ec2-view")!;
+      this.cloudEc2BackBtn = screen.querySelector<HTMLButtonElement>("#cloud-ec2-back-btn")!;
+      this.cloudEcsView = screen.querySelector<HTMLElement>("#cloud-ecs-view")!;
+      this.cloudEcsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-ecs-back-btn")!;
+
+      const dashboardTileGrid = screen.querySelector<GridView>("#cloud-dashboard-tile-grid")!;
+      dashboardTileGrid.items = [
+        { id: "alarms", label: "Alarms", icon: "🔔" },
+        { id: "instances", label: "Instances", icon: "🖥️" },
+        { id: "clusters", label: "Clusters", icon: "📦" },
+      ];
+      dashboardTileGrid.addEventListener("item-select", (e) => {
+        const id = (e as CustomEvent<{ id: string }>).detail.id;
+        if (id === "alarms") {
+          this.showCloudProvisioning();
+        } else if (id === "instances") {
+          this.showCloudEc2();
+        } else if (id === "clusters") {
+          this.showCloudEcs();
+        }
+      });
+      this.cloudProvisioningBackBtn.addEventListener("click", () => this.resetCloudProvisioningToMain());
+      this.cloudEc2BackBtn.addEventListener("click", () => this.resetCloudEc2ToMain());
+      this.cloudEcsBackBtn.addEventListener("click", () => this.resetCloudEcsToMain());
+
       this.cloudScreen = screen;
     }
     this.subscreenView.appendChild(this.cloudScreen);
+  }
+
+  private showCloudProvisioning(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudProvisioningView.hidden = false;
+  }
+
+  // Called both by this view's own back button and by the overview
+  // grid's item-select handler, plus resets the control's own internal
+  // Configure-form state via its resetView(), same pattern
+  // CloudConnectorControl's own resetView() already established.
+  private resetCloudProvisioningToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudProvisioningView.hidden = true;
+    this.cloudMainView.hidden = false;
+    const provisioning = this.cloudScreen.querySelector<CloudProvisioningControl>("#cloud-provisioning");
+    provisioning?.resetView();
+  }
+
+  private showCloudEc2(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudEc2View.hidden = false;
+  }
+
+  // Same reasoning as resetCloudProvisioningToMain().
+  private resetCloudEc2ToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudEc2View.hidden = true;
+    this.cloudMainView.hidden = false;
+    const ec2 = this.cloudScreen.querySelector<Ec2ProvisioningControl>("#cloud-ec2");
+    ec2?.resetView();
+  }
+
+  private showCloudEcs(): void {
+    this.cloudMainView.hidden = true;
+    this.cloudEcsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudEc2ToMain().
+  private resetCloudEcsToMain(): void {
+    if (!this.cloudScreen) {
+      return;
+    }
+    this.cloudEcsView.hidden = true;
+    this.cloudMainView.hidden = false;
+    const ecs = this.cloudScreen.querySelector<EcsProvisioningControl>("#cloud-ecs");
+    ecs?.resetView();
+  }
+
+  // ---- Deployment: Workflow (opened from Workflow above) - the real
+  // 6-stage deployment-workflow pipeline (justjs#153/#154). Single
+  // screen, no tile grid - <control-deployment-pipeline> owns its own
+  // list-of-pipelines/step-gating state internally, this just mounts it
+  // behind a real back button, same <view-nav-header> shape
+  // renderCloudProviders()/renderCloudMonitoring() already use. ----
+
+  private renderDeploymentPipeline(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
+    if (!this.deploymentPipelineScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <view-nav-header id="deployment-pipeline-header"></view-nav-header>
+        <control-deployment-pipeline id="deployment-pipeline"></control-deployment-pipeline>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#deployment-pipeline-header")!;
+      header.icon = "🪜";
+      header.title = "Workflow";
+      header.backLabel = "Deployment";
+      header.addEventListener("nav-back", () => {
+        this.showDeploymentPipeline = false;
+        this.renderView();
+      });
+      this.deploymentPipelineScreen = screen;
+    }
+    this.subscreenView.appendChild(this.deploymentPipelineScreen);
+  }
+
+  // ---- Operations: Monitoring (opened from Monitoring above) - the
+  // Monitor half of what Cloud used to render as one combined
+  // Configure+Monitor screen (justjs#151's Deployment/Operations
+  // split). Dashboard moves here too - read-only cross-provider
+  // analytics is an operational concern, not a deploy one. Structural
+  // clone of renderCloudProviders() minus the provider-connector (each
+  // Monitor control already gates on getStoredAwsCredentials() directly
+  // with no connector dependency, same mechanism the 3 Configure
+  // controls above already use). ----
+
+  private renderCloudMonitoring(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
+    if (!this.cloudMonitoringScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <div id="cloud-monitoring-main-view">
+          <view-nav-header id="cloud-monitoring-header"></view-nav-header>
+          <p class="connect-hint">Manage AWS resources already running - launch/create new ones in Deployment → Cloud first.</p>
+          <view-grid id="cloud-monitoring-tile-grid"></view-grid>
+        </div>
+        <div id="cloud-monitoring-dashboard-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-dashboard-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">📊 Dashboard</h2>
+          </div>
+          <div id="cloud-monitoring-dashboard-tabs" class="dashboard-tabs"></div>
+          <div id="cloud-monitoring-dashboard-tab-content"></div>
+          <p class="dashboard-section-title">🕒 Recent Activity</p>
+          <div id="cloud-monitoring-dashboard-activity"></div>
+        </div>
+        <div id="cloud-monitoring-alarms-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-alarms-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">🔔 Alarms</h2>
+          </div>
+          <control-alarm-monitor id="cloud-monitoring-alarms"></control-alarm-monitor>
+        </div>
+        <div id="cloud-monitoring-ec2-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-ec2-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">🖥️ Instances</h2>
+          </div>
+          <control-ec2-monitor id="cloud-monitoring-ec2"></control-ec2-monitor>
+        </div>
+        <div id="cloud-monitoring-ecs-view" hidden>
+          <div class="dash-subnav">
+            <button id="cloud-monitoring-ecs-back-btn" class="dash-back-btn" type="button">← Monitoring</button>
+            <h2 class="workspace-stage-title">📦 Clusters</h2>
+          </div>
+          <control-ecs-monitor id="cloud-monitoring-ecs"></control-ecs-monitor>
+        </div>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#cloud-monitoring-header")!;
+      header.icon = "📈";
+      header.title = "Monitoring";
+      header.backLabel = "Operations";
+      header.addEventListener("nav-back", () => {
+        this.showCloudMonitoring = false;
+        this.renderView();
+      });
+
+      this.cloudMonitoringMainView = screen.querySelector<HTMLElement>("#cloud-monitoring-main-view")!;
+      this.cloudMonitoringDashboardView = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-view")!;
+      this.cloudMonitoringDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-dashboard-back-btn")!;
+      this.cloudMonitoringDashboardTabsEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-tabs")!;
+      this.cloudMonitoringDashboardTabContentEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-tab-content")!;
+      this.cloudMonitoringDashboardActivityEl = screen.querySelector<HTMLElement>("#cloud-monitoring-dashboard-activity")!;
+      this.cloudMonitoringAlarmsView = screen.querySelector<HTMLElement>("#cloud-monitoring-alarms-view")!;
+      this.cloudMonitoringAlarmsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-alarms-back-btn")!;
+      this.cloudMonitoringEc2View = screen.querySelector<HTMLElement>("#cloud-monitoring-ec2-view")!;
+      this.cloudMonitoringEc2BackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-ec2-back-btn")!;
+      this.cloudMonitoringEcsView = screen.querySelector<HTMLElement>("#cloud-monitoring-ecs-view")!;
+      this.cloudMonitoringEcsBackBtn = screen.querySelector<HTMLButtonElement>("#cloud-monitoring-ecs-back-btn")!;
+
+      const monitoringTileGrid = screen.querySelector<GridView>("#cloud-monitoring-tile-grid")!;
+      monitoringTileGrid.items = [
+        { id: "dashboard", label: "Dashboard", icon: "📊" },
+        { id: "alarms", label: "Alarms", icon: "🔔" },
+        { id: "instances", label: "Instances", icon: "🖥️" },
+        { id: "clusters", label: "Clusters", icon: "📦" },
+      ];
+      monitoringTileGrid.addEventListener("item-select", (e) => {
+        const id = (e as CustomEvent<{ id: string }>).detail.id;
+        if (id === "dashboard") {
+          this.showCloudMonitoringDashboard();
+        } else if (id === "alarms") {
+          this.showCloudMonitoringAlarms();
+        } else if (id === "instances") {
+          this.showCloudMonitoringEc2();
+        } else if (id === "clusters") {
+          this.showCloudMonitoringEcs();
+        }
+      });
+      this.cloudMonitoringDashboardBackBtn.addEventListener("click", () => this.resetCloudMonitoringDashboardToMain());
+      this.cloudMonitoringAlarmsBackBtn.addEventListener("click", () => this.resetCloudMonitoringAlarmsToMain());
+      this.cloudMonitoringEc2BackBtn.addEventListener("click", () => this.resetCloudMonitoringEc2ToMain());
+      this.cloudMonitoringEcsBackBtn.addEventListener("click", () => this.resetCloudMonitoringEcsToMain());
+
+      this.cloudMonitoringScreen = screen;
+    }
+    this.subscreenView.appendChild(this.cloudMonitoringScreen);
+  }
+
+  private showCloudMonitoringDashboard(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringDashboardView.hidden = false;
+    this.activeCloudMonitoringDashboardTab = "analytics";
+    this.expandedCloudMonitoringMetricKeys.clear();
+    this.renderCloudMonitoringDashboardTabs();
+    void this.loadCloudMonitoringDashboardData();
+  }
+
+  // Real reset back to the main monitoring grid - called both by
+  // Dashboard's own back button and by the overview grid's item-select
+  // handler, same reasoning as resetCloudProvisioningToMain(). Safe
+  // no-op if cloudMonitoringScreen was never built yet.
+  private resetCloudMonitoringDashboardToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringDashboardView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+  }
+
+  private showCloudMonitoringAlarms(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringAlarmsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringDashboardToMain() - plus
+  // resets the control's own internal list state via its resetView(),
+  // same pattern every other Monitor/Configure control here uses.
+  private resetCloudMonitoringAlarmsToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringAlarmsView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const alarms = this.cloudMonitoringScreen.querySelector<AlarmMonitorControl>("#cloud-monitoring-alarms");
+    alarms?.resetView();
+  }
+
+  private showCloudMonitoringEc2(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringEc2View.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringAlarmsToMain().
+  private resetCloudMonitoringEc2ToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringEc2View.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const ec2 = this.cloudMonitoringScreen.querySelector<Ec2MonitorControl>("#cloud-monitoring-ec2");
+    ec2?.resetView();
+  }
+
+  private showCloudMonitoringEcs(): void {
+    this.cloudMonitoringMainView.hidden = true;
+    this.cloudMonitoringEcsView.hidden = false;
+  }
+
+  // Same reasoning as resetCloudMonitoringEc2ToMain().
+  private resetCloudMonitoringEcsToMain(): void {
+    if (!this.cloudMonitoringScreen) {
+      return;
+    }
+    this.cloudMonitoringEcsView.hidden = true;
+    this.cloudMonitoringMainView.hidden = false;
+    const ecs = this.cloudMonitoringScreen.querySelector<EcsMonitorControl>("#cloud-monitoring-ecs");
+    ecs?.resetView();
+  }
+
+  private renderCloudMonitoringDashboardTabs(): void {
+    this.cloudMonitoringDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
+      (t) => `
+        <button type="button" class="dashboard-tab ${t.id === this.activeCloudMonitoringDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
+          ${t.icon} ${t.label}
+        </button>
+      `
+    ).join("");
+    this.cloudMonitoringDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tabId = btn.dataset["tab"] as DashboardTabId;
+        if (tabId === this.activeCloudMonitoringDashboardTab) {
+          return;
+        }
+        this.activeCloudMonitoringDashboardTab = tabId;
+        this.renderCloudMonitoringDashboardTabs();
+        this.renderActiveCloudMonitoringDashboardTab();
+      });
+    });
+  }
+
+  private async loadCloudMonitoringDashboardData(): Promise<void> {
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudMonitoringDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.cloudMonitoringDashboardData = await fetchConsolidatedCloudDashboardAnalytics();
+    this.renderActiveCloudMonitoringDashboardTab();
+    this.renderCloudMonitoringActivitySection(this.cloudMonitoringDashboardData);
+  }
+
+  private renderActiveCloudMonitoringDashboardTab(): void {
+    if (this.activeCloudMonitoringDashboardTab === "settings") {
+      this.renderCloudMonitoringSettingsTab();
+      return;
+    }
+    if (!this.cloudMonitoringDashboardData) {
+      return;
+    }
+    if (this.activeCloudMonitoringDashboardTab === "analytics") {
+      this.renderCloudMonitoringAnalyticsTab(this.cloudMonitoringDashboardData);
+    } else {
+      this.renderCloudMonitoringTrendingTab(this.cloudMonitoringDashboardData);
+    }
+  }
+
+  private cloudNoDataHint(): string {
+    const anyConnected = CLOUD_PROVIDER_CATALOG.some(isCloudProviderConnected);
+    return anyConnected
+      ? "Nothing enabled - turn a provider back on in the Settings tab."
+      : "Nothing connected yet - connect a provider in Deployment → Cloud to see its real data here.";
+  }
+
+  private renderCloudMonitoringAnalyticsTab(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.metrics.length === 0 && data.unavailable.length === 0) {
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.cloudNoDataHint()}</p>`;
+      return;
+    }
+    const rowHtml = data.metrics
+      .map((metric) => {
+        const key = `${metric.providerId}:${metric.label}`;
+        const active = this.expandedCloudMonitoringMetricKeys.has(key);
+        return `
+          <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
+            <span class="metric-chip-count">${metric.count}</span>
+            <span class="metric-chip-label">${metric.label}</span>
+            <span class="metric-chip-source">${metric.providerName}</span>
+          </button>
+        `;
+      })
+      .join("");
+    const selected = data.metrics.find((m) => this.expandedCloudMonitoringMetricKeys.has(`${m.providerId}:${m.label}`));
+    const itemsHtml = selected
+      ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
+      : "";
+    const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
+
+    this.cloudMonitoringDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset["metricKey"]!;
+        if (this.expandedCloudMonitoringMetricKeys.has(key)) {
+          this.expandedCloudMonitoringMetricKeys.delete(key);
+        } else {
+          this.expandedCloudMonitoringMetricKeys.clear();
+          this.expandedCloudMonitoringMetricKeys.add(key);
+        }
+        this.renderCloudMonitoringAnalyticsTab(data);
+      });
+    });
+  }
+
+  private renderCloudMonitoringTrendingTab(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.trending.length === 0) {
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
+      return;
+    }
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = data.trending
+      .map(
+        (item) => `
+          <div class="trending-item">
+            <span>${item.title} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="trending-item-score">${item.score}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderCloudMonitoringActivitySection(data: ConsolidatedCloudDashboardAnalytics): void {
+    if (data.recentActivity.length === 0) {
+      this.cloudMonitoringDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
+      return;
+    }
+    this.cloudMonitoringDashboardActivityEl.innerHTML = data.recentActivity
+      .map(
+        (item) => `
+          <div class="activity-item">
+            <span>${item.summary} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="activity-item-time">${formatDashboardActivityTime(item.timestamp)}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderCloudMonitoringSettingsTab(): void {
+    const connected = CLOUD_PROVIDER_CATALOG.filter(isCloudProviderConnected);
+    if (connected.length === 0) {
+      this.cloudMonitoringDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider in Deployment → Cloud, then come back here to choose what Dashboard shows.</p>`;
+      return;
+    }
+    this.cloudMonitoringDashboardTabContentEl.innerHTML = `
+      <p class="connect-hint">Choose which connected providers contribute to Analytics, Trending, and Recent Activity.</p>
+      ${connected
+        .map(
+          (p) => `
+            <label class="field">
+              <input type="checkbox" data-settings-provider="${p.id}" ${isCloudDashboardProviderEnabled(p.id) ? "checked" : ""} />
+              <span class="field-label">${p.name}</span>
+            </label>
+          `
+        )
+        .join("")}
+    `;
+    this.cloudMonitoringDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const enabledIds = connected
+          .filter((p) => this.cloudMonitoringDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
+          .map((p) => p.id);
+        setEnabledCloudDashboardProviderIds(enabledIds);
+        void this.loadCloudMonitoringDashboardData();
+      });
+    });
   }
 
   // ---- Development: source-control connections (opened from Repository
@@ -1056,9 +1566,22 @@ export class SdlcHubElement extends HTMLElement {
     if (!this.scmScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
-        <view-nav-header id="scm-header"></view-nav-header>
-        <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. GitLab/Bitbucket tokens are stored only on this device, sent directly to that provider. GitHub signs in via a real OAuth device flow instead of a pasted token - the code request and sign-in poll relay through a small local service (scm/bo, justjs#135) only to add the CORS headers GitHub's own endpoints don't send; it never sees or stores your token, and every actual repository call still goes straight from this device to GitHub, unproxied.</p>
-        <control-provider-connector id="scm-connector"></control-provider-connector>
+        <div id="scm-main-view">
+          <view-nav-header id="scm-header"></view-nav-header>
+          <p class="connect-hint">Tap a provider to connect a real account and see its actual repositories. GitLab/Bitbucket tokens are stored only on this device, sent directly to that provider. GitHub signs in via a real OAuth device flow instead of a pasted token - the code request and sign-in poll relay through a small local service (scm/bo, justjs#135) only to add the CORS headers GitHub's own endpoints don't send; it never sees or stores your token, and every actual repository call still goes straight from this device to GitHub, unproxied.</p>
+          <control-provider-connector id="scm-connector"></control-provider-connector>
+          <view-grid id="scm-dashboard-tile-grid"></view-grid>
+        </div>
+        <div id="scm-dashboard-view" hidden>
+          <div class="dash-subnav">
+            <button id="scm-dashboard-back-btn" class="dash-back-btn" type="button">← Repository</button>
+            <h2 class="workspace-stage-title">📊 Dashboard</h2>
+          </div>
+          <div id="scm-dashboard-tabs" class="dashboard-tabs"></div>
+          <div id="scm-dashboard-tab-content"></div>
+          <p class="dashboard-section-title">🕒 Recent Activity</p>
+          <div id="scm-dashboard-activity"></div>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#scm-header")!;
       // icon/title are private-field-backed accessors on NavHeaderView,
@@ -1078,9 +1601,218 @@ export class SdlcHubElement extends HTMLElement {
       connector.disconnect = handleScmDisconnect;
       connector.deviceFlowBegin = handleScmDeviceFlowBegin;
       connector.catalogLabel = "Repository";
+
+      this.scmMainView = screen.querySelector<HTMLElement>("#scm-main-view")!;
+      this.scmDashboardView = screen.querySelector<HTMLElement>("#scm-dashboard-view")!;
+      this.scmDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#scm-dashboard-back-btn")!;
+      this.scmDashboardTabsEl = screen.querySelector<HTMLElement>("#scm-dashboard-tabs")!;
+      this.scmDashboardTabContentEl = screen.querySelector<HTMLElement>("#scm-dashboard-tab-content")!;
+      this.scmDashboardActivityEl = screen.querySelector<HTMLElement>("#scm-dashboard-activity")!;
+
+      // Same real <view-grid> tile technique justjs#137 proved for
+      // Socials - the Dashboard tile sits as an additional item
+      // immediately after the connector, not a separate isolated widget.
+      const dashboardTileGrid = screen.querySelector<GridView>("#scm-dashboard-tile-grid")!;
+      dashboardTileGrid.items = [{ id: "dashboard", label: "Dashboard", icon: "📊" }];
+      dashboardTileGrid.addEventListener("item-select", () => this.showScmDashboard());
+      this.scmDashboardBackBtn.addEventListener("click", () => this.resetScmDashboardToMain());
+
       this.scmScreen = screen;
     }
     this.subscreenView.appendChild(this.scmScreen);
+  }
+
+  // Rebuilt fresh every time Dashboard is opened - real data, not a
+  // stale cache, same guarantee Socials' own Dashboard established
+  // (justjs#137).
+  private showScmDashboard(): void {
+    this.scmMainView.hidden = true;
+    this.scmDashboardView.hidden = false;
+    this.activeScmDashboardTab = "analytics";
+    this.expandedScmMetricKeys.clear();
+    this.renderScmDashboardTabs();
+    void this.loadScmDashboardData();
+  }
+
+  // Real reset back to the main provider grid - called both by the
+  // Dashboard's own back button and by the overview grid's item-select
+  // handler (alongside scmConnector.resetView()) so re-entering
+  // Development never leaves Dashboard "stuck" open, the same
+  // navigate-away sticking bug justjs#137/#138 fixed for Socials/Comms/
+  // Cartoon. Safe no-op if scmScreen was never built yet (first visit).
+  private resetScmDashboardToMain(): void {
+    if (!this.scmScreen) {
+      return;
+    }
+    this.scmDashboardView.hidden = true;
+    this.scmMainView.hidden = false;
+  }
+
+  private renderScmDashboardTabs(): void {
+    this.scmDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
+      (t) => `
+        <button type="button" class="dashboard-tab ${t.id === this.activeScmDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
+          ${t.icon} ${t.label}
+        </button>
+      `
+    ).join("");
+    this.scmDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tabId = btn.dataset["tab"] as DashboardTabId;
+        if (tabId === this.activeScmDashboardTab) {
+          return;
+        }
+        this.activeScmDashboardTab = tabId;
+        this.renderScmDashboardTabs();
+        this.renderActiveScmDashboardTab();
+      });
+    });
+  }
+
+  // One real fetch per Dashboard visit, shared by the Analytics/
+  // Trending tabs AND the permanent Recent Activity section - switching
+  // tabs is a pure re-render. Settings changes trigger a fresh fetch of
+  // their own.
+  private async loadScmDashboardData(): Promise<void> {
+    this.scmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.scmDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.scmDashboardData = await fetchConsolidatedScmDashboardAnalytics();
+    this.renderActiveScmDashboardTab();
+    this.renderScmActivitySection(this.scmDashboardData);
+  }
+
+  private renderActiveScmDashboardTab(): void {
+    if (this.activeScmDashboardTab === "settings") {
+      this.renderScmSettingsTab();
+      return;
+    }
+    if (!this.scmDashboardData) {
+      return;
+    }
+    if (this.activeScmDashboardTab === "analytics") {
+      this.renderScmAnalyticsTab(this.scmDashboardData);
+    } else {
+      this.renderScmTrendingTab(this.scmDashboardData);
+    }
+  }
+
+  private scmNoDataHint(): string {
+    const anyConnected = SCM_PROVIDER_CATALOG.some(isScmProviderConnected);
+    return anyConnected
+      ? "Nothing enabled - turn a provider back on in the Settings tab."
+      : "Nothing connected yet - connect a provider above to see its real data here.";
+  }
+
+  // Stats render as a real single horizontal row of compact chips, same
+  // "1 row, x columns" layout justjs#137 established for Socials. Only
+  // one chip's drill-down shows at a time, in the shared panel below the
+  // row.
+  private renderScmAnalyticsTab(data: ConsolidatedScmDashboardAnalytics): void {
+    if (data.metrics.length === 0 && data.unavailable.length === 0) {
+      this.scmDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.scmNoDataHint()}</p>`;
+      return;
+    }
+    const rowHtml = data.metrics
+      .map((metric) => {
+        const key = `${metric.providerId}:${metric.label}`;
+        const active = this.expandedScmMetricKeys.has(key);
+        return `
+          <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
+            <span class="metric-chip-count">${metric.count}</span>
+            <span class="metric-chip-label">${metric.label}</span>
+            <span class="metric-chip-source">${metric.providerName}</span>
+          </button>
+        `;
+      })
+      .join("");
+    const selected = data.metrics.find((m) => this.expandedScmMetricKeys.has(`${m.providerId}:${m.label}`));
+    const itemsHtml = selected
+      ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
+      : "";
+    const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
+    this.scmDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
+
+    this.scmDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset["metricKey"]!;
+        if (this.expandedScmMetricKeys.has(key)) {
+          this.expandedScmMetricKeys.delete(key);
+        } else {
+          this.expandedScmMetricKeys.clear();
+          this.expandedScmMetricKeys.add(key);
+        }
+        this.renderScmAnalyticsTab(data);
+      });
+    });
+  }
+
+  private renderScmTrendingTab(data: ConsolidatedScmDashboardAnalytics): void {
+    if (data.trending.length === 0) {
+      this.scmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
+      return;
+    }
+    this.scmDashboardTabContentEl.innerHTML = data.trending
+      .map(
+        (item) => `
+          <div class="trending-item">
+            <span>${item.title} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="trending-item-score">${item.score}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  // Permanent - rendered once per fetch, unaffected by which of the 3
+  // switchable tabs is active, same as Socials' own Recent Activity.
+  private renderScmActivitySection(data: ConsolidatedScmDashboardAnalytics): void {
+    if (data.recentActivity.length === 0) {
+      this.scmDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
+      return;
+    }
+    this.scmDashboardActivityEl.innerHTML = data.recentActivity
+      .map(
+        (item) => `
+          <div class="activity-item">
+            <span>${item.summary} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="activity-item-time">${formatDashboardActivityTime(item.timestamp)}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  // Dashboard's own Settings tab - toggles which connected SCM providers
+  // contribute to Analytics/Trending/Recent Activity. Lists only
+  // connected providers - nothing to toggle for one that isn't.
+  private renderScmSettingsTab(): void {
+    const connected = SCM_PROVIDER_CATALOG.filter(isScmProviderConnected);
+    if (connected.length === 0) {
+      this.scmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above, then come back here to choose what Dashboard shows.</p>`;
+      return;
+    }
+    this.scmDashboardTabContentEl.innerHTML = `
+      <p class="connect-hint">Choose which connected providers contribute to Analytics, Trending, and Recent Activity.</p>
+      ${connected
+        .map(
+          (p) => `
+            <label class="field">
+              <input type="checkbox" data-settings-provider="${p.id}" ${isScmDashboardProviderEnabled(p.id) ? "checked" : ""} />
+              <span class="field-label">${p.name}</span>
+            </label>
+          `
+        )
+        .join("")}
+    `;
+    this.scmDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const enabledIds = connected
+          .filter((p) => this.scmDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
+          .map((p) => p.id);
+        setEnabledScmDashboardProviderIds(enabledIds);
+        void this.loadScmDashboardData();
+      });
+    });
   }
 
   // ---- Requirement/Planning: project-management connections (opened
@@ -1095,9 +1827,22 @@ export class SdlcHubElement extends HTMLElement {
     if (!this.pmScreen) {
       const screen = document.createElement("div");
       screen.innerHTML = `
-        <view-nav-header id="pm-header"></view-nav-header>
-        <p class="connect-hint">Tap a provider to connect a real account and see its actual issues/tasks/boards. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
-        <control-provider-connector id="pm-connector"></control-provider-connector>
+        <div id="pm-main-view">
+          <view-nav-header id="pm-header"></view-nav-header>
+          <p class="connect-hint">Tap a provider to connect a real account and see its actual issues/tasks/boards. Credentials are stored only on this device, sent directly to that provider — never proxied through a backend (this app has none).</p>
+          <control-provider-connector id="pm-connector"></control-provider-connector>
+          <view-grid id="pm-dashboard-tile-grid"></view-grid>
+        </div>
+        <div id="pm-dashboard-view" hidden>
+          <div class="dash-subnav">
+            <button id="pm-dashboard-back-btn" class="dash-back-btn" type="button">← Project Management</button>
+            <h2 class="workspace-stage-title">📊 Dashboard</h2>
+          </div>
+          <div id="pm-dashboard-tabs" class="dashboard-tabs"></div>
+          <div id="pm-dashboard-tab-content"></div>
+          <p class="dashboard-section-title">🕒 Recent Activity</p>
+          <div id="pm-dashboard-activity"></div>
+        </div>
       `;
       const header = screen.querySelector<NavHeaderView>("#pm-header")!;
       header.icon = "📋";
@@ -1113,16 +1858,207 @@ export class SdlcHubElement extends HTMLElement {
       connector.disconnect = handlePmDisconnect;
       connector.oauthBegin = handlePmOAuthBegin;
       connector.catalogLabel = "Project Management";
+
+      this.pmMainView = screen.querySelector<HTMLElement>("#pm-main-view")!;
+      this.pmDashboardView = screen.querySelector<HTMLElement>("#pm-dashboard-view")!;
+      this.pmDashboardBackBtn = screen.querySelector<HTMLButtonElement>("#pm-dashboard-back-btn")!;
+      this.pmDashboardTabsEl = screen.querySelector<HTMLElement>("#pm-dashboard-tabs")!;
+      this.pmDashboardTabContentEl = screen.querySelector<HTMLElement>("#pm-dashboard-tab-content")!;
+      this.pmDashboardActivityEl = screen.querySelector<HTMLElement>("#pm-dashboard-activity")!;
+
+      const dashboardTileGrid = screen.querySelector<GridView>("#pm-dashboard-tile-grid")!;
+      dashboardTileGrid.items = [{ id: "dashboard", label: "Dashboard", icon: "📊" }];
+      dashboardTileGrid.addEventListener("item-select", () => this.showPmDashboard());
+      this.pmDashboardBackBtn.addEventListener("click", () => this.resetPmDashboardToMain());
+
       this.pmScreen = screen;
     }
     // Requirement's Specs/User Stories and Planning's Project Boards
     // share this one screen (PM_PROVIDER_CATALOG's own doc comment) but
     // have different "back" labels - refreshed on every entry since the
     // cached header would otherwise still say whichever stage first
-    // created it.
+    // created it. Dashboard's own back label stays fixed ("← Project
+    // Management") regardless of which stage opened it, since Dashboard
+    // is one level below the shared PM screen itself, not stage-specific.
     const header = this.pmScreen.querySelector<NavHeaderView>("#pm-header")!;
     header.backLabel = stage.label;
     this.subscreenView.appendChild(this.pmScreen);
+  }
+
+  private showPmDashboard(): void {
+    this.pmMainView.hidden = true;
+    this.pmDashboardView.hidden = false;
+    this.activePmDashboardTab = "analytics";
+    this.expandedPmMetricKeys.clear();
+    this.renderPmDashboardTabs();
+    void this.loadPmDashboardData();
+  }
+
+  // Real reset back to the main provider grid - called both by the
+  // Dashboard's own back button and by the overview grid's item-select
+  // handler (alongside pmConnector.resetView()), same reasoning as
+  // resetScmDashboardToMain(). Safe no-op if pmScreen was never built
+  // yet.
+  private resetPmDashboardToMain(): void {
+    if (!this.pmScreen) {
+      return;
+    }
+    this.pmDashboardView.hidden = true;
+    this.pmMainView.hidden = false;
+  }
+
+  private renderPmDashboardTabs(): void {
+    this.pmDashboardTabsEl.innerHTML = DASHBOARD_TABS.map(
+      (t) => `
+        <button type="button" class="dashboard-tab ${t.id === this.activePmDashboardTab ? "dashboard-tab-active" : ""}" data-tab="${t.id}">
+          ${t.icon} ${t.label}
+        </button>
+      `
+    ).join("");
+    this.pmDashboardTabsEl.querySelectorAll<HTMLButtonElement>("button[data-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tabId = btn.dataset["tab"] as DashboardTabId;
+        if (tabId === this.activePmDashboardTab) {
+          return;
+        }
+        this.activePmDashboardTab = tabId;
+        this.renderPmDashboardTabs();
+        this.renderActivePmDashboardTab();
+      });
+    });
+  }
+
+  private async loadPmDashboardData(): Promise<void> {
+    this.pmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.pmDashboardActivityEl.innerHTML = `<p class="connect-hint">Loading…</p>`;
+    this.pmDashboardData = await fetchConsolidatedPmDashboardAnalytics();
+    this.renderActivePmDashboardTab();
+    this.renderPmActivitySection(this.pmDashboardData);
+  }
+
+  private renderActivePmDashboardTab(): void {
+    if (this.activePmDashboardTab === "settings") {
+      this.renderPmSettingsTab();
+      return;
+    }
+    if (!this.pmDashboardData) {
+      return;
+    }
+    if (this.activePmDashboardTab === "analytics") {
+      this.renderPmAnalyticsTab(this.pmDashboardData);
+    } else {
+      this.renderPmTrendingTab(this.pmDashboardData);
+    }
+  }
+
+  private pmNoDataHint(): string {
+    const anyConnected = PM_PROVIDER_CATALOG.some(isPmProviderConnected);
+    return anyConnected
+      ? "Nothing enabled - turn a provider back on in the Settings tab."
+      : "Nothing connected yet - connect a provider above to see its real data here.";
+  }
+
+  private renderPmAnalyticsTab(data: ConsolidatedPmDashboardAnalytics): void {
+    if (data.metrics.length === 0 && data.unavailable.length === 0) {
+      this.pmDashboardTabContentEl.innerHTML = `<p class="connect-hint">${this.pmNoDataHint()}</p>`;
+      return;
+    }
+    const rowHtml = data.metrics
+      .map((metric) => {
+        const key = `${metric.providerId}:${metric.label}`;
+        const active = this.expandedPmMetricKeys.has(key);
+        return `
+          <button type="button" class="metric-chip ${active ? "metric-chip-active" : ""}" data-metric-key="${key}">
+            <span class="metric-chip-count">${metric.count}</span>
+            <span class="metric-chip-label">${metric.label}</span>
+            <span class="metric-chip-source">${metric.providerName}</span>
+          </button>
+        `;
+      })
+      .join("");
+    const selected = data.metrics.find((m) => this.expandedPmMetricKeys.has(`${m.providerId}:${m.label}`));
+    const itemsHtml = selected
+      ? `<div class="metric-items">${selected.items.map((item) => `<p class="metric-item">${item.label}</p>`).join("")}</div>`
+      : "";
+    const unavailableHtml = data.unavailable.map((u) => `<p class="connect-hint">⚠️ ${u.message}</p>`).join("");
+    this.pmDashboardTabContentEl.innerHTML = `<div class="metrics-row">${rowHtml}</div>${itemsHtml}${unavailableHtml}`;
+
+    this.pmDashboardTabContentEl.querySelectorAll<HTMLButtonElement>("button[data-metric-key]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset["metricKey"]!;
+        if (this.expandedPmMetricKeys.has(key)) {
+          this.expandedPmMetricKeys.delete(key);
+        } else {
+          this.expandedPmMetricKeys.clear();
+          this.expandedPmMetricKeys.add(key);
+        }
+        this.renderPmAnalyticsTab(data);
+      });
+    });
+  }
+
+  private renderPmTrendingTab(data: ConsolidatedPmDashboardAnalytics): void {
+    if (data.trending.length === 0) {
+      this.pmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing trending right now.</p>`;
+      return;
+    }
+    this.pmDashboardTabContentEl.innerHTML = data.trending
+      .map(
+        (item) => `
+          <div class="trending-item">
+            <span>${item.title} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="trending-item-score">${item.score}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderPmActivitySection(data: ConsolidatedPmDashboardAnalytics): void {
+    if (data.recentActivity.length === 0) {
+      this.pmDashboardActivityEl.innerHTML = `<p class="connect-hint">No recent activity.</p>`;
+      return;
+    }
+    this.pmDashboardActivityEl.innerHTML = data.recentActivity
+      .map(
+        (item) => `
+          <div class="activity-item">
+            <span>${item.summary} <span class="metric-source">· ${item.providerName}</span></span>
+            <span class="activity-item-time">${formatDashboardActivityTime(item.timestamp)}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  private renderPmSettingsTab(): void {
+    const connected = PM_PROVIDER_CATALOG.filter(isPmProviderConnected);
+    if (connected.length === 0) {
+      this.pmDashboardTabContentEl.innerHTML = `<p class="connect-hint">Nothing connected yet - connect a provider above, then come back here to choose what Dashboard shows.</p>`;
+      return;
+    }
+    this.pmDashboardTabContentEl.innerHTML = `
+      <p class="connect-hint">Choose which connected providers contribute to Analytics, Trending, and Recent Activity.</p>
+      ${connected
+        .map(
+          (p) => `
+            <label class="field">
+              <input type="checkbox" data-settings-provider="${p.id}" ${isPmDashboardProviderEnabled(p.id) ? "checked" : ""} />
+              <span class="field-label">${p.name}</span>
+            </label>
+          `
+        )
+        .join("")}
+    `;
+    this.pmDashboardTabContentEl.querySelectorAll<HTMLInputElement>("input[data-settings-provider]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const enabledIds = connected
+          .filter((p) => this.pmDashboardTabContentEl.querySelector<HTMLInputElement>(`input[data-settings-provider="${p.id}"]`)?.checked)
+          .map((p) => p.id);
+        setEnabledPmDashboardProviderIds(enabledIds);
+        void this.loadPmDashboardData();
+      });
+    });
   }
 
   // ---- Presentation: AI-generated slide deck (opened from Slides above) ----

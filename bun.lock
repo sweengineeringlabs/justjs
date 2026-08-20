@@ -16,6 +16,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@justjs/application": "^0.1.0",
+        "@justjs/aws-sigv4": "^0.1.0",
         "@justjs/network": "^0.1.0",
         "@justjs/transport": "^0.1.0",
       },
@@ -106,11 +107,19 @@
         "typescript": "^5.5.0",
       },
     },
+    "aws-sigv4/scm/main": {
+      "name": "@justjs/aws-sigv4",
+      "version": "0.1.0",
+      "devDependencies": {
+        "typescript": "^5.5.0",
+      },
+    },
     "cloud-connect/scm/main": {
       "name": "@justjs/cloud-connect",
       "version": "0.1.0",
       "dependencies": {
         "@justjs/application": "^0.1.0",
+        "@justjs/aws-sigv4": "^0.1.0",
         "@justjs/network": "^0.1.0",
         "@justjs/transport": "^0.1.0",
       },
@@ -542,6 +551,8 @@
     "@justjs/aop-theming": ["@justjs/aop-theming@workspace:aop/theming/scm/main"],
 
     "@justjs/application": ["@justjs/application@workspace:application/scm/main"],
+
+    "@justjs/aws-sigv4": ["@justjs/aws-sigv4@workspace:aws-sigv4/scm/main"],
 
     "@justjs/build": ["@justjs/build@workspace:tooling/build/scm/main"],
 

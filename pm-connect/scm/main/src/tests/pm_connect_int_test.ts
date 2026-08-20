@@ -7,8 +7,11 @@ import { TrelloPmConnectProvider } from "../core/trello_provider.js";
 import { JiraPmConnectProvider } from "../core/jira_provider.js";
 import { buildJiraAuthorizationUrl, exchangeJiraAuthorizationCode } from "../core/jira_oauth.js";
 import { PmConnectProviderError } from "../api/provider.js";
+import { TestPmDashboardAnalyticsProvider } from "../core/test_dashboard_analytics_provider.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 const ALL_STRATEGIES = ["linear", "asana", "trello", "jira"];
+const ALL_DASHBOARD_ANALYTICS_STRATEGIES = ["testpm"];
 
 // Constructor-injected fake ApiAdapter, matching every sibling
 // *-connect package's own test harness exactly - zero real network
@@ -212,6 +215,31 @@ describe("exchangeJiraAuthorizationCode", () => {
   });
 });
 
+describe("TestPmDashboardAnalyticsProvider", () => {
+  it("test_fetch_analytics_with_no_token_returns_canned_metrics_trending_and_activity", async () => {
+    const provider = new TestPmDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    expect(snapshot.metrics.length).toBeGreaterThan(0);
+    expect(snapshot.metrics.every((m) => typeof m.label === "string" && typeof m.count === "number")).toBe(true);
+    expect(snapshot.trending.length).toBeGreaterThan(0);
+    expect(snapshot.recentActivity.length).toBeGreaterThan(0);
+  });
+
+  it("test_each_metrics_item_count_matches_its_own_items_length", async () => {
+    const provider = new TestPmDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    for (const metric of snapshot.metrics) {
+      expect(metric.items.length).toBe(metric.count);
+    }
+  });
+
+  it("test_fetch_analytics_with_a_token_containing_fail_simulates_a_real_rejected_call", async () => {
+    const provider = new TestPmDashboardAnalyticsProvider({ token: "please-fail" });
+    await expect(provider.fetchAnalytics()).rejects.toThrow(DashboardAnalyticsProviderError);
+    await expect(provider.fetchAnalytics()).rejects.toThrow(/simulated failure/);
+  });
+});
+
 describe("pm-connect SPI self-registration", () => {
   it("test_every_strategy_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js");
@@ -219,6 +247,16 @@ describe("pm-connect SPI self-registration", () => {
       const resolved = justjs.providers.resolve("pmConnect", strategy);
       expect(resolved).not.toBeNull();
       expect(resolved!.concern).toBe("pmConnect");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_dashboard_analytics_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_DASHBOARD_ANALYTICS_STRATEGIES) {
+      const resolved = justjs.providers.resolve("dashboardAnalytics", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("dashboardAnalytics");
       expect(resolved!.strategy).toBe(strategy);
     }
   });

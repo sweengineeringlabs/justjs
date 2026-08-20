@@ -1,5 +1,4 @@
 import { describe, it, expect } from "bun:test";
-import { createHash, createHmac } from "node:crypto";
 import { Window } from "happy-dom";
 import { justjs } from "@justjs/application";
 import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
@@ -15,16 +14,27 @@ import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
 // behind it (internally references window.XMLDocument), so this uses
 // window.DOMParser rather than the bare top-level export.
 (globalThis as { DOMParser?: unknown }).DOMParser = new Window().DOMParser;
+// justjs#148's own in-browser endpoint-override seam reads
+// globalThis.localStorage - genuinely absent from plain `bun test`
+// (confirmed: `bun -e "localStorage"` throws ReferenceError), shimmed
+// here the same way DOMParser is, real happy-dom localStorage rather
+// than a hand-rolled fake.
+(globalThis as { localStorage?: unknown }).localStorage = new Window().localStorage;
 import { DefaultCloudConnectProvider } from "../core/default_cloud_connect_provider.js";
 import { AwsCloudConnectProvider } from "../core/aws_provider.js";
 import { NetlifyCloudConnectProvider } from "../core/netlify_provider.js";
 import { VercelCloudConnectProvider } from "../core/vercel_provider.js";
 import { HerokuCloudConnectProvider } from "../core/heroku_provider.js";
 import { DIGITALOCEAN_PROVIDER } from "../spi/digitalocean.js";
-import { signAwsRequest } from "../core/aws_sigv4.js";
 import { CloudConnectProviderError } from "../api/provider.js";
+import { TestCloudDashboardAnalyticsProvider } from "../core/test_dashboard_analytics_provider.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
+import { AwsCloudProvisioningProvider } from "../core/aws_cloud_provisioning_provider.js";
+import { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 const ALL_STRATEGIES = ["digitalocean", "netlify", "vercel", "heroku", "azure", "gcp", "aws"];
+const ALL_DASHBOARD_ANALYTICS_STRATEGIES = ["testcloud"];
+const ALL_PROVISIONING_STRATEGIES = ["aws"];
 
 // Constructor-injected fake ApiAdapter, matching @justjs/ai-assist's own
 // test harness exactly - zero real network calls in this suite. Also
@@ -104,6 +114,31 @@ describe("DefaultCloudConnectProvider", () => {
     expect(caught).toBeInstanceOf(CloudConnectProviderError);
     expect((caught as Error).message).not.toContain("super-secret");
   });
+
+  // justjs#143 - real local/CI testing seam, verifying both directions:
+  // absent env var changes nothing (no regression to real production
+  // behavior), present env var redirects the request.
+  it("test_connect_hits_the_real_production_url_when_no_endpoint_override_is_set", async () => {
+    delete process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"];
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { droplets: [] } }));
+    const provider = new DefaultCloudConnectProvider(DIGITALOCEAN_PROVIDER, { token: "tok" }, adapter);
+    await provider.connect();
+    expect(adapter.calls[0]!.url).toBe("https://api.digitalocean.com/v2/droplets");
+  });
+
+  it("test_connect_redirects_to_the_override_url_when_the_endpoint_env_var_is_set", async () => {
+    process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"] = "http://localhost:4566/v2/droplets";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: { droplets: [] } }));
+      const provider = new DefaultCloudConnectProvider(DIGITALOCEAN_PROVIDER, { token: "tok" }, adapter);
+      await provider.connect();
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/v2/droplets");
+    } finally {
+      delete process.env["CLOUD_CONNECT_DIGITALOCEAN_ENDPOINT"];
+    }
+  });
 });
 
 describe("AwsCloudConnectProvider", () => {
@@ -145,6 +180,766 @@ describe("AwsCloudConnectProvider", () => {
     const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
     const resources = await provider.listInstances!();
     expect(resources).toEqual([{ id: "i-abc123", name: "my-box", status: "running" }]);
+  });
+
+  // justjs#143 - real local/CI testing seam for the STS endpoint
+  // specifically (the call this session's real CloudEmu verification
+  // exercised), verifying both directions.
+  it("test_connect_hits_real_sts_when_no_endpoint_override_is_set", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"];
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: { GetCallerIdentityResponse: { GetCallerIdentityResult: { Account: "1", Arn: "a", UserId: "u" } } },
+    }));
+    const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.connect();
+    expect(adapter.calls[0]!.url.startsWith("https://sts.amazonaws.com/")).toBe(true);
+  });
+
+  it("test_connect_redirects_to_the_sts_override_when_the_endpoint_env_var_is_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({
+        status: 200,
+        headers: {},
+        data: { GetCallerIdentityResponse: { GetCallerIdentityResult: { Account: "1", Arn: "a", UserId: "u" } } },
+      }));
+      const provider = new AwsCloudConnectProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.connect();
+      expect(adapter.calls[0]!.url.startsWith("http://localhost:4566/")).toBe(true);
+      // Signing must stay pinned to the real STS host/region/service even
+      // when the destination is redirected - a real signed request still
+      // proves the signing logic works, matching this session's live
+      // CloudEmu verification (which ignores signatures but still needs a
+      // syntactically real one to reach the handler).
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/sts/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_STS_ENDPOINT"];
+    }
+  });
+});
+
+describe("AwsCloudProvisioningProvider (CloudWatch)", () => {
+  // Real bug found and fixed via live verification (justjs#152): CloudWatch's
+  // classic Query API never honors Accept: application/json - confirmed by a
+  // raw fetch() against CloudEmu returning real XML (content-type: text/xml)
+  // regardless of that header. Every fixture below is a real XML string, not
+  // a pre-parsed object - a fake JSON response would have hidden this exact
+  // bug the same way it did before the fix (every field silently read
+  // `undefined`, defaulting to empty results, no error ever thrown even on a
+  // real error response).
+  const DESCRIBE_ALARMS_XML =
+    `<?xml version="1.0"?><DescribeAlarmsResponse><DescribeAlarmsResult><MetricAlarms><member>` +
+    `<AlarmName>high-cpu</AlarmName><AlarmArn>arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu</AlarmArn>` +
+    `<MetricName>CPUUtilization</MetricName><Namespace>AWS/EC2</Namespace><Statistic>Average</Statistic>` +
+    `<Period>300</Period><EvaluationPeriods>2</EvaluationPeriods><Threshold>80</Threshold>` +
+    `<ComparisonOperator>GreaterThanThreshold</ComparisonOperator><StateValue>OK</StateValue>` +
+    `</member></MetricAlarms></DescribeAlarmsResult></DescribeAlarmsResponse>`;
+
+  it("test_put_alarm_sends_the_real_query_protocol_params_as_a_urlencoded_body", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><PutMetricAlarmResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.putCloudWatchAlarm!({
+      alarmName: "high-cpu",
+      metricName: "CPUUtilization",
+      namespace: "AWS/EC2",
+      statistic: "Average",
+      period: 300,
+      evaluationPeriods: 2,
+      threshold: 80,
+      comparisonOperator: "GreaterThanThreshold",
+    });
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://monitoring.amazonaws.com/");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=PutMetricAlarm");
+    expect(body).toContain("AlarmName=high-cpu");
+    expect(body).toContain("Threshold=80");
+    expect(body).toContain("ComparisonOperator=GreaterThanThreshold");
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/monitoring/aws4_request");
+  });
+
+  it("test_list_alarms_parses_the_real_describe_alarms_xml_shape", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: DESCRIBE_ALARMS_XML }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    const alarms = await provider.listCloudWatchAlarms!();
+    expect(alarms).toEqual([
+      {
+        alarmName: "high-cpu",
+        alarmArn: "arn:aws:cloudwatch:us-east-1:123456789012:alarm:high-cpu",
+        metricName: "CPUUtilization",
+        namespace: "AWS/EC2",
+        statistic: "Average",
+        period: 300,
+        evaluationPeriods: 2,
+        threshold: 80,
+        comparisonOperator: "GreaterThanThreshold",
+        stateValue: "OK",
+      },
+    ]);
+  });
+
+  it("test_list_alarms_returns_an_empty_array_when_none_exist_not_an_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: `<?xml version="1.0"?><DescribeAlarmsResponse><DescribeAlarmsResult><MetricAlarms/></DescribeAlarmsResult></DescribeAlarmsResponse>`,
+    }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    expect(await provider.listCloudWatchAlarms!()).toEqual([]);
+  });
+
+  it("test_delete_alarm_sends_the_real_alarm_name_member_param", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><DeleteAlarmsResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.deleteCloudWatchAlarm!("high-cpu");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=DeleteAlarms");
+    expect(body).toContain("AlarmNames.member.1=high-cpu");
+  });
+
+  it("test_get_metric_statistics_parses_real_datapoints", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data:
+        `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints><member>` +
+        `<Timestamp>2026-07-25T00:00:00Z</Timestamp><Average>42.5</Average><Unit>Percent</Unit>` +
+        `</member></Datapoints></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
+    }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    const points = await provider.getCloudWatchMetricStatistics!(
+      "AWS/EC2",
+      "CPUUtilization",
+      "Average",
+      "2026-07-25T00:00:00Z",
+      "2026-07-25T01:00:00Z",
+      300
+    );
+    expect(points).toEqual([{ timestamp: "2026-07-25T00:00:00Z", value: 42.5, unit: "Percent" }]);
+  });
+
+  it("test_get_metric_statistics_sends_dimensions_as_real_member_indexed_params_when_provided", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints/></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
+    }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.getCloudWatchMetricStatistics!(
+      "AWS/EC2",
+      "CPUUtilization",
+      "Average",
+      "2026-07-25T00:00:00Z",
+      "2026-07-25T01:00:00Z",
+      300,
+      [{ name: "InstanceId", value: "i-abc123" }]
+    );
+
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Dimensions.member.1.Name=InstanceId");
+    expect(body).toContain("Dimensions.member.1.Value=i-abc123");
+  });
+
+  it("test_get_metric_statistics_omits_dimensions_params_entirely_when_none_provided", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: `<?xml version="1.0"?><GetMetricStatisticsResponse><GetMetricStatisticsResult><Datapoints/></GetMetricStatisticsResult></GetMetricStatisticsResponse>`,
+    }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.getCloudWatchMetricStatistics!("AWS/EC2", "CPUUtilization", "Average", "2026-07-25T00:00:00Z", "2026-07-25T01:00:00Z", 300);
+
+    expect(adapter.calls[0]!.body as string).not.toContain("Dimensions");
+  });
+
+  it("test_a_real_cloudwatch_error_response_throws_with_the_real_error_code_and_message", async () => {
+    const xml =
+      `<?xml version="1.0"?><ErrorResponse><Error><Type>Sender</Type><Code>ResourceNotFound</Code>` +
+      `<Message>Alarm does not exist.</Message></Error><RequestId>req-1</RequestId></ErrorResponse>`;
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 400, headers: {}, error: "Bad Request", data: xml }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    let caught: unknown;
+    try {
+      await provider.deleteCloudWatchAlarm!("nonexistent");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("ResourceNotFound");
+    expect((caught as Error).message).toContain("Alarm does not exist");
+  });
+
+  it("test_redirects_to_the_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><DeleteAlarmsResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.deleteCloudWatchAlarm!("high-cpu");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_CLOUDWATCH_ENDPOINT"];
+    }
+  });
+});
+
+describe("AwsCloudProvisioningProvider (EC2, justjs#144)", () => {
+  const RUN_INSTANCES_XML =
+    `<?xml version="1.0"?><RunInstancesResponse><requestId>r-1</requestId><reservationId>res-1</reservationId>` +
+    `<instancesSet><item><instanceId>i-abc123</instanceId><imageId>ami-mock</imageId><instanceType>t3.micro</instanceType>` +
+    `<instanceState><code>16</code><name>running</name></instanceState><privateIpAddress>10.0.0.1</privateIpAddress>` +
+    `<ipAddress>54.1.2.3</ipAddress><launchTime>2026-07-25T12:00:00.000Z</launchTime></item></instancesSet></RunInstancesResponse>`;
+
+  it("test_run_instance_sends_the_real_query_protocol_params_and_parses_the_launched_instance", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: RUN_INSTANCES_XML }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const instance = await provider.runEc2Instance!({ imageId: "ami-mock", instanceType: "t3.micro" });
+
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://ec2.amazonaws.com/");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=RunInstances");
+    expect(body).toContain("ImageId=ami-mock");
+    expect(body).toContain("InstanceType=t3.micro");
+    expect(body).toContain("MinCount=1");
+    expect(body).toContain("MaxCount=1");
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ec2/aws4_request");
+    expect(instance).toEqual({
+      instanceId: "i-abc123",
+      imageId: "ami-mock",
+      instanceType: "t3.micro",
+      state: "running",
+      launchTime: "2026-07-25T12:00:00.000Z",
+      privateIpAddress: "10.0.0.1",
+      publicIpAddress: "54.1.2.3",
+    });
+  });
+
+  it("test_run_instance_throws_a_real_actionable_error_when_the_response_has_no_instance_item", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><RunInstancesResponse></RunInstancesResponse>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await expect(provider.runEc2Instance!({ imageId: "ami-mock", instanceType: "t3.micro" })).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_list_instances_parses_multiple_reservations_and_instances", async () => {
+    const xml =
+      `<?xml version="1.0"?><DescribeInstancesResponse><reservationSet>` +
+      `<item><instancesSet><item><instanceId>i-1</instanceId><imageId>ami-a</imageId><instanceType>t3.micro</instanceType>` +
+      `<instanceState><name>running</name></instanceState><launchTime>t1</launchTime></item></instancesSet></item>` +
+      `<item><instancesSet><item><instanceId>i-2</instanceId><imageId>ami-b</imageId><instanceType>t3.small</instanceType>` +
+      `<instanceState><name>stopped</name></instanceState><launchTime>t2</launchTime></item></instancesSet></item>` +
+      `</reservationSet></DescribeInstancesResponse>`;
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: xml }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const instances = await provider.listEc2Instances!();
+
+    expect(adapter.calls[0]!.body as string).toContain("Action=DescribeInstances");
+    expect(instances).toEqual([
+      { instanceId: "i-1", imageId: "ami-a", instanceType: "t3.micro", state: "running", launchTime: "t1", privateIpAddress: undefined, publicIpAddress: undefined },
+      { instanceId: "i-2", imageId: "ami-b", instanceType: "t3.small", state: "stopped", launchTime: "t2", privateIpAddress: undefined, publicIpAddress: undefined },
+    ]);
+  });
+
+  it("test_list_instances_returns_an_empty_array_when_none_exist_not_an_error", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({
+      status: 200,
+      headers: {},
+      data: `<?xml version="1.0"?><DescribeInstancesResponse><reservationSet/></DescribeInstancesResponse>`,
+    }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    expect(await provider.listEc2Instances!()).toEqual([]);
+  });
+
+  it("test_start_instance_sends_the_real_instance_id_member_param", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StartInstancesResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.startEc2Instance!("i-abc123");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=StartInstances");
+    expect(body).toContain("InstanceId.1=i-abc123");
+  });
+
+  it("test_stop_instance_sends_the_real_instance_id_member_param", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.stopEc2Instance!("i-abc123");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=StopInstances");
+    expect(body).toContain("InstanceId.1=i-abc123");
+  });
+
+  it("test_terminate_instance_sends_the_real_instance_id_member_param", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><TerminateInstancesResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.terminateEc2Instance!("i-abc123");
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("Action=TerminateInstances");
+    expect(body).toContain("InstanceId.1=i-abc123");
+  });
+
+  it("test_a_real_ec2_error_response_throws_with_the_real_error_code_and_message", async () => {
+    const xml =
+      `<?xml version="1.0"?><Response><Errors><Error><Code>InvalidInstanceID.NotFound</Code>` +
+      `<Message>The instance ID 'i-doesnotexist' does not exist</Message></Error></Errors></Response>`;
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 400, headers: {}, error: "Bad Request", data: xml }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    let caught: unknown;
+    try {
+      await provider.terminateEc2Instance!("i-doesnotexist");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("InvalidInstanceID.NotFound");
+    expect((caught as Error).message).toContain("does not exist");
+  });
+
+  it("test_redirects_to_the_ec2_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.stopEc2Instance!("i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ec2/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+    }
+  });
+
+  // justjs#148 - the real in-browser override seam, no process.env
+  // involved at all (this is what a real running app, not a bun
+  // script, can actually set).
+  it("test_redirects_to_the_ec2_localStorage_override_when_set_and_no_env_var_present", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT", "http://localhost:4566");
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.stopEc2Instance!("i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+    } finally {
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    }
+  });
+
+  it("test_env_var_override_takes_precedence_over_localStorage_override_when_both_are_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"] = "http://localhost:9001";
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT", "http://localhost:9002");
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.stopEc2Instance!("i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:9001/");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    }
+  });
+
+  it("test_no_override_present_at_all_still_hits_the_real_production_ec2_endpoint", async () => {
+    delete process.env["CLOUD_CONNECT_AWS_EC2_ENDPOINT"];
+    globalThis.localStorage.removeItem("justjs:aws-endpoint-override:CLOUD_CONNECT_AWS_EC2_ENDPOINT");
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: `<?xml version="1.0"?><StopInstancesResponse/>` }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+    await provider.stopEc2Instance!("i-abc123");
+    expect(adapter.calls[0]!.url).toBe("https://ec2.amazonaws.com/");
+  });
+
+  it("test_run_instance_sends_user_data_base64_encoded_when_provided", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: RUN_INSTANCES_XML }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.runEc2Instance!({ imageId: "ami-mock", instanceType: "t3.micro", userData: "#!/bin/sh\necho hi" });
+
+    const body = adapter.calls[0]!.body as string;
+    const params = new URLSearchParams(body);
+    expect(params.get("UserData")).toBe(btoa(unescape(encodeURIComponent("#!/bin/sh\necho hi"))));
+  });
+
+  it("test_run_instance_omits_user_data_param_entirely_when_not_provided", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: RUN_INSTANCES_XML }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.runEc2Instance!({ imageId: "ami-mock", instanceType: "t3.micro" });
+
+    expect(adapter.calls[0]!.body as string).not.toContain("UserData");
+  });
+
+  it("test_run_instance_sends_the_real_iam_instance_profile_name_when_provided", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 200, headers: {}, data: RUN_INSTANCES_XML }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.runEc2Instance!({ imageId: "ami-mock", instanceType: "t3.micro", iamInstanceProfileName: "my-ssm-profile" });
+
+    const body = adapter.calls[0]!.body as string;
+    expect(body).toContain("IamInstanceProfile.Name=my-ssm-profile");
+  });
+});
+
+describe("AwsCloudProvisioningProvider (SSM redeploy, ADR-0019)", () => {
+  // SSM's real content-type is application/x-amz-json-1.1, not
+  // application/json - confirmed live against real AWS this session,
+  // which is what caught a real bug: @justjs/transport's ApiAdapter
+  // only JSON-parses a body when content-type contains
+  // "application/json", so a real SSM response body arrives as an
+  // unparsed STRING, not an object like CloudWatch/EC2's own JSON
+  // responses. Every response below is a JSON string, not a pre-parsed
+  // object, specifically to exercise that real boundary - a fake
+  // returning an already-parsed object would have hidden this exact bug.
+  function ssmResponse(status: number, body: unknown, error?: string): ApiResponse<unknown> {
+    return { status, headers: {}, data: JSON.stringify(body), ...(error !== undefined ? { error } : {}) };
+  }
+
+  it("test_run_command_sends_the_real_document_name_and_commands_and_parses_the_command_id", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ssmResponse(200, { Command: { CommandId: "cmd-1" } }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.runCommandOnEc2Instance!("i-abc123", ["echo hi", "systemctl restart myapp"]);
+
+    expect(result).toEqual({ commandId: "cmd-1" });
+    expect(adapter.calls[0]!.method).toBe("post");
+    expect(adapter.calls[0]!.url).toBe("https://ssm.us-east-1.amazonaws.com/");
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonSSM.SendCommand");
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { DocumentName: string; InstanceIds: string[]; Parameters: { commands: string[] } };
+    expect(body.DocumentName).toBe("AWS-RunShellScript");
+    expect(body.InstanceIds).toEqual(["i-abc123"]);
+    expect(body.Parameters.commands).toEqual(["echo hi", "systemctl restart myapp"]);
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ssm/aws4_request");
+  });
+
+  it("test_run_command_throws_a_real_actionable_error_when_the_response_has_no_command_id", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ssmResponse(200, {}));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.runCommandOnEc2Instance!("i-abc123", ["echo hi"])).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_get_command_status_parses_real_status_and_output", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ssmResponse(200, { Status: "Success", StandardOutputContent: "hi\n", StandardErrorContent: "" }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.getEc2CommandStatus!("cmd-1", "i-abc123");
+
+    expect(result).toEqual({ status: "Success", output: "hi\n" });
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { CommandId: string; InstanceId: string };
+    expect(body).toEqual({ CommandId: "cmd-1", InstanceId: "i-abc123" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonSSM.GetCommandInvocation");
+  });
+
+  it("test_get_command_status_omits_output_fields_entirely_when_absent_rather_than_empty_strings", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ssmResponse(200, { Status: "Pending" }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    expect(await provider.getEc2CommandStatus!("cmd-1", "i-abc123")).toEqual({ status: "Pending" });
+  });
+
+  it("test_a_real_ssm_error_response_throws_with_the_real_type_and_message", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ssmResponse(
+        400,
+        { __type: "InvalidInstanceId", message: "i-doesnotexist is not a valid instance ID or not in a valid state." },
+        "Bad Request"
+      )
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    let caught: unknown;
+    try {
+      await provider.runCommandOnEc2Instance!("i-doesnotexist", ["echo hi"]);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("InvalidInstanceId");
+    expect((caught as Error).message).toContain("not in a valid state");
+  });
+
+  it("test_a_real_ssm_error_with_an_empty_body_still_throws_a_real_error_not_a_json_parse_crash", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 403, headers: {}, error: "Forbidden", data: "" }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.runCommandOnEc2Instance!("i-abc123", ["echo hi"])).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_redirects_to_the_ssm_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_SSM_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ssmResponse(200, { Status: "Success" }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.getEc2CommandStatus!("cmd-1", "i-abc123");
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ssm/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_SSM_ENDPOINT"];
+    }
+  });
+});
+
+describe("AwsCloudProvisioningProvider (ECS, justjs#144)", () => {
+  // Same real content-type caveat as SSM above - ECS is also
+  // application/x-amz-json-1.1, not application/json, so every response
+  // here is a JSON string rather than a pre-parsed object, exercising
+  // the same real ApiAdapter boundary.
+  function ecsResponse(status: number, body: unknown, error?: string): ApiResponse<unknown> {
+    return { status, headers: {}, data: JSON.stringify(body), ...(error !== undefined ? { error } : {}) };
+  }
+
+  it("test_create_cluster_sends_the_real_cluster_name_and_parses_the_response", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { cluster: { clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.createEcsCluster!("my-cluster");
+
+    expect(result).toEqual({ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" });
+    expect(adapter.calls[0]!.url).toBe("https://ecs.us-east-1.amazonaws.com/");
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.CreateCluster");
+    expect(adapter.calls[0]!.options?.headers?.["Content-Type"]).toBe("application/x-amz-json-1.1");
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { clusterName: string };
+    expect(body).toEqual({ clusterName: "my-cluster" });
+    expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ecs/aws4_request");
+  });
+
+  it("test_create_cluster_throws_a_real_actionable_error_when_the_response_has_no_cluster", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, {}));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.createEcsCluster!("my-cluster")).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_list_clusters_makes_a_real_list_then_describe_round_trip_and_returns_full_state", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { clusterArns: ["arn:aws:ecs:us-east-1:123:cluster/my-cluster"] }));
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { clusters: [{ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" }] })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.listEcsClusters!();
+
+    expect(result).toEqual([{ clusterName: "my-cluster", clusterArn: "arn:aws:ecs:us-east-1:123:cluster/my-cluster", status: "ACTIVE" }]);
+    expect(adapter.calls).toHaveLength(2);
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.ListClusters");
+    expect(adapter.calls[1]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DescribeClusters");
+    const describeBody = JSON.parse(adapter.calls[1]!.body as string) as { clusters: string[] };
+    expect(describeBody.clusters).toEqual(["arn:aws:ecs:us-east-1:123:cluster/my-cluster"]);
+  });
+
+  it("test_list_clusters_short_circuits_to_an_empty_array_without_a_describe_call_when_none_exist", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { clusterArns: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    expect(await provider.listEcsClusters!()).toEqual([]);
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  it("test_delete_cluster_sends_the_real_cluster_name", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { cluster: { clusterName: "my-cluster", clusterArn: "arn:1", status: "INACTIVE" } }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.deleteEcsCluster!("my-cluster");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string };
+    expect(body).toEqual({ cluster: "my-cluster" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DeleteCluster");
+  });
+
+  it("test_register_task_definition_sends_the_real_container_definitions_and_fargate_fields_and_parses_the_response", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { taskDefinition: { family: "my-app", taskDefinitionArn: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1", revision: 1, status: "ACTIVE" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.registerEcsTaskDefinition!({
+      family: "my-app",
+      containerDefinitions: [{ name: "app", image: "nginx:latest", cpu: 256, memory: 512, portMappings: [{ containerPort: 8080, hostPort: 8080 }] }],
+      cpu: "256",
+      memory: "512",
+    });
+
+    expect(result).toEqual({ family: "my-app", taskDefinitionArn: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1", revision: 1, status: "ACTIVE" });
+    const body = JSON.parse(adapter.calls[0]!.body as string) as Record<string, unknown>;
+    expect(body["family"]).toBe("my-app");
+    expect(body["cpu"]).toBe("256");
+    expect(body["memory"]).toBe("512");
+    expect(body["requiresCompatibilities"]).toEqual(["FARGATE"]);
+    expect(body["networkMode"]).toBe("awsvpc");
+    const containers = body["containerDefinitions"] as Record<string, unknown>[];
+    expect(containers[0]!["name"]).toBe("app");
+    expect(containers[0]!["image"]).toBe("nginx:latest");
+    expect(containers[0]!["portMappings"]).toEqual([{ containerPort: 8080, hostPort: 8080, protocol: "tcp" }]);
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.RegisterTaskDefinition");
+  });
+
+  it("test_deregister_task_definition_sends_the_real_task_definition_arn", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, {}));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.deregisterEcsTaskDefinition!("arn:aws:ecs:us-east-1:123:task-definition/my-app:1");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { taskDefinition: string };
+    expect(body).toEqual({ taskDefinition: "arn:aws:ecs:us-east-1:123:task-definition/my-app:1" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.DeregisterTaskDefinition");
+  });
+
+  it("test_run_task_sends_the_real_cluster_task_definition_and_count_and_parses_the_returned_tasks", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, {
+        tasks: [
+          { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "PROVISIONING", desiredStatus: "RUNNING" },
+        ],
+      })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.runEcsTask!("my-cluster", "arn:task-def/my-app:1");
+
+    expect(result).toEqual([
+      { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "PROVISIONING", desiredStatus: "RUNNING" },
+    ]);
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string; taskDefinition: string; count: number };
+    expect(body).toEqual({ cluster: "my-cluster", taskDefinition: "arn:task-def/my-app:1", count: 1 });
+  });
+
+  it("test_run_task_honors_an_explicit_count", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { tasks: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.runEcsTask!("my-cluster", "arn:task-def/my-app:1", 3);
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { count: number };
+    expect(body.count).toBe(3);
+  });
+
+  it("test_list_tasks_makes_a_real_list_then_describe_round_trip_and_returns_full_state", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { taskArns: ["arn:task/1"] }));
+    adapter.queueResponse(async () =>
+      ecsResponse(200, {
+        tasks: [{ taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "RUNNING", desiredStatus: "RUNNING" }],
+      })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    const result = await provider.listEcsTasks!("my-cluster");
+
+    expect(result).toEqual([
+      { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "RUNNING", desiredStatus: "RUNNING" },
+    ]);
+    expect(adapter.calls).toHaveLength(2);
+    const listBody = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string };
+    expect(listBody).toEqual({ cluster: "my-cluster" });
+    const describeBody = JSON.parse(adapter.calls[1]!.body as string) as { cluster: string; tasks: string[] };
+    expect(describeBody).toEqual({ cluster: "my-cluster", tasks: ["arn:task/1"] });
+  });
+
+  it("test_list_tasks_short_circuits_to_an_empty_array_without_a_describe_call_when_none_are_running", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(200, { taskArns: [] }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    expect(await provider.listEcsTasks!("my-cluster")).toEqual([]);
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  it("test_stop_task_sends_the_real_cluster_and_task_arn", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () =>
+      ecsResponse(200, { task: { taskArn: "arn:task/1", clusterArn: "arn:cluster/my-cluster", taskDefinitionArn: "arn:task-def/my-app:1", lastStatus: "STOPPING", desiredStatus: "STOPPED" } })
+    );
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await provider.stopEcsTask!("my-cluster", "arn:task/1");
+
+    const body = JSON.parse(adapter.calls[0]!.body as string) as { cluster: string; task: string };
+    expect(body).toEqual({ cluster: "my-cluster", task: "arn:task/1" });
+    expect(adapter.calls[0]!.options?.headers?.["X-Amz-Target"]).toBe("AmazonEC2ContainerServiceV20141113.StopTask");
+  });
+
+  it("test_a_real_ecs_error_response_throws_with_the_real_type_and_message", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ecsResponse(400, { __type: "ClusterNotFoundException", message: "Cluster not found." }, "Bad Request"));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    let caught: unknown;
+    try {
+      await provider.deleteEcsCluster!("missing-cluster");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(CloudProvisioningProviderError);
+    expect((caught as Error).message).toContain("ClusterNotFoundException");
+    expect((caught as Error).message).toContain("Cluster not found");
+  });
+
+  it("test_a_real_ecs_error_with_an_empty_body_still_throws_a_real_error_not_a_json_parse_crash", async () => {
+    const adapter = new FakeApiAdapter();
+    adapter.queueResponse(async () => ({ status: 403, headers: {}, error: "Forbidden", data: "" }));
+    const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+
+    await expect(provider.deleteEcsCluster!("my-cluster")).rejects.toThrow(CloudProvisioningProviderError);
+  });
+
+  it("test_redirects_to_the_ecs_endpoint_override_when_set", async () => {
+    process.env["CLOUD_CONNECT_AWS_ECS_ENDPOINT"] = "http://localhost:4566";
+    try {
+      const adapter = new FakeApiAdapter();
+      adapter.queueResponse(async () => ecsResponse(200, { clusterArns: [] }));
+      const provider = new AwsCloudProvisioningProvider({ accessKeyId: "AKIDEXAMPLE", secretAccessKey: "secret" }, adapter);
+      await provider.listEcsClusters!();
+      expect(adapter.calls[0]!.url).toBe("http://localhost:4566/");
+      expect(adapter.calls[0]!.options?.headers?.Authorization).toContain("us-east-1/ecs/aws4_request");
+    } finally {
+      delete process.env["CLOUD_CONNECT_AWS_ECS_ENDPOINT"];
+    }
   });
 });
 
@@ -297,84 +1092,28 @@ describe("HerokuCloudConnectProvider", () => {
   });
 });
 
-describe("signAwsRequest", () => {
-  // Cross-checks against an independent Node-crypto (createHash/
-  // createHmac) implementation of AWS's own published SigV4 spec - a
-  // real regression guard, not a trophy test: this exact shape caught a
-  // real bug this session (a mixed-case extraHeaders key silently
-  // breaking the canonical-header lookup) when run against AWS's live
-  // STS endpoint. If the lowercasing logic in aws_sigv4.ts regresses,
-  // this test fails because the two independently-derived signatures
-  // stop matching.
-  it("test_signature_matches_an_independent_node_crypto_implementation_of_the_same_spec", async () => {
-    function sha256Hex(data: string): string {
-      return createHash("sha256").update(data, "utf8").digest("hex");
-    }
-    function hmac(key: string | Buffer, data: string): Buffer {
-      return createHmac("sha256", key).update(data, "utf8").digest();
-    }
-    const accessKeyId = "AKIAIOSFODNN7EXAMPLE";
-    const secretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-    const region = "us-east-1";
-    const service = "ec2";
-    const date = "20220830T123600Z";
-    const dateStamp = "20220830";
-    const host = "ec2.amazonaws.com";
-    const query = "Action=DescribeInstances&Version=2016-11-15";
-
-    const headers = { host, "x-amz-date": date };
-    const signedHeaderNames = Object.keys(headers).sort();
-    const canonicalHeaders = signedHeaderNames.map((h) => `${h}:${(headers as Record<string, string>)[h]!.trim()}\n`).join("");
-    const signedHeaders = signedHeaderNames.join(";");
-    const canonicalRequest = ["GET", "/", query, canonicalHeaders, signedHeaders, sha256Hex("")].join("\n");
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-    const stringToSign = ["AWS4-HMAC-SHA256", date, credentialScope, sha256Hex(canonicalRequest)].join("\n");
-    const kDate = hmac(`AWS4${secretAccessKey}`, dateStamp);
-    const kRegion = hmac(kDate, region);
-    const kService = hmac(kRegion, service);
-    const kSigning = hmac(kService, "aws4_request");
-    const expectedSignature = hmac(kSigning, stringToSign).toString("hex");
-    const expectedAuth = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${expectedSignature}`;
-
-    const originalDateCtor = Date;
-    class FixedDate extends originalDateCtor {
-      constructor() {
-        super("2022-08-30T12:36:00.000Z");
-      }
-      static override now() {
-        return new originalDateCtor("2022-08-30T12:36:00.000Z").getTime();
-      }
-    }
-    // @ts-expect-error - test-only global override, restored below
-    globalThis.Date = FixedDate;
-    let actualHeaders: Record<string, string>;
-    try {
-      actualHeaders = await signAwsRequest({ accessKeyId, secretAccessKey, region, service, method: "GET", host, path: "/", query });
-    } finally {
-      globalThis.Date = originalDateCtor;
-    }
-
-    expect(actualHeaders.Authorization).toBe(expectedAuth);
+describe("TestCloudDashboardAnalyticsProvider", () => {
+  it("test_fetch_analytics_with_no_token_returns_canned_metrics_trending_and_activity", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    expect(snapshot.metrics.length).toBeGreaterThan(0);
+    expect(snapshot.metrics.every((m) => typeof m.label === "string" && typeof m.count === "number")).toBe(true);
+    expect(snapshot.trending.length).toBeGreaterThan(0);
+    expect(snapshot.recentActivity.length).toBeGreaterThan(0);
   });
 
-  it("test_a_mixed_case_extra_header_is_still_included_in_the_canonical_form", async () => {
-    // Regression test for the real bug this session's live AWS test
-    // caught: extraHeaders with a mixed-case name (e.g. "Accept") used
-    // to silently break the canonical-header lookup, since the header
-    // names were lowercased for sorting but looked up on the original-
-    // case object. Confirms the header actually reaches the signed set.
-    const headers = await signAwsRequest({
-      accessKeyId: "AKIDEXAMPLE",
-      secretAccessKey: "secret",
-      region: "us-east-1",
-      service: "sts",
-      method: "GET",
-      host: "sts.amazonaws.com",
-      path: "/",
-      query: "Action=GetCallerIdentity&Version=2011-06-15",
-      extraHeaders: { Accept: "application/json" },
-    });
-    expect(headers.Authorization).toContain("accept;host;x-amz-date");
+  it("test_each_metrics_item_count_matches_its_own_items_length", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({});
+    const snapshot = await provider.fetchAnalytics();
+    for (const metric of snapshot.metrics) {
+      expect(metric.items.length).toBe(metric.count);
+    }
+  });
+
+  it("test_fetch_analytics_with_a_token_containing_fail_simulates_a_real_rejected_call", async () => {
+    const provider = new TestCloudDashboardAnalyticsProvider({ token: "please-fail" });
+    await expect(provider.fetchAnalytics()).rejects.toThrow(DashboardAnalyticsProviderError);
+    await expect(provider.fetchAnalytics()).rejects.toThrow(/simulated failure/);
   });
 });
 
@@ -385,6 +1124,26 @@ describe("cloud-connect SPI self-registration", () => {
       const resolved = justjs.providers.resolve("cloudConnect", strategy);
       expect(resolved).not.toBeNull();
       expect(resolved!.concern).toBe("cloudConnect");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_dashboard_analytics_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_DASHBOARD_ANALYTICS_STRATEGIES) {
+      const resolved = justjs.providers.resolve("dashboardAnalytics", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("dashboardAnalytics");
+      expect(resolved!.strategy).toBe(strategy);
+    }
+  });
+
+  it("test_every_provisioning_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    for (const strategy of ALL_PROVISIONING_STRATEGIES) {
+      const resolved = justjs.providers.resolve("cloudProvisioning", strategy);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.concern).toBe("cloudProvisioning");
       expect(resolved!.strategy).toBe(strategy);
     }
   });

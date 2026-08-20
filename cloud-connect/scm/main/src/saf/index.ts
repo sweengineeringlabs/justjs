@@ -8,6 +8,33 @@ export type {
   CloudDeployResult,
 } from "../api/provider.js";
 export { CloudConnectProviderError } from "../api/provider.js";
+export type {
+  DashboardAnalyticsProvider,
+  DashboardAnalyticsSnapshot,
+  AnalyticsMetric,
+  TrendingItem,
+  ActivityItem,
+  AnalyticsProviderConfig,
+} from "../api/analytics.js";
+export { DashboardAnalyticsProviderError } from "../api/analytics.js";
+export type {
+  CloudProvisioningProvider,
+  CloudWatchAlarmConfig,
+  CloudWatchAlarmState,
+  CloudWatchDimension,
+  CloudWatchMetricDatapoint,
+  Ec2CommandResult,
+  Ec2CommandStatus,
+  Ec2InstanceConfig,
+  Ec2InstanceState,
+  EcsContainerDefinition,
+  EcsPortMapping,
+  EcsClusterState,
+  EcsTaskDefinitionConfig,
+  EcsTaskDefinitionState,
+  EcsTaskState,
+} from "../api/provisioning.js";
+export { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 // Same justjs#91-pattern fix @justjs/ai-assist's own saf/index.ts
 // applies - importing this module's own spi/index.ts for its side
@@ -18,8 +45,12 @@ export { CloudConnectProviderError } from "../api/provider.js";
 import "../spi/index.js";
 
 import { justjs } from "@justjs/application";
-import type { CloudConnectProvider, CloudConnectProviderConfig } from "../api/provider.js";
+import type { CloudConnectProvider, CloudConnectProviderConfig, AwsCredentialsConfig } from "../api/provider.js";
 import { CloudConnectProviderError } from "../api/provider.js";
+import type { DashboardAnalyticsProvider, AnalyticsProviderConfig } from "../api/analytics.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
+import type { CloudProvisioningProvider } from "../api/provisioning.js";
+import { CloudProvisioningProviderError } from "../api/provisioning.js";
 
 // Factory, not a direct class re-export (core_not_exported_directly,
 // same rule @justjs/ai-assist's saf/index.ts follows) - callers depend
@@ -35,4 +66,29 @@ export function createCloudConnectProvider(strategy: string, config: CloudConnec
     throw new CloudConnectProviderError("UNKNOWN_STRATEGY", `@justjs/cloud-connect: unknown strategy "${strategy}".`);
   }
   return spec.factory(config) as CloudConnectProvider;
+}
+
+// Same factory pattern, separate concern ("dashboardAnalytics", justjs#139)
+// - only "testcloud" exists today (see spi/test_dashboard_analytics.ts);
+// real per-provider strategies land once each provider's own
+// notifications/activity API is wired up.
+export function createCloudDashboardAnalyticsProvider(strategy: string, config: AnalyticsProviderConfig): DashboardAnalyticsProvider {
+  const spec = justjs.providers.resolve("dashboardAnalytics", strategy);
+  if (!spec) {
+    throw new DashboardAnalyticsProviderError("UNKNOWN_STRATEGY", `@justjs/cloud-connect: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as DashboardAnalyticsProvider;
+}
+
+// Same factory pattern, separate concern ("cloudProvisioning") - only
+// "aws" exists today, covering CloudWatch alarms (the pilot service, see
+// core/aws_cloud_provisioning_provider.ts's own comment on why it's
+// first) and EC2 instances (justjs#144). ECS/EKS provisioning strategies
+// land in their own later phases.
+export function createCloudProvisioningProvider(strategy: string, config: AwsCredentialsConfig): CloudProvisioningProvider {
+  const spec = justjs.providers.resolve("cloudProvisioning", strategy);
+  if (!spec) {
+    throw new CloudProvisioningProviderError("UNKNOWN_STRATEGY", `@justjs/cloud-connect: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as CloudProvisioningProvider;
 }

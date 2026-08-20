@@ -6,3 +6,4 @@
 import "./github.js";
 import "./gitlab.js";
 import "./bitbucket.js";
+import "./test_dashboard_analytics.js";

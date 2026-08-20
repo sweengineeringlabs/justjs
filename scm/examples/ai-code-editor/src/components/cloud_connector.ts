@@ -147,6 +147,19 @@ export class CloudConnectorControl extends HTMLElement {
     this.#deployResult = null;
   }
 
+  // Real, public reset back to the grid (mirrors @justjs/provider-
+  // connect's ProviderConnectorControl.resetView(), justjs#138/#139) -
+  // sdlc_hub.ts caches this whole element across SDLC stage switches
+  // (never destroys/recreates it), so nothing else ever reset
+  // #selectedProviderId or the detail-view state on its own once the
+  // user switched stages away and back. Safe to call from any state,
+  // including already on the grid (a real no-op then).
+  resetView(): void {
+    this.#selectedProviderId = null;
+    this.#resetDetailState();
+    this.render();
+  }
+
   async #handleSubmit(provider: CloudCatalogItem, values: Readonly<Record<string, string>>): Promise<void> {
     this.#connecting = true;
     this.#error = null;

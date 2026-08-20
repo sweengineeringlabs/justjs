@@ -2,7 +2,31 @@ import { describe, it, expect } from "bun:test";
 import { justjs } from "@justjs/application";
 import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport";
 import { AnthropicAiAssistProvider } from "../core/anthropic_provider.js";
+import { BedrockAiAssistProvider } from "../core/bedrock_provider.js";
 import { AiAssistProviderError } from "../api/provider.js";
+import { createAiAssistProvider } from "../saf/index.js";
+
+// justjs#148's own in-browser endpoint-override seam reads
+// globalThis.localStorage - genuinely absent from plain `bun test`
+// (confirmed: `bun -e "localStorage"` throws ReferenceError). A minimal
+// real Map-backed Storage implementation, not a mock of this package's
+// own logic - only of a Web API this Node-based test runner doesn't
+// otherwise have (no happy-dom dependency here, unlike @justjs/cloud-connect's
+// own test suite, which already needed it for DOMParser - not worth
+// adding a whole new devDependency just for this).
+class FakeLocalStorage {
+  private readonly store = new Map<string, string>();
+  getItem(key: string): string | null {
+    return this.store.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, value);
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+}
+(globalThis as { localStorage?: unknown }).localStorage = new FakeLocalStorage();
 
 // Constructor-injected fake ApiAdapter, not a globalThis.fetch monkey-
 // patch - cleaner than @justjs/network's own tests (which patch fetch
@@ -51,6 +75,15 @@ function anthropicErrorResponse(status: number, errorType: string, message: stri
     data: { type: "error", error: { type: errorType, message } },
   };
 }
+
+// Bedrock's real error shape (confirmed live against real AWS Bedrock,
+// see bedrock_provider.ts's own header comment) is a flat
+// { message } - no nested error.type like Anthropic's direct API.
+function bedrockErrorResponse(status: number, message: string): ApiResponse<unknown> {
+  return { status, headers: {}, error: `HTTP ${status}`, data: { message } };
+}
+
+const FAKE_BEDROCK_CREDENTIALS = { accessKeyId: "AKIAFAKE", secretAccessKey: "secret", region: "us-east-1" };
 
 describe("AnthropicAiAssistProvider construction", () => {
   it("test_constructor_throws_when_apiKey_is_missing", () => {
@@ -538,6 +571,213 @@ describe("AnthropicAiAssistProvider retry-on-429", () => {
   });
 });
 
+describe("BedrockAiAssistProvider construction", () => {
+  it("test_constructor_throws_when_credentials_are_missing", () => {
+    const fake = new FakeApiAdapter();
+    expect(() => new BedrockAiAssistProvider({ accessKeyId: "", secretAccessKey: "", region: "us-east-1" }, fake)).toThrow(
+      AiAssistProviderError
+    );
+  });
+
+  it("test_constructor_throws_when_region_is_missing", () => {
+    const fake = new FakeApiAdapter();
+    expect(() => new BedrockAiAssistProvider({ accessKeyId: "AKIAFAKE", secretAccessKey: "secret", region: "" }, fake)).toThrow(
+      AiAssistProviderError
+    );
+  });
+});
+
+describe("BedrockAiAssistProvider request shape", () => {
+  it("test_complete_signs_the_request_and_targets_the_default_fast_model_in_the_url_path", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("const x = 1;"));
+    const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+    const result = await provider.complete({ codeBeforeCursor: "function foo() {\n  ", codeAfterCursor: "\n}" });
+
+    expect(result).toBe("const x = 1;");
+    const call = fake.calls[0]!;
+    expect(call.url).toBe("https://bedrock-runtime.us-east-1.amazonaws.com/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/invoke");
+    const headers = call.options!.headers!;
+    expect(headers["Authorization"]).toContain("AWS4-HMAC-SHA256 Credential=AKIAFAKE/");
+    expect(headers["Host"]).toBe("bedrock-runtime.us-east-1.amazonaws.com");
+    expect(headers["X-Amz-Date"]).toMatch(/^\d{8}T\d{6}Z$/);
+
+    const body = JSON.parse(call.body as string) as {
+      anthropic_version: string;
+      max_tokens: number;
+      model?: string;
+      messages: Array<{ content: string }>;
+    };
+    expect(body.anthropic_version).toBe("bedrock-2023-05-31");
+    expect(body.max_tokens).toBe(512);
+    expect(body.model).toBeUndefined();
+    expect(body.messages[0]!.content).toContain("function foo()");
+    expect(body.messages[0]!.content).toContain("<CURSOR>");
+  });
+
+  it("test_chat_sends_system_context_and_targets_the_default_capable_model", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("Looks fine."));
+    const provider = new BedrockAiAssistProvider({ ...FAKE_BEDROCK_CREDENTIALS, region: "eu-west-1" }, fake);
+
+    const result = await provider.chat({ code: "const x = 1;", messages: [{ role: "user", content: "is this ok?" }] });
+
+    expect(result).toBe("Looks fine.");
+    expect(fake.calls[0]!.url).toContain("anthropic.claude-3-5-sonnet-20241022-v2%3A0");
+    const body = JSON.parse(fake.calls[0]!.body as string) as { system: string; max_tokens: number; messages: unknown[] };
+    expect(body.system).toContain("const x = 1;");
+    expect(body.max_tokens).toBe(4096);
+    expect(body.messages).toEqual([{ role: "user", content: "is this ok?" }]);
+  });
+
+  it("test_chat_rejects_an_image_attached_message_without_making_a_request", async () => {
+    const fake = new FakeApiAdapter();
+    const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+    await expect(
+      provider.chat({
+        code: "",
+        messages: [{ role: "user", content: "what's wrong?", image: { mediaType: "image/png", base64Data: "ZmFrZQ==" } }],
+      })
+    ).rejects.toThrow(AiAssistProviderError);
+    expect(fake.calls).toHaveLength(0);
+  });
+
+  it("test_custom_model_id_and_region_override_the_defaults", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("ok"));
+    const provider = new BedrockAiAssistProvider(
+      { accessKeyId: "AKIAFAKE", secretAccessKey: "secret", region: "ap-southeast-2", completeModel: "custom.model-v1" },
+      fake
+    );
+
+    await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+    expect(fake.calls[0]!.url).toBe("https://bedrock-runtime.ap-southeast-2.amazonaws.com/model/custom.model-v1/invoke");
+  });
+});
+
+describe("BedrockAiAssistProvider unimplemented methods", () => {
+  const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, new FakeApiAdapter());
+
+  it("test_review_throws_not_implemented", async () => {
+    await expect(provider.review({ code: "x" })).rejects.toThrow(AiAssistProviderError);
+  });
+
+  it("test_scaffold_throws_not_implemented", async () => {
+    await expect(provider.scaffold({ description: "x" })).rejects.toThrow(AiAssistProviderError);
+  });
+
+  it("test_scaffold_project_throws_not_implemented", async () => {
+    await expect(provider.scaffoldProject({ description: "x" })).rejects.toThrow(AiAssistProviderError);
+  });
+
+  it("test_generate_design_doc_throws_not_implemented", async () => {
+    await expect(provider.generateDesignDoc({ description: "x" })).rejects.toThrow(AiAssistProviderError);
+  });
+
+  it("test_generate_slides_throws_not_implemented", async () => {
+    await expect(provider.generateSlides({ description: "x" })).rejects.toThrow(AiAssistProviderError);
+  });
+
+  it("test_agent_step_throws_not_implemented", async () => {
+    await expect(provider.agentStep({ code: "", tools: [], messages: [] })).rejects.toThrow(AiAssistProviderError);
+  });
+});
+
+describe("BedrockAiAssistProvider error handling", () => {
+  it("test_bedrock_error_body_message_is_surfaced_over_the_generic_status_text", async () => {
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => bedrockErrorResponse(403, "The security token included in the request is invalid."));
+    const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+    await expect(provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" })).rejects.toThrow(
+      "The security token included in the request is invalid."
+    );
+  });
+
+  it("test_network_level_failure_is_wrapped_without_leaking_the_secret_key", async () => {
+    const fake = new FakeApiAdapter();
+    fake.post = async () => {
+      throw new Error("fetch failed: getaddrinfo ENOTFOUND");
+    };
+    const provider = new BedrockAiAssistProvider({ ...FAKE_BEDROCK_CREDENTIALS, secretAccessKey: "sk-should-not-appear" }, fake);
+
+    try {
+      await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+      throw new Error("expected complete() to throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(AiAssistProviderError);
+      expect((e as Error).message).not.toContain("sk-should-not-appear");
+      expect((e as Error).message).toContain("fetch failed");
+    }
+  });
+});
+
+describe("BedrockAiAssistProvider endpoint override (justjs#148)", () => {
+  it("test_redirects_to_the_localStorage_override_when_set_and_no_env_var_present", async () => {
+    delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT", "localhost:4566");
+    try {
+      const fake = new FakeApiAdapter();
+      fake.queueResponse(async () => textResponse("ok"));
+      const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+      await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+      expect(fake.calls[0]!.url).toContain("localhost:4566");
+    } finally {
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    }
+  });
+
+  it("test_env_var_override_takes_precedence_over_localStorage_override_when_both_are_set", async () => {
+    process.env["AI_ASSIST_BEDROCK_ENDPOINT"] = "localhost:9001";
+    globalThis.localStorage.setItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT", "localhost:9002");
+    try {
+      const fake = new FakeApiAdapter();
+      fake.queueResponse(async () => textResponse("ok"));
+      const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+      await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+      expect(fake.calls[0]!.url).toContain("localhost:9001");
+    } finally {
+      delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+      globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    }
+  });
+
+  it("test_no_override_present_at_all_still_hits_the_real_production_bedrock_host", async () => {
+    delete process.env["AI_ASSIST_BEDROCK_ENDPOINT"];
+    globalThis.localStorage.removeItem("justjs:aws-endpoint-override:AI_ASSIST_BEDROCK_ENDPOINT");
+    const fake = new FakeApiAdapter();
+    fake.queueResponse(async () => textResponse("ok"));
+    const provider = new BedrockAiAssistProvider(FAKE_BEDROCK_CREDENTIALS, fake);
+
+    await provider.complete({ codeBeforeCursor: "", codeAfterCursor: "" });
+
+    expect(fake.calls[0]!.url).toContain("bedrock-runtime.us-east-1.amazonaws.com");
+  });
+});
+
+describe("createAiAssistProvider (SAF factory)", () => {
+  it("test_resolves_the_anthropic_strategy_through_the_spi_registry", () => {
+    const provider = createAiAssistProvider("anthropic", { apiKey: "k" });
+    expect(provider.strategy).toBe("anthropic");
+  });
+
+  it("test_resolves_the_bedrock_strategy_through_the_spi_registry", () => {
+    const provider = createAiAssistProvider("bedrock", FAKE_BEDROCK_CREDENTIALS);
+    expect(provider.strategy).toBe("bedrock");
+  });
+
+  it("test_throws_a_descriptive_error_for_an_unknown_strategy", () => {
+    expect(() => createAiAssistProvider("does-not-exist", { apiKey: "k" })).toThrow(AiAssistProviderError);
+  });
+});
+
 describe("ai-assist SPI self-registration", () => {
   it("test_anthropic_strategy_registers_with_justjs_on_import", async () => {
     await import("../spi/index.js");
@@ -545,5 +785,13 @@ describe("ai-assist SPI self-registration", () => {
     expect(resolved).not.toBeNull();
     expect(resolved!.concern).toBe("aiAssist");
     expect(resolved!.strategy).toBe("anthropic");
+  });
+
+  it("test_bedrock_strategy_registers_with_justjs_on_import", async () => {
+    await import("../spi/index.js");
+    const resolved = justjs.providers.resolve("aiAssist", "bedrock");
+    expect(resolved).not.toBeNull();
+    expect(resolved!.concern).toBe("aiAssist");
+    expect(resolved!.strategy).toBe("bedrock");
   });
 });

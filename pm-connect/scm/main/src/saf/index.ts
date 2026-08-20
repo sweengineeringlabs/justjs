@@ -1,5 +1,14 @@
 export type { PmConnectProvider, PmResource, BearerTokenConfig, TrelloCredentialsConfig, JiraSessionConfig, PmConnectProviderConfig } from "../api/provider.js";
 export { PmConnectProviderError } from "../api/provider.js";
+export type {
+  DashboardAnalyticsProvider,
+  DashboardAnalyticsSnapshot,
+  AnalyticsMetric,
+  TrendingItem,
+  ActivityItem,
+  AnalyticsProviderConfig,
+} from "../api/analytics.js";
+export { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 // Same justjs#91-pattern fix every sibling *-connect package's own
 // saf/index.ts applies - importing this module's own spi/index.ts for
@@ -10,6 +19,8 @@ import "../spi/index.js";
 import { justjs } from "@justjs/application";
 import type { PmConnectProvider, PmConnectProviderConfig } from "../api/provider.js";
 import { PmConnectProviderError } from "../api/provider.js";
+import type { DashboardAnalyticsProvider, AnalyticsProviderConfig } from "../api/analytics.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 // Jira's OAuth helpers are real, general-purpose functions the app
 // calls directly (there's no valid session/config to resolve through
@@ -29,4 +40,16 @@ export function createPmConnectProvider(strategy: string, config: PmConnectProvi
     throw new PmConnectProviderError("UNKNOWN_STRATEGY", `@justjs/pm-connect: unknown strategy "${strategy}".`);
   }
   return spec.factory(config) as PmConnectProvider;
+}
+
+// Same factory pattern, separate concern ("dashboardAnalytics", justjs#139)
+// - only "testpm" exists today (see spi/test_dashboard_analytics.ts);
+// real per-provider strategies (linear/asana/trello/jira) land once each
+// provider's own notifications/activity API is wired up.
+export function createPmDashboardAnalyticsProvider(strategy: string, config: AnalyticsProviderConfig): DashboardAnalyticsProvider {
+  const spec = justjs.providers.resolve("dashboardAnalytics", strategy);
+  if (!spec) {
+    throw new DashboardAnalyticsProviderError("UNKNOWN_STRATEGY", `@justjs/pm-connect: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as DashboardAnalyticsProvider;
 }

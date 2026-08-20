@@ -7,6 +7,15 @@ export { ScmConnectProviderError } from "../api/provider.js";
 // buildJiraAuthorizationUrl/exchangeJiraAuthorizationCode.
 export type { GithubDeviceCodeConfig, GithubDeviceCodeSession } from "../core/github_device_flow.js";
 export { requestGithubDeviceCode, pollGithubDeviceToken } from "../core/github_device_flow.js";
+export type {
+  DashboardAnalyticsProvider,
+  DashboardAnalyticsSnapshot,
+  AnalyticsMetric,
+  TrendingItem,
+  ActivityItem,
+  AnalyticsProviderConfig,
+} from "../api/analytics.js";
+export { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 // Same justjs#91-pattern fix @justjs/ai-assist's/@justjs/cloud-connect's
 // own saf/index.ts applies - importing this module's own spi/index.ts
@@ -17,6 +26,8 @@ import "../spi/index.js";
 import { justjs } from "@justjs/application";
 import type { ScmConnectProvider, BearerTokenConfig } from "../api/provider.js";
 import { ScmConnectProviderError } from "../api/provider.js";
+import type { DashboardAnalyticsProvider, AnalyticsProviderConfig } from "../api/analytics.js";
+import { DashboardAnalyticsProviderError } from "../api/analytics.js";
 
 // Factory, not a direct class re-export (core_not_exported_directly) -
 // callers depend on the ScmConnectProvider contract, never a concrete
@@ -31,4 +42,16 @@ export function createScmConnectProvider(strategy: string, config: BearerTokenCo
     throw new ScmConnectProviderError("UNKNOWN_STRATEGY", `@justjs/scm-connect: unknown strategy "${strategy}".`);
   }
   return spec.factory(config) as ScmConnectProvider;
+}
+
+// Same factory pattern, separate concern ("dashboardAnalytics", justjs#139)
+// - only "testscm" exists today (see spi/test_dashboard_analytics.ts);
+// real per-provider strategies (github/gitlab/bitbucket) land once each
+// provider's own notifications/activity API is wired up.
+export function createScmDashboardAnalyticsProvider(strategy: string, config: AnalyticsProviderConfig): DashboardAnalyticsProvider {
+  const spec = justjs.providers.resolve("dashboardAnalytics", strategy);
+  if (!spec) {
+    throw new DashboardAnalyticsProviderError("UNKNOWN_STRATEGY", `@justjs/scm-connect: unknown strategy "${strategy}".`);
+  }
+  return spec.factory(config) as DashboardAnalyticsProvider;
 }

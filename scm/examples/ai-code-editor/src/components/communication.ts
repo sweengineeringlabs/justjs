@@ -194,19 +194,26 @@ export class CommunicationElement extends CommunicationBase {
       this.mainView.hidden = true;
       this.settingsView.hidden = false;
     });
-    this.settingsBackBtn.addEventListener("click", () => {
-      this.settingsView.hidden = true;
-      this.mainView.hidden = false;
-    });
+    this.settingsBackBtn.addEventListener("click", () => this.showMain());
 
     this.dashboardBtn = this.querySelector<HTMLButtonElement>("#comms-dashboard-btn")!;
     this.dashboardView = this.querySelector<HTMLElement>("#comms-dashboard-view")!;
     this.dashboardBackBtn = this.querySelector<HTMLButtonElement>("#comms-dashboard-back-btn")!;
     this.dashboardList = this.querySelector<HTMLElement>("#comms-dashboard-list")!;
     this.dashboardBtn.addEventListener("click", () => this.showDashboard());
-    this.dashboardBackBtn.addEventListener("click", () => {
-      this.dashboardView.hidden = true;
-      this.mainView.hidden = false;
+    this.dashboardBackBtn.addEventListener("click", () => this.showMain());
+
+    // Real fix for the same "sticking" bug Socials had (justjs#137) -
+    // this element is cached forever by connect.ts (never destroyed/
+    // recreated), so nothing ever reset Dashboard/Settings state, or the
+    // connector's own selection/auto-refresh state, once the user
+    // navigated away and back. connect.ts dispatches this event whenever
+    // Communication itself is hidden (switched to a different section,
+    // back to Connect's overview/Agent, or a completely different
+    // bottom-nav tab and back).
+    this.addEventListener("connect-section-hidden", () => {
+      this.showMain();
+      (this.connector as CommsConnectorControl).resetView();
     });
 
     const persist = (partial: Partial<CommsSettings>): void => {
@@ -257,6 +264,12 @@ export class CommunicationElement extends CommunicationBase {
     if (this.settings.defaultProviderId) {
       connector.openProvider(this.settings.defaultProviderId);
     }
+  }
+
+  private showMain(): void {
+    this.dashboardView.hidden = true;
+    this.settingsView.hidden = true;
+    this.mainView.hidden = false;
   }
 
   // Rebuilt fresh every time Dashboard is opened - real data, not a

@@ -1,6 +1,7 @@
 import type { AspectTarget } from "@justjs/application";
+import type { AwsCredentialsConfig } from "@justjs/aws-sigv4";
 
-export interface AiAssistProviderConfig {
+export interface AnthropicAiAssistConfig {
   readonly apiKey: string;
   // Model used by complete() - default "claude-haiku-4-5". Kept separate
   // from capableModel since completions must feel responsive; a slower
@@ -9,6 +10,25 @@ export interface AiAssistProviderConfig {
   // Model used by chat()/review()/scaffold() - default "claude-opus-4-8".
   readonly capableModel?: string;
 }
+
+// AWS Bedrock strategy (justjs#145/ADR-0018) - real SigV4-signed
+// requests (@justjs/aws-sigv4), same credential shape
+// @justjs/cloud-connect's AWS providers already use. `region` is
+// required (not defaulted) since Bedrock's endpoint host is itself
+// region-scoped (bedrock-runtime.<region>.amazonaws.com) - unlike
+// Anthropic's single global endpoint, there's no single sensible
+// default region to silently assume.
+export interface BedrockAiAssistConfig extends AwsCredentialsConfig {
+  readonly region: string;
+  // Bedrock's own model-ID naming (e.g.
+  // "anthropic.claude-3-5-haiku-20241022-v1:0"), not Anthropic's native
+  // model names - default "anthropic.claude-3-5-haiku-20241022-v1:0".
+  readonly completeModel?: string;
+  // Default "anthropic.claude-3-5-sonnet-20241022-v2:0".
+  readonly capableModel?: string;
+}
+
+export type AiAssistProviderConfig = AnthropicAiAssistConfig | BedrockAiAssistConfig;
 
 // A single image attached to a request - real vision input, sent as an
 // Anthropic Messages API image content block, not just stored/displayed
