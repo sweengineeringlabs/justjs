@@ -4,6 +4,18 @@
   resolution before implementation starts
 - **Date:** 2026-08-20 (corrected twice, same day — see Correction history below)
 
+## Scope note
+
+This ADR decides one thing: the Anthropic-key retirement. It's Phase 1 of
+a much larger goal tracked in
+[justjs#155](https://github.com/sweengineeringlabs/justjs/issues/155) —
+retiring justjs's hand-rolled transport/AOP infrastructure entirely in
+favor of edge-bootstrap Handlers, not just this one integration. Later
+retirements (`@justjs/transport`, `aop/security`, `aop/observability`,
+etc.) get their own ADRs when they're actually investigated, same
+convention as this repo's ADR-0017/0019/0020/0021/0022 series — one
+decision per ADR, not one ADR for the whole program.
+
 ## Correction history (kept for context, not deleted)
 
 This ADR went through two prior, wrong framings before landing here.
