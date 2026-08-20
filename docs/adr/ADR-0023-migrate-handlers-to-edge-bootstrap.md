@@ -81,15 +81,30 @@ comment:**
   whose SSR render path needs to fetch real data via
   `@justjs/network`/`cloud-connect`.
 
+## Phase 1 candidate, selected and verified (2026-08-20)
+
+**`BadgeView`** (`@justjs/component-view`,
+`component-view/scm/main/src/core/badge_view.ts`, custom element tag
+`view-badge`): real Shadow DOM (`this.attachShadow({ mode: "open" })` in
+its constructor) — directly compatible with `renderComponent()`'s
+`element.shadowRoot?.innerHTML` read. Zero network/data dependency, purely
+presentational (three props: `icon`/`color`/`logo`), synchronous render.
+Small (82 lines), real, tested (`badge_view_test.ts`), genuinely used
+elsewhere in the codebase — not a throwaway demo.
+
+Ruled out `cross-target-demo`'s `CounterElement` for the same role: it
+sets `this.innerHTML` directly on the light DOM with no `attachShadow`
+call, so `renderComponent()` would read back an empty string as written —
+a real, verified incompatibility, not a style preference.
+
 ## Approach
 
-**Phase 1 (no dependency on edge-bootstrap#62):** pick the narrowest real
-route/component that renders with zero data-fetching in its SSR path
-(static content only). Build the request → `Router.resolve()` →
-`renderComponent()` → HTML pipeline. Wrap it as one Handler. Compile via
-`justc`. Host through a real `edge-bootstrap` `RuntimeBuilder`. Live-verify
-a real HTTP request returns real server-rendered HTML, and that client
-hydration still works against it unmodified.
+**Phase 1 (no dependency on edge-bootstrap#62):** build the request →
+`Router.resolve()` → `renderComponent("view-badge", ...)` → HTML pipeline
+for `BadgeView`. Wrap it as one Handler. Compile via `justc`. Host through
+a real `edge-bootstrap` `RuntimeBuilder`. Live-verify a real HTTP request
+returns the real server-rendered `<view-badge>` declarative-shadow-DOM
+HTML, and that client hydration still works against it unmodified.
 
 **Phase 2 (gated on `edge-bootstrap#62`):** extend to a route whose SSR
 render path fetches real data — requires the capability-granting
@@ -97,9 +112,9 @@ mechanism to land first.
 
 ## Open questions (need resolution before implementation starts)
 
-- Which specific route/component is the actual Phase 1 candidate? Not yet
-  selected — needs a real audit of `justjs`'s example apps for one that
-  renders with zero SSR-time data fetching.
+- ~~Which specific route/component is the actual Phase 1 candidate?~~
+  **Resolved 2026-08-20: `BadgeView` (`@justjs/component-view`,
+  `view-badge`) — see above.**
 - Where do the compiled `.wasm`/`manifest.json` artifacts get produced and
   consumed — a build step inside `justjs`'s own tooling, or a step on the
   `edge-bootstrap` side? Not yet decided.
@@ -133,10 +148,11 @@ mechanism to land first.
 
 ## Acceptance criteria (for this ADR's own resolution, not implementation)
 
-- [ ] Open questions above answered
-- [ ] Phase 1 candidate route/component selected
-- [ ] justjs#155's Phase 1 tasks scoped/estimated against the selected
-      route
+- [ ] Remaining open questions above answered (artifact ownership, where
+      the request→render→Handler wiring lives)
+- [x] Phase 1 candidate route/component selected — `BadgeView`
+      (`@justjs/component-view`, `view-badge`), 2026-08-20
+- [ ] justjs#155's Phase 1 tasks scoped/estimated against `BadgeView`
 
 ## Relates to
 
@@ -145,3 +161,4 @@ mechanism to land first.
 - [edge-bootstrap#62](https://github.com/sweengineeringlabs/edge-bootstrap/issues/62) — the companion contract-extension issue gating Phase 2
 - justjs#1 — the EPIC establishing justjs as edge-domain's frontend equivalent
 - justjs#12 — shipped the real `@justjs/ssr` primitives this ADR wires up
+- `component-view/scm/main/src/core/badge_view.ts` — the selected Phase 1 candidate
