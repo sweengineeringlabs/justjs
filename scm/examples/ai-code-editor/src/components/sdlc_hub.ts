@@ -92,6 +92,8 @@ import "./ec2_monitor.js";
 import type { Ec2MonitorControl } from "./ec2_monitor.js";
 import "./ecs_monitor.js";
 import type { EcsMonitorControl } from "./ecs_monitor.js";
+import "./deployment_pipeline.js";
+import type { DeploymentPipelineControl } from "./deployment_pipeline.js";
 
 // Real hex values ported from app.css's own [data-stage="..."] rules -
 // <view-grid>'s Shadow DOM can't be reached by that light-DOM selector
@@ -159,7 +161,22 @@ interface SdlcFunction {
   // configure/create, here shown read/manage-only (list, start/stop/
   // terminate, redeploy, delete) under a stage that's about operating
   // what's already running, not deploying something new.
-  readonly action?: "design-generate" | "cloud-providers" | "cloud-monitoring" | "scm-connect" | "presentation-generate" | "cli" | "pm-connect";
+  // "deployment-pipeline": the real 6-stage deployment-workflow model
+  // (justjs#153/#154) - Build/Test-verify/Provision/Release/Rollout-
+  // strategy/Rollback, gated so a step can't be actioned until the one
+  // before it is satisfied. A second, distinct function alongside
+  // "cloud-providers" under Deployment, not a replacement for it - this
+  // is the ordered-workflow view, "cloud-providers" stays the direct
+  // per-resource Configure/Create view.
+  readonly action?:
+    | "design-generate"
+    | "cloud-providers"
+    | "cloud-monitoring"
+    | "deployment-pipeline"
+    | "scm-connect"
+    | "presentation-generate"
+    | "cli"
+    | "pm-connect";
 }
 
 interface SdlcStage {
@@ -563,7 +580,10 @@ const SDLC_STAGES: readonly SdlcStage[] = [
     key: "deployment",
     label: "Deployment",
     icon: "🚀",
-    functions: [{ label: "Cloud", icon: "☁️", action: "cloud-providers" }],
+    functions: [
+      { label: "Cloud", icon: "☁️", action: "cloud-providers" },
+      { label: "Workflow", icon: "🪜", action: "deployment-pipeline" },
+    ],
   },
   {
     key: "operations",
@@ -694,6 +714,14 @@ export class SdlcHubElement extends HTMLElement {
   private cloudMonitoringEcsView!: HTMLElement;
   private cloudMonitoringEcsBackBtn!: HTMLButtonElement;
 
+  // Deployment's Workflow (justjs#153/#154) - the real 6-stage
+  // deployment-workflow pipeline, a second function alongside Cloud
+  // under Deployment. Single-screen (no tile grid, unlike Cloud/
+  // Monitoring) - <control-deployment-pipeline> owns its own list-of-
+  // pipelines/step-gating state internally.
+  private showDeploymentPipeline = false;
+  private deploymentPipelineScreen: HTMLElement | undefined;
+
   // Development's Repository - <control-provider-connector>, which owns
   // which-provider-is-selected/fetched-resources state internally.
   // scmScreen caches the whole composed wrapper (header + hint +
@@ -812,6 +840,8 @@ export class SdlcHubElement extends HTMLElement {
       this.resetCloudMonitoringAlarmsToMain();
       this.resetCloudMonitoringEc2ToMain();
       this.resetCloudMonitoringEcsToMain();
+      this.showDeploymentPipeline = false;
+      this.deploymentPipelineScreen?.querySelector<DeploymentPipelineControl>("#deployment-pipeline")?.resetView();
       this.showScmConnect = false;
       const scmConnector = this.scmScreen?.querySelector<ProviderConnectorControl>("#scm-connector");
       scmConnector?.resetView();
@@ -858,6 +888,10 @@ export class SdlcHubElement extends HTMLElement {
         return;
       case "cloud-monitoring":
         this.showCloudMonitoring = true;
+        this.renderView();
+        return;
+      case "deployment-pipeline":
+        this.showDeploymentPipeline = true;
         this.renderView();
         return;
       case "scm-connect":
@@ -925,6 +959,10 @@ export class SdlcHubElement extends HTMLElement {
     }
     if (stage.key === "deployment" && this.showCloudProviders) {
       this.renderCloudProviders();
+      return;
+    }
+    if (stage.key === "deployment" && this.showDeploymentPipeline) {
+      this.renderDeploymentPipeline();
       return;
     }
     if (stage.key === "operations" && this.showCloudMonitoring) {
@@ -1152,6 +1190,36 @@ export class SdlcHubElement extends HTMLElement {
     this.cloudMainView.hidden = false;
     const ecs = this.cloudScreen.querySelector<EcsProvisioningControl>("#cloud-ecs");
     ecs?.resetView();
+  }
+
+  // ---- Deployment: Workflow (opened from Workflow above) - the real
+  // 6-stage deployment-workflow pipeline (justjs#153/#154). Single
+  // screen, no tile grid - <control-deployment-pipeline> owns its own
+  // list-of-pipelines/step-gating state internally, this just mounts it
+  // behind a real back button, same <view-nav-header> shape
+  // renderCloudProviders()/renderCloudMonitoring() already use. ----
+
+  private renderDeploymentPipeline(): void {
+    this.functionListView.hidden = true;
+    this.subscreenView.hidden = false;
+    this.subscreenView.innerHTML = "";
+    if (!this.deploymentPipelineScreen) {
+      const screen = document.createElement("div");
+      screen.innerHTML = `
+        <view-nav-header id="deployment-pipeline-header"></view-nav-header>
+        <control-deployment-pipeline id="deployment-pipeline"></control-deployment-pipeline>
+      `;
+      const header = screen.querySelector<NavHeaderView>("#deployment-pipeline-header")!;
+      header.icon = "🪜";
+      header.title = "Workflow";
+      header.backLabel = "Deployment";
+      header.addEventListener("nav-back", () => {
+        this.showDeploymentPipeline = false;
+        this.renderView();
+      });
+      this.deploymentPipelineScreen = screen;
+    }
+    this.subscreenView.appendChild(this.deploymentPipelineScreen);
   }
 
   // ---- Operations: Monitoring (opened from Monitoring above) - the
