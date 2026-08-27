@@ -1,0 +1,20 @@
+[package]
+name         = "hello-justjs-backend"
+version      = "0.1.0"
+edition      = "2021"
+publish      = false
+description  = "justjs#155's first real edge-bootstrap integration: hello-justjs's own backend."
+
+[[bin]]
+name = "hello-justjs-backend"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "signal"] }
+
+# edge-bootstrap is a separate repo -- no workspace/path relationship to
+# this one, so this pins a real tagged release the same way every other
+# cross-repo dependency in this ecosystem does (e.g. edge-domain, edge-
+# security). Bump this tag when a newer edge-bootstrap release is needed.
+edge-bootstrap-composer = { git = "https://github.com/sweengineeringlabs/edge-bootstrap.git", tag = "v0.30.0", features = ["wasm"] }
+edge-bootstrap-wasm     = { git = "https://github.com/sweengineeringlabs/edge-bootstrap.git", tag = "v0.30.0" }
