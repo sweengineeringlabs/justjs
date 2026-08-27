@@ -25,7 +25,7 @@ export default defineConfig({
     port: 3000,
     open: true,
     // justjs#155: dev-time-only proxy to the edge-bootstrap Wasm handler
-    // (scm/examples/hello-justjs-egress.rs). edge-bootstrap's HTTP stack
+    // (scm/examples/hello-justjs-backend.rs). edge-bootstrap's HTTP stack
     // has no CORS support anywhere (confirmed: no config surface in
     // RuntimeConfig/RuntimeBuilder, and the vendored edge-runtime-http-
     // adapter doesn't even compile in tower-http's `cors` feature) --
