@@ -40,10 +40,19 @@ class StateStore {
     this._notify()
 
     try {
-      logNetworkLayer('→', { method: 'GET', url: 'https://jsonplaceholder.typicode.com/users/1' }, 'network-request')
+      // justjs#155: this call now goes through a dedicated edge-bootstrap
+      // Wasm handler (scm/examples/hello-justjs-egress.rs) instead of
+      // directly to jsonplaceholder -- the handler is what actually
+      // reaches the upstream, through a capability scoped to exactly
+      // that host. The envelope shape (status/statusText/headers/body/ok)
+      // is WasmHttpEgressResponse; `body` carries the real upstream JSON
+      // as a string, so it needs its own parse.
+      const egressUrl = '/api/hello-justjs/user'
+      logNetworkLayer('→', { method: 'POST', url: egressUrl }, 'network-request')
 
-      const response = await fetch('https://jsonplaceholder.typicode.com/users/1')
-      const data = await response.json()
+      const response = await fetch(egressUrl, { method: 'POST' })
+      const envelope = await response.json()
+      const data = JSON.parse(envelope.body)
 
       logNetworkLayer('←', { status: response.status, dataSize: JSON.stringify(data).length }, 'network-response')
       logTransportLayer('→', { parsed: true, fields: Object.keys(data).length })
