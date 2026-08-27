@@ -1,0 +1,24 @@
+{
+  "runtime": {
+    "service_name": "hello-justjs-backend",
+    "http_bind": "127.0.0.1:18895"
+  },
+  "component": {
+    "component_id": "hello-justjs-backend",
+    "route_id": "/hello-justjs/user",
+    "contract_version": "swe:edge-handler@0.2.0",
+    "handler_export": "fetch",
+    "resource_limits": {
+      "max_memory_bytes": 16777216,
+      "invoke_timeout_ms": 5000,
+      "max_concurrency": 8,
+      "max_payload_bytes": 262144
+    },
+    "capabilities": [],
+    "artifact_provenance": {
+      "source": "real justc build --target wasm --component output, compiled from wasm/hello_justjs_backend_handler.ts -- see that file's own doc comment",
+      "checksum_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "built_at": "2026-08-27T00:00:00Z"
+    }
+  }
+}
