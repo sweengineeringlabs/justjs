@@ -270,6 +270,59 @@ Third-party strategies are separate repos that self-register before `JustJS.boot
 
 ---
 
+## Outbound network — composition root and real consumers
+
+`ApiAdapter`/`FetchAdapter` (the `transport`/`network` interfaces above) are constructed exactly once, at `application/scm/main/src/core/boot.ts:446`:
+
+```ts
+this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
+```
+
+Every real consumer depends only on the `ApiAdapter` **type**, injected at construction time — none of them import `DefaultApiAdapter`/`DefaultFetchAdapter` directly. Swapping the composition root's implementation changes nothing for any consumer below.
+
+```mermaid
+flowchart LR
+  Boot["boot.ts:446\ncreateApiAdapter(createFetchAdapter())"]
+  AA["ApiAdapter\n(interface, injected)"]
+
+  Boot --> AA
+
+  AA --> AI["ai-assist\n(1: anthropic)"]
+  AA --> Sec["aop/security"]
+  AA --> CC["cloud-connect\n(7: aws · azure · gcp\ndigitalocean · heroku\nnetlify · vercel)"]
+  AA --> CO["comms-connect\n(3: discord · slack · teams)"]
+  AA --> IC["image-connect\n(3: gemini · openai · stability)"]
+  AA --> PM["pm-connect\n(4: asana · jira · linear · trello)"]
+  AA --> SC["scm-connect\n(3: bitbucket · github · gitlab)"]
+  AA --> SO["social-connect\n(3: bluesky · mastodon · reddit)"]
+```
+
+### Outbound call sequence — real, current (git HEAD, not the v4 interim proxy)
+
+```mermaid
+sequenceDiagram
+  participant Consumer as e.g. aws_provider.ts
+  participant API as DefaultApiAdapter
+  participant Fetch as DefaultFetchAdapter
+  participant Bun as globalThis.fetch (Bun runtime)
+  participant Upstream
+
+  Consumer->>API: get/post/put/delete(url, options)
+  API->>API: toFetchRequest() — spread options, set method
+  API->>Fetch: fetch(request)
+  Fetch->>Bun: fetch(url, init)
+  Bun->>Upstream: real HTTPS request
+  Upstream-->>Bun: response
+  Bun-->>Fetch: Response
+  Fetch-->>API: FetchResponse
+  API->>API: JSON.parse if content-type is JSON
+  API-->>Consumer: ApiResponse<T>
+```
+
+This runs entirely on Bun today — no `edge-bootstrap` involvement, no compiled Wasm. `justjs#155` tracks retiring this composition root's implementation in favor of `edge-bootstrap` infra; the ~30 consumers above are unaffected by that swap since they only depend on the `ApiAdapter` interface.
+
+---
+
 ## Interface inventory
 
 Interfaces are organised by the workspace they belong to. Each workspace's `api/` also defines its own error types.

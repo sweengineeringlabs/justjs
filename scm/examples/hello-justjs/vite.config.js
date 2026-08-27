@@ -24,6 +24,23 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    // justjs#155: dev-time-only proxy to the edge-bootstrap Wasm handler
+    // (scm/examples/hello-justjs-backend.rs). edge-bootstrap's HTTP stack
+    // has no CORS support anywhere (confirmed: no config surface in
+    // RuntimeConfig/RuntimeBuilder, and the vendored edge-runtime-http-
+    // adapter doesn't even compile in tower-http's `cors` feature) --
+    // Vite's own dev proxy forwards server-side (Node, not subject to
+    // browser CORS) so the browser sees a same-origin request. Real
+    // deployments won't hit this at all if the app and its Handlers are
+    // served from the same origin; flagged as a real, separate gap on
+    // edge-bootstrap's side if that's ever not the case.
+    proxy: {
+      '/api/hello-justjs': {
+        target: 'http://127.0.0.1:18895',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/hello-justjs/, '/hello-justjs'),
+      },
+    },
   },
   build: {
     outDir: 'dist',
