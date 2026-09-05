@@ -1,7 +1,8 @@
 {
   "runtime": {
     "service_name": "hello-justjs-backend",
-    "http_bind": "127.0.0.1:18895"
+    "http_bind": "127.0.0.1:18895",
+    "egress_http": {}
   },
   "component": {
     "component_id": "hello-justjs-backend",
@@ -14,11 +15,13 @@
       "max_concurrency": 8,
       "max_payload_bytes": 262144
     },
-    "capabilities": [],
+    "capabilities": ["http-egress"],
     "artifact_provenance": {
       "source": "real justc build --target wasm --component output, compiled from wasm/hello_justjs_backend_handler.ts -- see that file's own doc comment",
       "checksum_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "built_at": "2026-08-27T00:00:00Z"
     }
-  }
+  },
+  "granted_capabilities": ["http-egress"],
+  "allowed_egress_hosts": ["example.com"]
 }
