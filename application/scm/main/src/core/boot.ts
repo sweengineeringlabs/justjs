@@ -174,12 +174,8 @@ class BootValidator {
       }
     }
 
-    // AC 4: Validate DDAS entries (optional enforcement)
-    const ddasEnforcement = config.ddasEnforcement || { enabled: true, onMissing: "error" }
-
-    if (ddasEnforcement.enabled !== false) {
-      const onMissing = ddasEnforcement.onMissing || "error"
-
+    // AC 4: DDAS entries are a mandatory framework invariant (#157).
+    {
       if (domAddressMap && !domAddressMap.elements) {
         throw new BootError(
           "INVALID_DDAS_MAP",
@@ -210,23 +206,13 @@ class BootValidator {
             const known = Array.from(knownComponents)
             const message = `Component tag "${tag}" missing DDAS entry in dom-address-map`
 
-            if (onMissing === "error") {
-              throw new BootError("MISSING_DDAS_ENTRY", tag, known, undefined, message)
-            } else if (onMissing === "warn") {
-              console.warn(`[JustJS DDAS] ${message}`)
-            }
-            // else: ignore
+            throw new BootError("MISSING_DDAS_ENTRY", tag, known, undefined, message)
           }
         }
       } else if (registryEntries.length > 0) {
         const message = "domAddressMap is required when components are registered"
 
-        if (onMissing === "error") {
-          throw new BootError("MISSING_DDAS_MAP", "domAddressMap", [], undefined, message)
-        } else if (onMissing === "warn") {
-          console.warn(`[JustJS DDAS] ${message}`)
-        }
-        // else: ignore
+        throw new BootError("MISSING_DDAS_MAP", "domAddressMap", [], undefined, message)
       }
     }
 

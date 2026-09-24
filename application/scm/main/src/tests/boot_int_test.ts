@@ -207,6 +207,21 @@ describe("Boot-time Validation — 4 ACs", () => {
   })
 
   describe("AC 4: DDAS entries exist for all components", () => {
+    it("validates component addresses before creating aspects", async () => {
+      const justjs = JustJS.getInstance()
+      let created = false
+      justjs.providers.register({
+        concern: "address-validation", strategy: "test",
+        factory: () => { created = true; return { weave() {} } },
+      })
+      await expect(justjs.boot({
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-other"]),
+        aspects: { "address-validation": { strategy: "test" } },
+      })).rejects.toMatchObject({ code: "MISSING_DDAS_ENTRY" })
+      expect(created).toBe(false)
+    })
     it("test_boot_succeeds_with_valid_ddas", async () => {
       const config: BootConfig = {
         routes: ["/", "/dashboard"],

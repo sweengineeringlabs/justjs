@@ -30,11 +30,6 @@ export interface AspectConfig {
   readonly config?: unknown
 }
 
-export interface DdasEnforcement {
-  readonly enabled?: boolean
-  readonly onMissing?: "warn" | "error" | "ignore"
-}
-
 export interface BootConfig {
   readonly routes?: readonly string[]
   readonly registry?: Record<string, unknown>
@@ -42,8 +37,6 @@ export interface BootConfig {
   readonly domAddressMap?: DomAddressMap
   readonly providers?: Record<string, unknown>
   readonly aspects?: Record<string, AspectConfig>
-  readonly ddasEnforcement?: DdasEnforcement
-
   // Runtime composition — what boot() actually builds after validation
   // passes (ADR-0002 D4). All optional: an app with no component registry
   // gets no working Lifecycle/Router either (nothing to render), and
