@@ -83,6 +83,14 @@ management convinced the app is genuinely foregrounded.
 
 ## Building
 
+The browser demo configures `@justjs/network` with `/api/demo-user` before
+boot. Vite dev and preview serve this endpoint, which fetches only the fixed
+JSONPlaceholder `/users/1` resource and returns the transport response envelope.
+It does not forward caller-supplied headers or arbitrary destinations.
+Static production hosting must provide an equivalent endpoint. Native hosts
+can set `<meta name="transport-proxy" content="https://your-host/endpoint">`
+in their HTML to select an accessible endpoint (with appropriate CORS support).
+
 ```sh
 # Web
 bun install

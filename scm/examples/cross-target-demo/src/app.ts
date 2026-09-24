@@ -17,6 +17,7 @@
 
 import { justjs, BootError } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
+import { configureTransportProxy } from "@justjs/network";
 // justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
 // own spi/index.js for the self-registration side effect - a bare
 // import is genuinely enough, no manual register() workaround needed.
@@ -57,6 +58,10 @@ function showRoute(path: string): void {
 
 async function main(): Promise<void> {
   try {
+    // The web host supplies this endpoint; native hosts can provide an
+    // absolute endpoint through the same meta tag.
+    const proxyUrl = document.querySelector<HTMLMetaElement>('meta[name="transport-proxy"]')?.content;
+    configureTransportProxy(proxyUrl || "/api/demo-user");
     await justjs.boot({
       routes: [...ROUTES],
       registry: {
