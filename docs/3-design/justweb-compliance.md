@@ -49,3 +49,22 @@ APIs, not modified framework forks or raw DOM calls outside the framework.
 CI runs `bun run check:justweb-artifacts` for all four examples. This verifies
 the checked-in manifest digests and required generated files; local generation
 and boot validation remain active when CI is not run.
+
+## Application setup and migration
+
+Install the pinned JustWeb CLI, keep the generated `public/justweb-artifacts.gen.json`
+and `src/justweb-manifest.gen.ts` files with the app, then run the normal JustJS
+code generation before starting Vite:
+
+```sh
+bun run codegen
+bun run dev
+```
+
+The generated boot config supplies the contract to browser and Android startup;
+neither path reads the source tree at runtime. Existing applications must add
+`[justweb]`, regenerate all JustWeb output from a clean checkout at the pinned
+revision, and pass the generated manifest and DOM address map through every
+direct `boot()` or public lifecycle/router factory call. Legacy opt-out and
+warning settings are removed by this breaking change. Apps using external
+services must provide those service credentials before exercising their flows.
