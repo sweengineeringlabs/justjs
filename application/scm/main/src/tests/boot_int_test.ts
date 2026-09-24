@@ -920,5 +920,27 @@ describe("Boot-time Validation — 4 ACs", () => {
         justwebManifest: {} as BootConfig["justwebManifest"],
       })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
     })
+
+    it("clears an existing runtime when a reconfiguration fails contract validation", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      await bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        apiAdapter: { fetch: async () => ({}) } as any,
+      })
+      expect(justjs.router).toBeDefined()
+
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebManifest: {} as BootConfig["justwebManifest"],
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+      expect(justjs.router).toBeUndefined()
+      expect(justjs.lifecycle).toBeUndefined()
+      expect(justjs.componentRegistry).toBeUndefined()
+    })
   })
 })

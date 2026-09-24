@@ -445,6 +445,13 @@ export class JustJS implements JustJSInstance {
   }
 
   async boot(config: BootConfig): Promise<void> {
+    // A failed reconfiguration must not leave the previous runtime active
+    // under an invalid contract. Clear the composed runtime before any
+    // validation so every boot attempt has an explicit all-or-nothing result.
+    this._apiAdapter = undefined
+    this._componentRegistry = undefined
+    this._lifecycle = undefined
+    this._router = undefined
     await this.validator.validate(config, this)
 
     const aspects = config.aspects as Record<string, AspectConfig> | undefined
