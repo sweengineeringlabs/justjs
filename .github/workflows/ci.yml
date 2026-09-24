@@ -46,6 +46,13 @@ jobs:
       - name: Verify checked-in JustWeb artifacts
         run: bun run check:justweb-artifacts
 
+      - name: Build every JustWeb example
+        run: |
+          bun run --filter 'hello-justjs' build
+          bun run --filter 'cross-target-demo' build
+          bun run --filter 'agentic-memory-demo' build
+          bun run --filter 'ai-code-editor' build
+
       - name: Test
         run: bun run test
 
