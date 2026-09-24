@@ -59,8 +59,11 @@ import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 // scm/config/arch/policy/rules/interface.toml) - callers depend on the
 // ComponentRegistry/Router/Lifecycle contract, never the concrete Default*
 // class name, so the implementation can change without breaking anyone.
-export function createComponentRegistry(): MutableComponentRegistry {
-  return new DefaultComponentRegistry()
+export function createComponentRegistry(domAddressMap: DomAddressMap): MutableComponentRegistry {
+  if (!domAddressMap?.elements) {
+    throw new BootError("INVALID_DDAS_MAP", undefined, undefined, undefined, "A JustWeb domAddressMap is mandatory when creating a component registry.")
+  }
+  return new DefaultComponentRegistry(new Set(Object.values(domAddressMap.elements).map((element) => element.tag)))
 }
 
 export function createLifecycle(

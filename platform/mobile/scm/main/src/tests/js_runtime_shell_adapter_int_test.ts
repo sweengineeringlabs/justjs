@@ -57,7 +57,7 @@ describe("JsRuntimeShellAdapter driven by the real Lifecycle/Router (justjs#67)"
       },
     }
 
-    const registry = createComponentRegistry()
+    const registry = createComponentRegistry({ elements: { "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" }, "test:x-settings": { component: "settings", tag: "x-settings" } } })
     registry.register("x-dashboard", () => ({ name: "dashboard", render() {} }))
     registry.register("x-settings", () => ({ name: "settings", render() {} }))
 
@@ -93,3 +93,4 @@ describe("JsRuntimeShellAdapter driven by the real Lifecycle/Router (justjs#67)"
     document.body.innerHTML = ""
   })
 })
+

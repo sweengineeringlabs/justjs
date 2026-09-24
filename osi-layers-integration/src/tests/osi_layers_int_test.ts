@@ -108,7 +108,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const port = server.port
         const fetchAdapter = createFetchAdapter()
         const cacheAdapter = createCacheAdapter()
-        const componentRegistry = createComponentRegistry()
+        const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
 
         // ACTUAL: Network fetches real component metadata
         const response = await fetchAdapter.fetch({
@@ -193,7 +193,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         },
       }
 
-      const componentRegistry = createComponentRegistry()
+      const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
       const store = createFeatureStore(
         { renders: 0 },
         (state, action: any) => {
@@ -290,7 +290,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         // Initialize all 4 layers
         const fetchAdapter = createFetchAdapter()
         const cacheAdapter = createCacheAdapter()
-        const componentRegistry = createComponentRegistry()
+        const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
         // justjs#56: DefaultLifecycle needs the registry to actually call
         // Component.render() — registered below, before router.navigate()
         // (which now drives lifecycle.run() for real) ever runs.
@@ -525,3 +525,4 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     })
   })
 })
+

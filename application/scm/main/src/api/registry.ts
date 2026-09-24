@@ -18,7 +18,7 @@ export interface ComponentRegistry {
 // ComponentRegistry (get-only) is all RenderStep/UpdateStep need, but a
 // caller building one up (or adaptCustomElementRegistry bridging one)
 // needs register()/has()/list() too. Public so the saf-level
-// createComponentRegistry()/adaptCustomElementRegistry() factories can
+// createComponentRegistry(domAddressMap)/adaptCustomElementRegistry() factories can
 // return this instead of leaking the concrete DefaultComponentRegistry
 // class as their return type.
 export interface MutableComponentRegistry extends ComponentRegistry {

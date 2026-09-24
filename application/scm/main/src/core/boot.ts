@@ -9,6 +9,7 @@ import type { Lifecycle } from "../api/lifecycle.js"
 import { adaptCustomElementRegistry } from "./registry/component_registry_adapter.js"
 import { DefaultLifecycle } from "./lifecycle/lifecycle_pipeline.js"
 import { DefaultRouter } from "./registry/router.js"
+import { restrictComponentRegistry } from "./registry/component_registry.js"
 import type { ApiAdapter } from "@justjs/transport"
 import { createApiAdapter } from "@justjs/transport"
 import { createFetchAdapter } from "@justjs/network"
@@ -374,10 +375,10 @@ export class JustJS implements JustJSInstance {
   private static instance: JustJS | null = null
   private validator = new BootValidator()
   private registeredStrategies = new Map<string, AspectProviderSpec>()
-  private _apiAdapter?: ApiAdapter
+  private _apiAdapter: ApiAdapter | undefined
   private _componentRegistry: ComponentRegistry | undefined
-  private _lifecycle?: Lifecycle
-  private _router?: Router
+  private _lifecycle: Lifecycle | undefined
+  private _router: Router | undefined
 
   static getInstance(): JustJS {
     if (!JustJS.instance) {
@@ -472,15 +473,24 @@ export class JustJS implements JustJSInstance {
   }
 
   private buildRuntime(config: BootConfig): void {
-    const registry = config.componentRegistry
+    const rawRegistry = config.componentRegistry
       ? isComponentRegistry(config.componentRegistry)
         ? config.componentRegistry
         : adaptCustomElementRegistry(config.componentRegistry)
       : undefined
 
     this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
-    this._componentRegistry = registry
     const addressMap = config.domAddressMap!
+    if (rawRegistry && "list" in rawRegistry && typeof rawRegistry.list === "function") {
+      for (const tag of rawRegistry.list()) {
+        if (!resolveDdasKnownTags(addressMap).has(tag)) {
+          throw new BootError("MISSING_DDAS_ENTRY", tag, Array.from(resolveDdasKnownTags(addressMap)), undefined,
+            `Component registry tag "${tag}" is not declared by the JustWeb dom-address-map.`)
+        }
+      }
+    }
+    const registry = rawRegistry ? restrictComponentRegistry(rawRegistry, addressMap) : undefined
+    this._componentRegistry = registry
     const immutableAddressMap: DomAddressMap = Object.freeze({
       ...addressMap,
       elements: Object.freeze(Object.fromEntries(
