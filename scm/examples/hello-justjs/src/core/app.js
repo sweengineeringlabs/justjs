@@ -10,8 +10,8 @@ observer.log('Boot', '→', { event: 'app_init', layers: ['Network', 'Transport'
 
 // Proves the vite-plugin -> generated app.gen.ts -> JustJS.boot() pipeline
 // (ADR-0001 §Strategy configuration) actually runs, not just typechecks.
-// routes/registry/domAddressMap stand in for justweb-generated artifacts
-// this demo doesn't produce - see src/core/manifest.js and justjs#37.
+// route and DDAS data come from pinned JustWeb output; the hand-written
+// component loader adapts this demo's custom elements to those routes.
 try {
   await boot({
     routes: ROUTES,

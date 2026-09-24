@@ -1,10 +1,18 @@
 export interface JustJSConfig {
+  readonly justweb: JustWebConfig
   readonly security?: SecurityConfig
   readonly observability?: ObservabilityConfig
   readonly flags?: FlagsConfig
   readonly analytics?: AnalyticsConfig
   readonly theming?: ThemingConfig
   readonly i18n?: I18nConfig
+}
+
+export interface JustWebConfig {
+  readonly generator_version: string
+  readonly generator_revision: string
+  readonly artifact_schema: number
+  readonly artifact_manifest: string
 }
 
 // Split routes-vs-components targeting, matching @justjs/application's

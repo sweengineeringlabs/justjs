@@ -1,0 +1,9 @@
+name: chat
+version: 1
+dom:
+  tag: x-chat
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

@@ -8,7 +8,10 @@
 // them, and an agent-curation view that consolidates/forgets on demand
 // with its reasoning visible.
 
-import { justjs, BootError } from "@justjs/application";
+import { justjs, BootError, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION } from "@justjs/application";
+import { JUSTWEB_MANIFEST } from "./justweb-manifest.gen.js";
+import domAddressMapJson from "../public/dom-address-map.json";
+import routesGenJson from "../public/routes.gen.json";
 import { createFeatureStore } from "@justjs/data";
 // justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
 // own spi/index.js for the self-registration side effect, same pattern
@@ -45,7 +48,7 @@ const store = createFeatureStore(
   reducer
 );
 
-const ROUTES = ["/chat", "/dashboard", "/curation"] as const;
+const ROUTES = routesGenJson.routes.map((route) => route.path);
 const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
   "/chat": "mount-chat",
   "/dashboard": "mount-dashboard",
@@ -248,6 +251,12 @@ function setupSettingsPanel(): void {
 async function main(): Promise<void> {
   try {
     await justjs.boot({
+      justwebContract: {
+        generatorVersion: SUPPORTED_JUSTWEB_GENERATOR_VERSION,
+        generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION,
+        artifactSchema: SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA,
+      },
+      justwebManifest: JUSTWEB_MANIFEST,
       routes: [...ROUTES],
       registry: {
         "x-chat": { path: "/chat", component: "x-chat" },
@@ -259,13 +268,7 @@ async function main(): Promise<void> {
         "x-dashboard": () => Promise.resolve(customElements.get("x-dashboard") as CustomElementConstructor),
         "x-curation": () => Promise.resolve(customElements.get("x-curation") as CustomElementConstructor),
       },
-      domAddressMap: {
-        elements: {
-          "agentic-memory-demo:home:x-chat:root": { component: "chat", tag: "x-chat" },
-          "agentic-memory-demo:home:x-dashboard:root": { component: "dashboard", tag: "x-dashboard" },
-          "agentic-memory-demo:home:x-curation:root": { component: "curation", tag: "x-curation" },
-        },
-      },
+      domAddressMap: domAddressMapJson,
       featureStore: store,
       aspects: {
         security: { strategy: "noop" },

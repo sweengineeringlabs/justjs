@@ -1,0 +1,10 @@
+routes:
+  - path: /counter
+    feature: counter
+    component: counter
+  - path: /fetch
+    feature: fetch-demo
+    component: fetch-demo
+  - path: /form
+    feature: form-demo
+    component: form-demo

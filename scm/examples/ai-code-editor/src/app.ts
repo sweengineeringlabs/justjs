@@ -9,7 +9,9 @@
 // scaffolder, and an SDLC workspace hub linking each stage to whichever
 // of those tabs actually serves it.
 
-import { justjs, BootError } from "@justjs/application";
+import { justjs, BootError, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION } from "@justjs/application";
+import { JUSTWEB_MANIFEST } from "./justweb-manifest.gen.js";
+import type { DomAddressMap } from "@justjs/application";
 import { createFeatureStore } from "@justjs/data";
 import { stampMounts } from "./mounts.gen.js";
 // justjs#91 (fixed): each aop-* package's saf/index.ts now imports its
@@ -364,15 +366,19 @@ async function main(): Promise<void> {
       registry: Object.fromEntries(
         RESOLVED_ROUTES.map((r) => [r.tag, { path: r.path, component: r.tag, keepAlive: true }]),
       ),
+      justwebContract: {
+        generatorVersion: SUPPORTED_JUSTWEB_GENERATOR_VERSION,
+        generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION,
+        artifactSchema: SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA,
+      },
+      justwebManifest: JUSTWEB_MANIFEST,
       componentRegistry: Object.fromEntries(
         RESOLVED_ROUTES.map((r) => [
           r.tag,
           () => Promise.resolve(customElements.get(r.tag) as CustomElementConstructor),
         ]),
       ),
-      domAddressMap: {
-        elements: DOM_ADDRESS_ELEMENTS,
-      },
+      domAddressMap: domAddressMapJson as unknown as DomAddressMap,
       featureStore: store,
       aspects: {
         security: { strategy: "noop" },

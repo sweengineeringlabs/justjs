@@ -1,0 +1,73 @@
+{
+  "app": "cross-target-demo",
+  "elements": {
+    "cross-target-demo:app:shell:counter": {
+      "component": "counter",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-counter",
+      "type": "div"
+    },
+    "cross-target-demo:app:shell:fetch": {
+      "component": "fetch",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-fetch",
+      "type": "div"
+    },
+    "cross-target-demo:app:shell:login": {
+      "component": "login",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-login",
+      "type": "div"
+    },
+    "cross-target-demo:counter:counter:content": {
+      "component": "counter",
+      "feature": "counter",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-counter",
+      "type": "main"
+    },
+    "cross-target-demo:fetch:fetch:content": {
+      "component": "fetch",
+      "feature": "fetch",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-fetch",
+      "type": "main"
+    },
+    "cross-target-demo:login:login:content": {
+      "component": "login",
+      "feature": "login",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-login",
+      "type": "main"
+    }
+  },
+  "mounts": {
+    "counter": {
+      "id": "cross-target-demo:app:shell:counter",
+      "selector": "#app"
+    },
+    "fetch": {
+      "id": "cross-target-demo:app:shell:fetch",
+      "selector": "#app"
+    },
+    "login": {
+      "id": "cross-target-demo:app:shell:login",
+      "selector": "#app"
+    },
+    "mount": {
+      "id": "cross-target-demo:app:shell:mount",
+      "selector": "#app"
+    }
+  },
+  "schema": "1",
+  "version": "0.1.0"
+}

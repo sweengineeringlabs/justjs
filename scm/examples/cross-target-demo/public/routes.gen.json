@@ -1,0 +1,23 @@
+{
+  "routes": [
+    {
+      "component": "counter",
+      "feature": "counter",
+      "path": "/counter",
+      "tag": "js-counter"
+    },
+    {
+      "component": "fetch",
+      "feature": "fetch",
+      "path": "/fetch",
+      "tag": "js-fetch"
+    },
+    {
+      "component": "login",
+      "feature": "login",
+      "path": "/login",
+      "tag": "js-login"
+    }
+  ],
+  "version": 1
+}

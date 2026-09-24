@@ -1,0 +1,23 @@
+name = "hello-justjs"
+version = "0.1.0"
+
+[layout]
+preset = "by-feature"
+
+[generate]
+emit_tests = false
+
+[mounts.counter]
+selector = "#mount-counter"
+component = "counter"
+tag = "x-counter"
+
+[mounts.fetch]
+selector = "#mount-fetch"
+component = "fetch-demo"
+tag = "x-fetch"
+
+[mounts.form]
+selector = "#mount-form"
+component = "form-demo"
+tag = "x-form"

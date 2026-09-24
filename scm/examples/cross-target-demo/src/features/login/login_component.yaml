@@ -1,0 +1,9 @@
+name: login
+version: 1
+dom:
+  tag: x-login
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

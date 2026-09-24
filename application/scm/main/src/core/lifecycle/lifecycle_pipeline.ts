@@ -4,7 +4,7 @@ import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
 import { LifecycleError } from "../../api/lifecycle.js"
 import type { ComponentRegistry } from "../../api/registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
-import { isLegacyDomAddressMap, resolveDdasAddressesForTag } from "../../api/dom-address.js"
+import { resolveDdasAddressesForTag } from "../../api/dom-address.js"
 import type { ErrorBoundary } from "../../api/error_boundary.js"
 
 // ADR-0003 D7: only carries a key when the corresponding ComponentContext
@@ -53,21 +53,11 @@ export class MountStep implements LifecycleStep {
       throw new LifecycleError("mount", "Missing DOM element")
     }
 
-    if (this.domAddressMap) {
-      if (!this.domAddressMap.elements) {
-        throw new LifecycleError(
-          "mount",
-          'domAddressMap is missing its "elements" map — expected the real dom-address-map.json shape ({ elements: {...} }), not the legacy CSS-selector-list shape'
-        )
-      }
+    if (!this.domAddressMap?.elements) {
+      throw new LifecycleError("mount", "A JustWeb domAddressMap is mandatory before a component can mount.")
+    }
 
-      if (isLegacyDomAddressMap(this.domAddressMap)) {
-        throw new LifecycleError(
-          "mount",
-          "domAddressMap has no `tag` field on any element — this looks like a dom-address-map.json generated before justweb#56. Regenerate it with a current justweb version; mounting cannot resolve component tags without `tag`."
-        )
-      }
-
+    {
       // Resolve by `tag` (justweb#56) — the actually-registered custom-element
       // tag — not `component` (the bare *_component.yaml name), which never
       // matches a real customElements/COMPONENT_REGISTRY entry.

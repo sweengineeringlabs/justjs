@@ -1,0 +1,9 @@
+name: form-demo
+version: 1
+dom:
+  tag: x-form
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

@@ -1,0 +1,9 @@
+name: dashboard
+version: 1
+dom:
+  tag: x-dashboard
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

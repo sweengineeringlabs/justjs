@@ -1,0 +1,23 @@
+name = "cross-target-demo"
+version = "0.1.0"
+
+[layout]
+preset = "by-feature"
+
+[generate]
+emit_tests = false
+
+[mounts.counter]
+selector = "#app"
+component = "counter"
+tag = "x-counter"
+
+[mounts.fetch]
+selector = "#app"
+component = "fetch"
+tag = "x-fetch"
+
+[mounts.login]
+selector = "#app"
+component = "login"
+tag = "x-login"

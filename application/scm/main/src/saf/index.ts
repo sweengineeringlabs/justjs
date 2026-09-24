@@ -34,6 +34,8 @@ export type {
 export { RegistryError } from "../api/registry.js"
 
 export type { DomAddressElement, DomAddressMap } from "../api/dom-address.js"
+export type { JustWebArtifactDigest, JustWebArtifactManifest, JustWebContractPin } from "../api/justweb_contract.js"
+export { SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION } from "../api/justweb_contract.js"
 
 export type { ErrorBoundary } from "../api/error_boundary.js"
 
@@ -43,6 +45,7 @@ export { justjs } from "../core/boot.js"
 export type { AspectProvider, JustJSAspect, AspectTarget } from "../api/aspect.js"
 
 import type { DomAddressMap } from "../api/dom-address.js"
+import { BootError } from "../api/boot.js"
 import type { Lifecycle } from "../api/lifecycle.js"
 import type { MutableComponentRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
 import type { RuntimeAdapter } from "../api/component.js"
@@ -61,7 +64,7 @@ export function createComponentRegistry(): MutableComponentRegistry {
 }
 
 export function createLifecycle(
-  domAddressMap?: DomAddressMap,
+  domAddressMap: DomAddressMap,
   runtimeAdapter?: RuntimeAdapter,
   registry?: MutableComponentRegistry,
   errorBoundary?: ErrorBoundary
@@ -73,9 +76,18 @@ export function createRouter(
   routes: readonly string[],
   registry: Record<string, RouteRegistryEntry>,
   lifecycle: Lifecycle,
-  domAddressMap?: DomAddressMap,
+  domAddressMap: DomAddressMap,
   featureStore?: FeatureStore,
   eventBus?: UIEventBus
 ): Router {
+  if (!domAddressMap?.elements) {
+    throw new BootError("INVALID_DDAS_MAP", undefined, undefined, undefined, "A JustWeb domAddressMap is mandatory when creating a router.")
+  }
+  const knownComponents = new Set(Object.values(domAddressMap.elements).map((element) => element.tag))
+  for (const tag of Object.keys(registry)) {
+    if (!knownComponents.has(tag)) {
+      throw new BootError("MISSING_DDAS_ENTRY", tag, [...knownComponents].filter((known): known is string => typeof known === "string"))
+    }
+  }
   return new DefaultRouter(routes, registry, lifecycle, domAddressMap, featureStore, eventBus)
 }

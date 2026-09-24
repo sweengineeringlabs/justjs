@@ -5,6 +5,7 @@ import type { Lifecycle } from "./lifecycle.js"
 import type { ErrorBoundary } from "./error_boundary.js"
 import type { ApiAdapter } from "@justjs/transport"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
+import type { JustWebArtifactManifest, JustWebContractPin } from "./justweb_contract.js"
 
 export interface RouteConfig {
   readonly on?: readonly string[]
@@ -31,6 +32,8 @@ export interface AspectConfig {
 }
 
 export interface BootConfig {
+  readonly justwebContract: JustWebContractPin
+  readonly justwebManifest: JustWebArtifactManifest
   readonly routes?: readonly string[]
   readonly registry?: Record<string, unknown>
   readonly importmap?: Record<string, unknown>

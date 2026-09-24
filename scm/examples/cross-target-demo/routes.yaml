@@ -1,0 +1,10 @@
+routes:
+  - path: /counter
+    feature: counter
+    component: counter
+  - path: /fetch
+    feature: fetch
+    component: fetch
+  - path: /login
+    feature: login
+    component: login

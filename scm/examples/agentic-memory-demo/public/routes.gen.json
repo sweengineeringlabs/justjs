@@ -1,0 +1,23 @@
+{
+  "routes": [
+    {
+      "component": "chat",
+      "feature": "chat",
+      "path": "/chat",
+      "tag": "js-chat"
+    },
+    {
+      "component": "dashboard",
+      "feature": "dashboard",
+      "path": "/dashboard",
+      "tag": "js-dashboard"
+    },
+    {
+      "component": "curation",
+      "feature": "curation",
+      "path": "/curation",
+      "tag": "js-curation"
+    }
+  ],
+  "version": 1
+}

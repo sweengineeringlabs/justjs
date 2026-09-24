@@ -1,0 +1,23 @@
+name = "agentic-memory-demo"
+version = "0.1.0"
+
+[layout]
+preset = "by-feature"
+
+[generate]
+emit_tests = false
+
+[mounts.chat]
+selector = "#app"
+component = "chat"
+tag = "x-chat"
+
+[mounts.dashboard]
+selector = "#app"
+component = "dashboard"
+tag = "x-dashboard"
+
+[mounts.curation]
+selector = "#app"
+component = "curation"
+tag = "x-curation"

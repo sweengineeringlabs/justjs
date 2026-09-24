@@ -1,0 +1,5 @@
+[justweb]
+generator_version = "0.1.0"
+generator_revision = "64eb51bf4d471261053f6d08dac6db5ce613abd8"
+artifact_schema = 1
+artifact_manifest = "public/justweb-artifacts.gen.json"

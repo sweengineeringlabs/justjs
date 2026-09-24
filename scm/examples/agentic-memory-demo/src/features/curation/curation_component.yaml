@@ -1,0 +1,9 @@
+name: curation
+version: 1
+dom:
+  tag: x-curation
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

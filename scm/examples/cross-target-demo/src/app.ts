@@ -15,7 +15,10 @@
 // DOM insertion happens in component_registry_adapter.ts's render(),
 // which is plain DOM API calls with no platform dependency at all.
 
-import { justjs, BootError } from "@justjs/application";
+import { justjs, BootError, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION } from "@justjs/application";
+import { JUSTWEB_MANIFEST } from "./justweb-manifest.gen.js";
+import domAddressMapJson from "../public/dom-address-map.json";
+import routesGenJson from "../public/routes.gen.json";
 import { createFeatureStore } from "@justjs/data";
 import { configureTransportProxy } from "@justjs/network";
 // justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
@@ -34,7 +37,7 @@ import { initialState, reducer } from "./core/state.js";
 
 const store = createFeatureStore(initialState, reducer);
 
-const ROUTES = ["/counter", "/fetch", "/login"] as const;
+const ROUTES = routesGenJson.routes.map((route) => route.path);
 const MOUNT_ID_FOR_ROUTE: Record<string, string> = {
   "/counter": "mount-counter",
   "/fetch": "mount-fetch",
@@ -63,6 +66,12 @@ async function main(): Promise<void> {
     const proxyUrl = document.querySelector<HTMLMetaElement>('meta[name="transport-proxy"]')?.content;
     configureTransportProxy(proxyUrl || "/api/demo-user");
     await justjs.boot({
+      justwebContract: {
+        generatorVersion: SUPPORTED_JUSTWEB_GENERATOR_VERSION,
+        generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION,
+        artifactSchema: SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA,
+      },
+      justwebManifest: JUSTWEB_MANIFEST,
       routes: [...ROUTES],
       registry: {
         "x-counter": { path: "/counter", component: "x-counter" },
@@ -74,13 +83,7 @@ async function main(): Promise<void> {
         "x-fetch": () => Promise.resolve(customElements.get("x-fetch") as CustomElementConstructor),
         "x-login": () => Promise.resolve(customElements.get("x-login") as CustomElementConstructor),
       },
-      domAddressMap: {
-        elements: {
-          "cross-target-demo:home:x-counter:root": { component: "counter", tag: "x-counter" },
-          "cross-target-demo:home:x-fetch:root": { component: "fetch", tag: "x-fetch" },
-          "cross-target-demo:home:x-login:root": { component: "login", tag: "x-login" },
-        },
-      },
+      domAddressMap: domAddressMapJson,
       featureStore: store,
       aspects: {
         security: { strategy: "noop" },

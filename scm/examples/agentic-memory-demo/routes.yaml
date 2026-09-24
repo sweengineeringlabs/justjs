@@ -1,0 +1,10 @@
+routes:
+  - path: /chat
+    feature: chat
+    component: chat
+  - path: /dashboard
+    feature: dashboard
+    component: dashboard
+  - path: /curation
+    feature: curation
+    component: curation

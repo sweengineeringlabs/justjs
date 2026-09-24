@@ -1,0 +1,73 @@
+{
+  "app": "agentic-memory-demo",
+  "elements": {
+    "agentic-memory-demo:app:shell:chat": {
+      "component": "chat",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-chat",
+      "type": "div"
+    },
+    "agentic-memory-demo:app:shell:curation": {
+      "component": "curation",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-curation",
+      "type": "div"
+    },
+    "agentic-memory-demo:app:shell:dashboard": {
+      "component": "dashboard",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-dashboard",
+      "type": "div"
+    },
+    "agentic-memory-demo:chat:chat:content": {
+      "component": "chat",
+      "feature": "chat",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-chat",
+      "type": "main"
+    },
+    "agentic-memory-demo:curation:curation:content": {
+      "component": "curation",
+      "feature": "curation",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-curation",
+      "type": "main"
+    },
+    "agentic-memory-demo:dashboard:dashboard:content": {
+      "component": "dashboard",
+      "feature": "dashboard",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-dashboard",
+      "type": "main"
+    }
+  },
+  "mounts": {
+    "chat": {
+      "id": "agentic-memory-demo:app:shell:chat",
+      "selector": "#app"
+    },
+    "curation": {
+      "id": "agentic-memory-demo:app:shell:curation",
+      "selector": "#app"
+    },
+    "dashboard": {
+      "id": "agentic-memory-demo:app:shell:dashboard",
+      "selector": "#app"
+    },
+    "mount": {
+      "id": "agentic-memory-demo:app:shell:mount",
+      "selector": "#app"
+    }
+  },
+  "schema": "1",
+  "version": "0.1.0"
+}

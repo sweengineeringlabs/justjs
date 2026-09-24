@@ -9,19 +9,31 @@ Boot requires a valid DOM address map for registered components and validates
 every registered tag before creating aspects or the runtime. There is no
 enforcement setting, compatibility mode, or warning-only path.
 
-## Remaining contract work
+## Required generator contract
 
-Removing overrides does not establish generator provenance or complete #157.
-The required `[justweb]` declaration, versioned artifact manifest, generator pin,
-artifact validation, public factory enforcement, and example migration are still
-pending. An empty application can still boot without generator metadata until
-that required-contract change lands; this is not full JustWeb enforcement yet.
+Every boot requires a versioned JustWeb artifact manifest from `justw 0.1.0`.
+Every `justjs.config.toml` also requires a `[justweb]` section that pins that
+version, an exact 40-character generator revision, artifact schema `1`, and the
+manifest path `public/justweb-artifacts.gen.json`. The framework owns the
+supported version and schema policy; applications can only pin an exact build
+within that policy.
+The Vite code generator requires a clean generator source revision, checks every
+listed artifact against its SHA-256 digest, and embeds the manifest into the
+generated boot config. Boot validates the manifest shape, generator revision,
+required generated registries, route artifacts, and the supplied DOM map digest
+before constructing aspects or runtime state. Applications that call `justjs.boot`
+directly must provide the same generated manifest and DOM map.
 
-The producer contract must be implemented in JustWeb before generated fixtures
-can honestly claim to satisfy it. Its existing DOM-map SHA-256 sidecar is useful
-but does not cover all generated components, registries, and routes or establish
-the generator identity. Do not manufacture producer metadata in a consumer test
-and describe that as an end-to-end generation test.
+The JustWeb producer emits the manifest after all generation steps and records
+the generator revision and whether its source checkout was dirty. The source
+change is tracked upstream in
+https://github.com/sweengineeringlabs/justweb/issues/106. A dirty-source
+manifest is rejected, so artifacts must be regenerated using a clean build of
+the pinned generator before an application can boot.
+
+The manifest currently establishes consistency, not authenticated authorship.
+Hashes and version declarations cannot prove who produced an artifact; signed
+attestation would require a separate trusted-verifier design.
 
 ## Trust boundary
 
