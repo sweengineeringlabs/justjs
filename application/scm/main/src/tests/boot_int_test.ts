@@ -909,5 +909,16 @@ describe("Boot-time Validation — 4 ACs", () => {
         justwebManifest: manifest,
       })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
     })
+
+    it("turns malformed contract metadata into an actionable BootError", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebManifest: {} as BootConfig["justwebManifest"],
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+    })
   })
 })

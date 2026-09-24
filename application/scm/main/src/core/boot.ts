@@ -317,13 +317,14 @@ class BootValidator {
     if (!manifest || manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== 1) {
       fail("A JustWeb artifact manifest (formatVersion 1) is required. Run `justw generate app` and pass its generated manifest to boot().")
     }
+    const generator = manifest.generator
     const contract = config.justwebContract
-    if (!contract || contract.generatorVersion !== manifest.generator.version ||
-        contract.generatorRevision !== manifest.generator.revision || contract.artifactSchema !== manifest.formatVersion) {
+    if (!contract || !generator || contract.generatorVersion !== generator.version ||
+        contract.generatorRevision !== generator.revision || contract.artifactSchema !== manifest.formatVersion) {
       fail("The mandatory JustWeb contract pin must exactly match the generated manifest's version, revision, and artifact schema.")
     }
-    if (manifest.generator?.name !== "justw" || manifest.generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
-        manifest.generator.revision !== SUPPORTED_JUSTWEB_GENERATOR_REVISION || manifest.formatVersion !== SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA) {
+    if (generator?.name !== "justw" || generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
+        generator.revision !== SUPPORTED_JUSTWEB_GENERATOR_REVISION || manifest.formatVersion !== SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA) {
       fail(`Unsupported JustWeb generator. JustJS requires justw ${SUPPORTED_JUSTWEB_GENERATOR_VERSION} at ${SUPPORTED_JUSTWEB_GENERATOR_REVISION} with artifact schema ${SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA}.`)
     }
     if (!/^[a-f0-9]{40}$/.test(manifest.generator.revision)) {

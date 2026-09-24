@@ -43,6 +43,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Verify checked-in JustWeb artifacts
+        run: bun run check:justweb-artifacts
+
       - name: Test
         run: bun run test
 
