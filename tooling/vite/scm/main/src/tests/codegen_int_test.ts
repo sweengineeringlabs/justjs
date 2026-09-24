@@ -153,5 +153,20 @@ describe("codegen", () => {
         generateCodeWithStrategies(config, mockStrategies, justwebManifest)
       ).toThrow()
     })
+
+    it("rejects floating generator versions", () => {
+      const config: JustJSConfig = {
+        justweb: { ...justweb, generator_version: "latest" as any },
+      }
+      expect(() => generateCodeWithStrategies(config, mockStrategies, justwebManifest)).toThrow(/exact version|pin/i)
+    })
+
+    it("rejects a manifest from a different generator revision", () => {
+      const config: JustJSConfig = { justweb }
+      expect(() => generateCodeWithStrategies(config, mockStrategies, {
+        ...justwebManifest,
+        generator: { ...justwebManifest.generator, revision: "b".repeat(40) },
+      })).toThrow(/match|revision/i)
+    })
   })
 })
