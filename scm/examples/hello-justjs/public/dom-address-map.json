@@ -1,0 +1,73 @@
+{
+  "app": "hello-justjs",
+  "elements": {
+    "hello-justjs:app:shell:counter": {
+      "component": "counter",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-counter",
+      "type": "div"
+    },
+    "hello-justjs:app:shell:fetch": {
+      "component": "fetch-demo",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-fetch",
+      "type": "div"
+    },
+    "hello-justjs:app:shell:form": {
+      "component": "form-demo",
+      "feature": "app",
+      "interactive": false,
+      "scope": "public",
+      "tag": "x-form",
+      "type": "div"
+    },
+    "hello-justjs:counter:counter:content": {
+      "component": "counter",
+      "feature": "counter",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-counter",
+      "type": "main"
+    },
+    "hello-justjs:fetch-demo:fetch-demo:content": {
+      "component": "fetch-demo",
+      "feature": "fetch-demo",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-fetch-demo",
+      "type": "main"
+    },
+    "hello-justjs:form-demo:form-demo:content": {
+      "component": "form-demo",
+      "feature": "form-demo",
+      "interactive": false,
+      "scope": "public",
+      "tag": "js-form-demo",
+      "type": "main"
+    }
+  },
+  "mounts": {
+    "counter": {
+      "id": "hello-justjs:app:shell:counter",
+      "selector": "#mount-counter"
+    },
+    "fetch": {
+      "id": "hello-justjs:app:shell:fetch",
+      "selector": "#mount-fetch"
+    },
+    "form": {
+      "id": "hello-justjs:app:shell:form",
+      "selector": "#mount-form"
+    },
+    "mount": {
+      "id": "hello-justjs:app:shell:mount",
+      "selector": "#app"
+    }
+  },
+  "schema": "1",
+  "version": "0.1.0"
+}

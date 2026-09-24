@@ -1,0 +1,23 @@
+{
+  "routes": [
+    {
+      "component": "counter",
+      "feature": "counter",
+      "path": "/counter",
+      "tag": "js-counter"
+    },
+    {
+      "component": "fetch-demo",
+      "feature": "fetch-demo",
+      "path": "/fetch",
+      "tag": "js-fetch-demo"
+    },
+    {
+      "component": "form-demo",
+      "feature": "form-demo",
+      "path": "/form",
+      "tag": "js-form-demo"
+    }
+  ],
+  "version": 1
+}
