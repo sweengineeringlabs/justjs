@@ -942,5 +942,21 @@ describe("Boot-time Validation — 4 ACs", () => {
       expect(justjs.lifecycle).toBeUndefined()
       expect(justjs.componentRegistry).toBeUndefined()
     })
+
+    it("rejects post-boot registration of a tag outside the JustWeb contract", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      const registry = new DefaultComponentRegistry()
+      registry.register("x-root", () => ({ name: "root", render() {} }))
+      await bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        componentRegistry: registry,
+        apiAdapter: { fetch: async () => ({}) } as any,
+      })
+      expect(() => (justjs.componentRegistry as any).register("x-forged", () => ({ name: "forged", render() {} })))
+        .toThrow(/not declared by the JustWeb dom-address-map/)
+    })
   })
 })
