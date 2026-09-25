@@ -85,7 +85,7 @@ jobs:
 
       - name: Verify JustWeb example browser flows
         run: |
-          for app in cross-target-demo agentic-memory-demo; do
+          for app in hello-justjs cross-target-demo agentic-memory-demo; do
             (cd "scm/examples/$app" && bun verify_web.mjs)
           done
           (cd scm/examples/ai-code-editor && bun verify_mounts.mjs)
