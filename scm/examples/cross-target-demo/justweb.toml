@@ -8,16 +8,16 @@ preset = "by-feature"
 emit_tests = false
 
 [mounts.counter]
-selector = "#app"
+selector = "#mount-counter"
 component = "counter"
 tag = "x-counter"
 
 [mounts.fetch]
-selector = "#app"
+selector = "#mount-fetch"
 component = "fetch"
 tag = "x-fetch"
 
 [mounts.login]
-selector = "#app"
+selector = "#mount-login"
 component = "login"
 tag = "x-login"

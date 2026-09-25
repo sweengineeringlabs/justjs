@@ -4,7 +4,7 @@
 // Regenerate with: justw generate app
 
 export function stampMounts(): void {
-  document.querySelector("#mount-counter")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:counter"); // counter
-  document.querySelector("#mount-fetch")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:fetch"); // fetch
-  document.querySelector("#mount-form")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:form"); // form
+  document.querySelector("#counter-page")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:counter"); // counter
+  document.querySelector("#fetch-page")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:fetch"); // fetch
+  document.querySelector("#form-page")?.setAttribute('data-ddas-id', "hello-justjs:app:shell:form"); // form
 }

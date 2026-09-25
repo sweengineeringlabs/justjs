@@ -8,16 +8,16 @@ preset = "by-feature"
 emit_tests = false
 
 [mounts.counter]
-selector = "#mount-counter"
+selector = "#counter-page"
 component = "counter"
 tag = "x-counter"
 
 [mounts.fetch]
-selector = "#mount-fetch"
+selector = "#fetch-page"
 component = "fetch-demo"
 tag = "x-fetch"
 
 [mounts.form]
-selector = "#mount-form"
+selector = "#form-page"
 component = "form-demo"
 tag = "x-form"

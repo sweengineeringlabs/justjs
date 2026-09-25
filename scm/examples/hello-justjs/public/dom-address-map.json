@@ -53,15 +53,15 @@
   "mounts": {
     "counter": {
       "id": "hello-justjs:app:shell:counter",
-      "selector": "#mount-counter"
+      "selector": "#counter-page"
     },
     "fetch": {
       "id": "hello-justjs:app:shell:fetch",
-      "selector": "#mount-fetch"
+      "selector": "#fetch-page"
     },
     "form": {
       "id": "hello-justjs:app:shell:form",
-      "selector": "#mount-form"
+      "selector": "#form-page"
     },
     "mount": {
       "id": "hello-justjs:app:shell:mount",

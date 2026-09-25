@@ -2,6 +2,7 @@ import { observer } from './observability.js'
 import { boot } from './app.gen.ts'
 import { justjs } from '@justjs/application'
 import { ROUTES, REGISTRY, DOM_ADDRESS_MAP, COMPONENT_REGISTRY } from './manifest.js'
+import { stampMounts } from '../mounts.gen.ts'
 import '../components/counter.js'
 import '../components/fetch-demo.js'
 import '../components/form-demo.js'
@@ -13,12 +14,14 @@ observer.log('Boot', '→', { event: 'app_init', layers: ['Network', 'Transport'
 // route and DDAS data come from pinned JustWeb output; the hand-written
 // component loader adapts this demo's custom elements to those routes.
 try {
+  stampMounts()
   await boot({
     routes: ROUTES,
     registry: REGISTRY,
     domAddressMap: DOM_ADDRESS_MAP,
     componentRegistry: COMPONENT_REGISTRY,
   })
+  await justjs.router.navigate('/counter')
   observer.log('Boot', '←', {
     event: 'justjs_boot_succeeded',
     // justjs#55: boot() is now a real composition root - confirms it
@@ -41,10 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const pages = document.querySelectorAll('.page')
 
   navButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const page = btn.dataset.page
 
       observer.log('Application', '→', { event: 'route_change', to: page })
+
+      await justjs.router.navigate(`/${page}`)
 
       pages.forEach((p) => (p.style.display = 'none'))
       navButtons.forEach((b) => b.classList.remove('active'))

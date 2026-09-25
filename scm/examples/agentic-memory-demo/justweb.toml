@@ -8,16 +8,16 @@ preset = "by-feature"
 emit_tests = false
 
 [mounts.chat]
-selector = "#app"
+selector = "#mount-chat"
 component = "chat"
 tag = "x-chat"
 
 [mounts.dashboard]
-selector = "#app"
+selector = "#mount-dashboard"
 component = "dashboard"
 tag = "x-dashboard"
 
 [mounts.curation]
-selector = "#app"
+selector = "#mount-curation"
 component = "curation"
 tag = "x-curation"

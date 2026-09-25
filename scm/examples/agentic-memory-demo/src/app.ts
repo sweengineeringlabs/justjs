@@ -12,6 +12,7 @@ import { justjs, BootError, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB
 import { JUSTWEB_MANIFEST } from "./justweb-manifest.gen.js";
 import domAddressMapJson from "../public/dom-address-map.json";
 import routesGenJson from "../public/routes.gen.json";
+import { stampMounts } from "./mounts.gen.js";
 import { createFeatureStore } from "@justjs/data";
 // justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
 // own spi/index.js for the self-registration side effect, same pattern
@@ -250,6 +251,7 @@ function setupSettingsPanel(): void {
 
 async function main(): Promise<void> {
   try {
+    stampMounts();
     await justjs.boot({
       justwebContract: {
         generatorVersion: SUPPORTED_JUSTWEB_GENERATOR_VERSION,

@@ -53,15 +53,15 @@
   "mounts": {
     "chat": {
       "id": "agentic-memory-demo:app:shell:chat",
-      "selector": "#app"
+      "selector": "#mount-chat"
     },
     "curation": {
       "id": "agentic-memory-demo:app:shell:curation",
-      "selector": "#app"
+      "selector": "#mount-curation"
     },
     "dashboard": {
       "id": "agentic-memory-demo:app:shell:dashboard",
-      "selector": "#app"
+      "selector": "#mount-dashboard"
     },
     "mount": {
       "id": "agentic-memory-demo:app:shell:mount",

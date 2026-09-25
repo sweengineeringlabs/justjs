@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "public/dom-address-map.json",
-      "sha256": "ed445392ff7fbbc63e240972512537479060057ce162ffffd91470b2f40370b1"
+      "sha256": "ff6e055d7700d5f230834861a5a59be05d9395d9d0a6b5255ac1f90dbd35205e"
     },
     {
       "path": "public/dom-address-map.json.sha256",
-      "sha256": "41439fbaabf3f3df807b9528ee7902988b2131d546677558d786938bbe7d6de6"
+      "sha256": "ec217101c03485a7c1385558177082e4f78361e8ec115a560ac865128e2ec556"
     },
     {
       "path": "public/importmap.gen.json",
@@ -82,7 +82,7 @@
     },
     {
       "path": "src/mounts.gen.ts",
-      "sha256": "805de2e69fa9926bfb4ca1363b1cff276c048bb2c7dab6d406e877afec015a86"
+      "sha256": "ba3063354e01f0c2240bb7b0c5936f536a37a766507153cd94a84ff7ba740b7d"
     },
     {
       "path": "src/registry.gen.ts",

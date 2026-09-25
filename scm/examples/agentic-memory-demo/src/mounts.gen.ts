@@ -4,7 +4,7 @@
 // Regenerate with: justw generate app
 
 export function stampMounts(): void {
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:chat"); // chat
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:curation"); // curation
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:dashboard"); // dashboard
+  document.querySelector("#mount-chat")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:chat"); // chat
+  document.querySelector("#mount-curation")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:curation"); // curation
+  document.querySelector("#mount-dashboard")?.setAttribute('data-ddas-id', "agentic-memory-demo:app:shell:dashboard"); // dashboard
 }

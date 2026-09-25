@@ -3,11 +3,11 @@ export const JUSTWEB_MANIFEST = {
   "artifacts": [
     {
       "path": "public/dom-address-map.json",
-      "sha256": "19b587ab4be816eb28fe3ca1b556c44d627d0fd0c45c58344d84106f3dc1d55a"
+      "sha256": "6f5a2f8a84b17387b750bada812730fdc0c63272b5bf9887efb4e008c2bcb172"
     },
     {
       "path": "public/dom-address-map.json.sha256",
-      "sha256": "43fd43cd3db790f79f41f8232825e8272b223319995725dd24d5d5512d3ca9d2"
+      "sha256": "fa1b0c561caf4422c699cf22b0230c04dc3854063cac813018272a5d89f0a3ae"
     },
     {
       "path": "public/importmap.gen.json",
@@ -83,7 +83,7 @@ export const JUSTWEB_MANIFEST = {
     },
     {
       "path": "src/mounts.gen.ts",
-      "sha256": "31076595fdcef21e9b9b5681869336ce23023c358109a1a3e7e566c87af94583"
+      "sha256": "4ab9b8bec29c7e915616f1ca2859ae506ad8d02e6452c9bcda803a1580ea82ff"
     },
     {
       "path": "src/registry.gen.ts",

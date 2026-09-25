@@ -19,6 +19,7 @@ import { justjs, BootError, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB
 import { JUSTWEB_MANIFEST } from "./justweb-manifest.gen.js";
 import domAddressMapJson from "../public/dom-address-map.json";
 import routesGenJson from "../public/routes.gen.json";
+import { stampMounts } from "./mounts.gen.js";
 import { createFeatureStore } from "@justjs/data";
 import { configureTransportProxy } from "@justjs/network";
 // justjs#91 (fixed): every aop-* package's saf/index.ts now imports its
@@ -61,6 +62,7 @@ function showRoute(path: string): void {
 
 async function main(): Promise<void> {
   try {
+    stampMounts();
     // The web host supplies this endpoint; native hosts can provide an
     // absolute endpoint through the same meta tag.
     const proxyUrl = document.querySelector<HTMLMetaElement>('meta[name="transport-proxy"]')?.content;

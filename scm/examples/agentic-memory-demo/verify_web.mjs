@@ -37,9 +37,9 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/dashboard">Dashboard</button>
       <button class="nav-btn" data-route="/curation">Curation</button>
     </nav>
-    <div id="mount-chat" class="page active" data-ddas-id="agentic-memory-demo:home:x-chat:root"></div>
-    <div id="mount-dashboard" class="page" data-ddas-id="agentic-memory-demo:home:x-dashboard:root"></div>
-    <div id="mount-curation" class="page" data-ddas-id="agentic-memory-demo:home:x-curation:root"></div>
+    <div id="mount-chat" class="page active"></div>
+    <div id="mount-dashboard" class="page"></div>
+    <div id="mount-curation" class="page"></div>
     <div id="settings-panel" hidden>
       <div id="settings-backdrop"></div>
       <div class="settings-sheet">

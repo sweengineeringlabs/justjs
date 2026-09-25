@@ -53,15 +53,15 @@
   "mounts": {
     "counter": {
       "id": "cross-target-demo:app:shell:counter",
-      "selector": "#app"
+      "selector": "#mount-counter"
     },
     "fetch": {
       "id": "cross-target-demo:app:shell:fetch",
-      "selector": "#app"
+      "selector": "#mount-fetch"
     },
     "login": {
       "id": "cross-target-demo:app:shell:login",
-      "selector": "#app"
+      "selector": "#mount-login"
     },
     "mount": {
       "id": "cross-target-demo:app:shell:mount",

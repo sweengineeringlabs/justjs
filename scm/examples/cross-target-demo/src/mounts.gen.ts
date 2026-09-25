@@ -4,7 +4,7 @@
 // Regenerate with: justw generate app
 
 export function stampMounts(): void {
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:counter"); // counter
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:fetch"); // fetch
-  document.querySelector("#app")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:login"); // login
+  document.querySelector("#mount-counter")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:counter"); // counter
+  document.querySelector("#mount-fetch")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:fetch"); // fetch
+  document.querySelector("#mount-login")?.setAttribute('data-ddas-id', "cross-target-demo:app:shell:login"); // login
 }
