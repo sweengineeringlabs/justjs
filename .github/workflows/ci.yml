@@ -12,6 +12,8 @@ name: CI
 # following docs/6-deployment/playbook.md and docs/6-deployment/
 # release-signing.md - see js-runtime's own CI workflow for the
 # compile-only Android checks that ARE automatable without a device.
+# Regeneration uses the JUSTWEB_READ_TOKEN Actions secret to read the pinned
+# private JustWeb source repository.
 
 on:
   push:
@@ -43,12 +45,26 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Require JustWeb read token
+        env:
+          JUSTWEB_READ_TOKEN: ${{ secrets.JUSTWEB_READ_TOKEN }}
+        run: test -n "$JUSTWEB_READ_TOKEN" || { echo "Add the JUSTWEB_READ_TOKEN Actions secret with read access to sweengineeringlabs/justweb."; exit 1; }
+
+      - name: Check out pinned JustWeb source
+        uses: actions/checkout@v4
+        with:
+          repository: sweengineeringlabs/justweb
+          ref: 64eb51bf4d471261053f6d08dac6db5ce613abd8
+          path: tools/justweb
+          token: ${{ secrets.JUSTWEB_READ_TOKEN }}
+          persist-credentials: false
+
       - name: Install pinned JustWeb generator
         uses: dtolnay/rust-toolchain@stable
 
       - name: Regenerate every JustWeb example
         run: |
-          cargo install --git https://github.com/sweengineeringlabs/justweb.git --rev 64eb51bf4d471261053f6d08dac6db5ce613abd8 --locked --bin justw swe-justweb-cli
+          cargo install --path tools/justweb/scm/cli --locked --bin justw swe-justweb-cli
           for app in hello-justjs cross-target-demo agentic-memory-demo ai-code-editor; do
             (cd "scm/examples/$app" && justw generate app)
           done
