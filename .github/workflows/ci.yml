@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Require JustWeb read token
+        env:
+          JUSTWEB_READ_TOKEN: ${{ secrets.JUSTWEB_READ_TOKEN }}
+        run: test -n "$JUSTWEB_READ_TOKEN" || { echo "Add the JUSTWEB_READ_TOKEN Actions secret with read access to sweengineeringlabs/justweb."; exit 1; }
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.2"
@@ -44,11 +49,6 @@ jobs:
 
       - name: Typecheck
         run: bun run typecheck
-
-      - name: Require JustWeb read token
-        env:
-          JUSTWEB_READ_TOKEN: ${{ secrets.JUSTWEB_READ_TOKEN }}
-        run: test -n "$JUSTWEB_READ_TOKEN" || { echo "Add the JUSTWEB_READ_TOKEN Actions secret with read access to sweengineeringlabs/justweb."; exit 1; }
 
       - name: Check out pinned JustWeb source
         uses: actions/checkout@v4
