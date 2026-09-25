@@ -133,6 +133,24 @@ import { config } from "@justjs/core"
 
       expect(imports.filter((i) => i === "@justjs/core")).toHaveLength(1)
     })
+
+    it("test_extract_ignores_commented_imports", () => {
+      const code = `
+// import "fake-package"
+import("real-package")
+`
+      const imports = extractImportsFromCode(code)
+
+      expect(imports).not.toContain("fake-package")
+      expect(imports).toContain("real-package")
+    })
+
+    it("test_extract_detects_dynamic_imports", () => {
+      const code = `const mod = await import("@justjs/core")`
+      const imports = extractImportsFromCode(code)
+
+      expect(imports).toContain("@justjs/core")
+    })
   })
 
   describe("validateTreeShaking", () => {

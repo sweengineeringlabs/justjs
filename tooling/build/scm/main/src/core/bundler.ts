@@ -65,17 +65,16 @@ ${bundleCode}
 }
 
 export function extractImportsFromCode(code: string): string[] {
-  const imports: Set<string> = new Set()
-  const importRegex = /(?:import|from)\s+["']([^"']+)["']/g
-  let match
-
-  while ((match = importRegex.exec(code)) !== null) {
-    const specifier = match[1]
-    if (specifier && !specifier.startsWith(".")) {
-      imports.add(specifier)
-    }
-  }
-
+  const transpiler = new Bun.Transpiler({ loader: "ts" })
+  const scanned = transpiler.scanImports(code)
+  const imports = new Set(
+    scanned
+      .filter(
+        (i) => i.kind === "import-statement" || i.kind === "dynamic-import"
+      )
+      .map((i) => i.path)
+      .filter((p) => !p.startsWith("."))
+  )
   return Array.from(imports).sort()
 }
 
