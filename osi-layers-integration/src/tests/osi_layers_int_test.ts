@@ -1,12 +1,82 @@
-import { describe, it, expect } from "bun:test"
+import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
-import { createFetchAdapter } from "@justjs/network"
+import { createFetchAdapter, configureTransportProxy } from "@justjs/network"
 import { createCacheAdapter } from "@justjs/transport"
-import { createComponentRegistry, createRouter, createLifecycle } from "@justjs/application"
+import { createComponentRegistry, createRouter, createLifecycle, validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "@justjs/application"
 import { createFeatureStore } from "@justjs/data"
-import type { Component, ComponentContext } from "@justjs/application"
+import type { Component, ComponentContext, DomAddressMap } from "@justjs/application"
+
+const directFetch = globalThis.fetch.bind(globalThis)
+let testTransportProxy: ReturnType<typeof Bun.serve>
+
+async function validatedContract(domAddressMap: DomAddressMap, routes: string[] = []) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(domAddressMap, null, 2)))
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  return validateJustWebRuntimeMetadata({
+    contract: { generatorVersion: "0.1.0", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
+    manifest: {
+      format: "justweb-artifact-manifest", formatVersion: 1,
+      generator: { name: "justw", version: "0.1.0", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
+      artifacts: [
+        { path: "public/dom-address-map.json", sha256 },
+        { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+        { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+        ...(routes.length ? [
+          { path: "public/routes.gen.json", sha256: "0".repeat(64) },
+          { path: "src/routes.gen.ts", sha256: "0".repeat(64) },
+        ] : []),
+      ],
+    },
+    domAddressMap,
+    routes,
+  })
+}
 
 describe("OSI Layers Integration Tests — Real Behavior", () => {
+  beforeAll(() => {
+    testTransportProxy = Bun.serve({
+      port: 0,
+      async fetch(request) {
+        const proxyRequest = await request.json() as {
+          url: string
+          method?: string
+          headers?: Record<string, string>
+          body?: string
+          bodyEncoding?: "utf8" | "base64"
+        }
+        const body = proxyRequest.body === undefined
+          ? undefined
+          : proxyRequest.bodyEncoding === "base64"
+            ? Uint8Array.from(atob(proxyRequest.body), (char) => char.charCodeAt(0))
+            : proxyRequest.body
+        let response: Response
+        try {
+          response = await directFetch(proxyRequest.url, {
+            ...(proxyRequest.method ? { method: proxyRequest.method } : {}),
+            ...(proxyRequest.headers ? { headers: proxyRequest.headers } : {}),
+            ...(body !== undefined ? { body } : {}),
+          })
+        } catch {
+          return new Response("transport-proxy could not reach the target", { status: 502 })
+        }
+        return Response.json({
+          status: response.status,
+          statusText: response.statusText,
+          headers: (() => {
+            const headers: Record<string, string> = {}
+            response.headers.forEach((value, key) => { headers[key] = value })
+            return headers
+          })(),
+          body: await response.text(),
+          ok: response.ok,
+        })
+      },
+    })
+    configureTransportProxy(`http://localhost:${testTransportProxy.port}`)
+  })
+
+  afterAll(() => testTransportProxy.stop())
+
   describe("Network ↔ Transport: Real HTTP → Cache", () => {
     it("test_fetchadapter_makes_actual_http_request_and_transport_caches_response", async () => {
       // REAL: Start a local HTTP server
@@ -108,7 +178,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         const port = server.port
         const fetchAdapter = createFetchAdapter()
         const cacheAdapter = createCacheAdapter()
-        const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
+        const componentRegistry = createComponentRegistry(await validatedContract({ elements: { "test:counter:counter:root": { component: "counter", tag: "x-counter" }, "test:dashboard:dashboard:root": { component: "dashboard", tag: "x-dashboard" } } }))
 
         // ACTUAL: Network fetches real component metadata
         const response = await fetchAdapter.fetch({
@@ -193,7 +263,7 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         },
       }
 
-      const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
+      const componentRegistry = createComponentRegistry(await validatedContract({ elements: { "test:counter:counter:root": { component: "counter", tag: "x-counter" } } }))
       const store = createFeatureStore(
         { renders: 0 },
         (state, action: any) => {
@@ -290,11 +360,13 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         // Initialize all 4 layers
         const fetchAdapter = createFetchAdapter()
         const cacheAdapter = createCacheAdapter()
-        const componentRegistry = createComponentRegistry({ elements: { "test:x-counter": { component: "counter", tag: "x-counter" }, "test:x-dashboard": { component: "dashboard", tag: "x-dashboard" } } })
+        const dashboardDdas: DomAddressMap = { elements: { "test:dashboard:dashboard:root": { component: "dashboard", tag: "x-dashboard" } } }
+        const contract = await validatedContract(dashboardDdas, ["/dashboard"])
+        const componentRegistry = createComponentRegistry(contract)
         // justjs#56: DefaultLifecycle needs the registry to actually call
         // Component.render() — registered below, before router.navigate()
         // (which now drives lifecycle.run() for real) ever runs.
-        const lifecycle = createLifecycle(undefined, undefined, componentRegistry)
+        const lifecycle = createLifecycle(contract, undefined, componentRegistry)
 
         interface DashboardWidget {
           id: number
@@ -338,14 +410,16 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
         // further down if left registered — unregister before that runs.
         GlobalRegistrator.register()
         try {
-          // ACTUAL: real DOM element for the router's tag-based fallback
-          // lookup (no domAddressMap supplied in this test) to resolve.
-          document.body.appendChild(document.createElement("x-dashboard"))
+          // ACTUAL: real DOM element addressed through the generated DDAS map.
+          const target = document.createElement("x-dashboard")
+          target.setAttribute("data-ddas-id", "test:dashboard:dashboard:root")
+          document.body.appendChild(target)
 
           const router = createRouter(
             ["/dashboard"],
             { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
-            lifecycle
+            lifecycle,
+            contract
           )
 
           // ACTUAL: Layer 3 (Application) — Navigate; drives
@@ -525,4 +599,3 @@ describe("OSI Layers Integration Tests — Real Behavior", () => {
     })
   })
 })
-

@@ -1,8 +1,30 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "@justjs/application"
-import type { LazyCustomElementRegistry } from "@justjs/application"
+import type { DomAddressMap, LazyCustomElementRegistry } from "@justjs/application"
+import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "@justjs/application"
 import { renderComponent } from "../core/renderer.js"
+
+async function adaptWithContract(source: LazyCustomElementRegistry) {
+  const elements = Object.fromEntries(Object.keys(source).map((tag) => [`test:feature:${tag}:root`, { component: tag, tag }]))
+  const domAddressMap = { elements } as DomAddressMap
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(domAddressMap, null, 2)))
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  const contract = await validateJustWebRuntimeMetadata({
+    contract: { generatorVersion: "0.1.0", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
+    manifest: {
+      format: "justweb-artifact-manifest", formatVersion: 1,
+      generator: { name: "justw", version: "0.1.0", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
+      artifacts: [
+        { path: "public/dom-address-map.json", sha256 },
+        { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+        { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+      ],
+    },
+    domAddressMap,
+  })
+  return adaptCustomElementRegistry(source, contract)
+}
 
 // Proves the ADR-0005 hydration claim: adaptCustomElementRegistry's existing
 // reuse-by-`instanceof` branch (application/core/registry/
@@ -63,7 +85,7 @@ describe("SSR output hydrates through the existing adaptCustomElementRegistry re
     // SAME container - this is exactly what DefaultRouter/RenderStep drive
     // in production, not a hand-wired test-only substitute.
     const source: LazyCustomElementRegistry = { "x-counter": load }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const component = await registry.get("x-counter")
     await component.render({ count: "5" }, rootContainer)
 
@@ -99,7 +121,7 @@ describe("SSR output hydrates through the existing adaptCustomElementRegistry re
     const rootContainer = document.querySelector('[data-ddas-id="app:home:x-badge:root"]')!
     const foreignChild = rootContainer.firstElementChild
 
-    const registry = adaptCustomElementRegistry({ "x-badge": load })
+    const registry = await adaptWithContract({ "x-badge": load })
     const component = await registry.get("x-badge")
     await component.render({}, rootContainer)
 

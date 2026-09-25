@@ -53,8 +53,13 @@ export class MountStep implements LifecycleStep {
       throw new LifecycleError("mount", "Missing DOM element")
     }
 
+    const elementTag = typeof ctx.element.tagName === "string" ? ctx.element.tagName.toLowerCase() : ""
+    if (elementTag.includes("-") && elementTag !== ctx.tag.toLowerCase()) {
+      throw new LifecycleError("mount", `DOM element tag "${elementTag}" does not match declared JustWeb component tag "${ctx.tag}".`)
+    }
+
     if (!this.domAddressMap?.elements) {
-      throw new LifecycleError("mount", "A JustWeb domAddressMap is mandatory before a component can mount.")
+      throw new LifecycleError("mount", 'A JustWeb domAddressMap with an "elements" map is mandatory before a component can mount.')
     }
 
     {

@@ -1,5 +1,5 @@
 import type { DomAddressMap } from "./dom-address.js"
-import type { ComponentRegistry, LazyCustomElementRegistry, Router } from "./registry.js"
+import type { ComponentRegistry, MutableComponentRegistry, LazyCustomElementRegistry, Router } from "./registry.js"
 import type { RuntimeAdapter } from "./component.js"
 import type { Lifecycle } from "./lifecycle.js"
 import type { ErrorBoundary } from "./error_boundary.js"
@@ -46,7 +46,7 @@ export interface BootConfig {
   // apiAdapter defaults to a real transport/network adapter pair (built via
   // their saf factories) rather than requiring every caller to construct
   // one by hand.
-  readonly componentRegistry?: LazyCustomElementRegistry | ComponentRegistry
+  readonly componentRegistry?: LazyCustomElementRegistry | MutableComponentRegistry
   readonly runtimeAdapter?: RuntimeAdapter
   readonly apiAdapter?: ApiAdapter
 

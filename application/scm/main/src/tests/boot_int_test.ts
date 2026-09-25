@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { createHash } from "node:crypto"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { createFeatureStore, createUIEventBus } from "@justjs/data"
+import { configureTransportProxy } from "@justjs/network"
 import { BootError, type BootConfig } from "../api/boot.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 import { JustJS } from "../core/boot.js"
@@ -309,8 +310,8 @@ describe("Boot-time Validation — 4 ACs", () => {
     })
 
     it("test_boot_rejects_domaddressmap_missing_elements_with_a_clear_error", async () => {
-      // Legacy pre-migration shape (flat Record<tag, string[]>), no
-      // `elements` property - must fail with an actionable BootError, not a
+      // Invalid flat map shape (Record<tag, string[]>), no `elements`
+      // property - must fail with an actionable BootError, not a
       // raw "Object.values requires..." TypeError.
       const config: BootConfig = {
         routes: ["/"],
@@ -719,6 +720,21 @@ describe("Boot-time Validation — 4 ACs", () => {
       const server = Bun.serve({
         port: 0,
         async fetch(req) {
+          if (req.url.endsWith("/proxy")) {
+            const proxyRequest = await req.json() as { url: string; method?: string; headers?: Record<string, string>; body?: string }
+            const proxied = await fetch(proxyRequest.url, {
+              ...(proxyRequest.method ? { method: proxyRequest.method } : {}),
+              ...(proxyRequest.headers ? { headers: proxyRequest.headers } : {}),
+              ...(proxyRequest.body ? { body: proxyRequest.body } : {}),
+            })
+            return Response.json({
+              status: proxied.status,
+              statusText: proxied.statusText,
+              headers: Object.fromEntries(proxied.headers.entries()),
+              body: await proxied.text(),
+              ok: proxied.ok,
+            })
+          }
           if (req.url.includes("/ping")) {
             return new Response(JSON.stringify({ pong: true }), {
               headers: { "content-type": "application/json" },
@@ -729,6 +745,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       })
 
       try {
+        configureTransportProxy(`http://localhost:${server.port}/proxy`)
         const justjs = JustJS.getInstance()
         justjs.clearProviders()
 
@@ -957,6 +974,8 @@ describe("Boot-time Validation — 4 ACs", () => {
       })
       expect(() => (justjs.componentRegistry as any).register("x-forged", () => ({ name: "forged", render() {} })))
         .toThrow(/not declared by the JustWeb dom-address-map/)
+      expect(() => registry.register("x-root", () => ({ name: "replacement", render() {} })))
+        .toThrow(/sealed after JustWeb contract validation/)
     })
   })
 })

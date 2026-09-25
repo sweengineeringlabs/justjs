@@ -60,6 +60,9 @@ export class DefaultRouter implements Router {
     if (!path.startsWith("/")) {
       throw new RegistryError(`Route must start with /: ${path}`)
     }
+    if (!this.domAddressMap?.elements) {
+      throw new RegistryError("A validated JustWeb DOM address map is mandatory for routing.")
+    }
 
     const matchedPattern = this.routes.find((pattern) => matchRoutePattern(pattern, path) !== undefined)
     if (!matchedPattern) {
@@ -82,11 +85,11 @@ export class DefaultRouter implements Router {
       }
     }
 
-    const ddasIds = this.domAddressMap ? resolveDdasAddressesForTag(this.domAddressMap, tag) : []
-    const element =
-      ddasIds.length > 0
-        ? document.querySelector(`[data-ddas-id="${ddasIds[0]}"]`)
-        : document.querySelector(tag) // fallback: bare custom-element lookup, no DDAS map supplied
+    const ddasIds = resolveDdasAddressesForTag(this.domAddressMap, tag)
+    if (ddasIds.length === 0) {
+      throw new RegistryError(`Route component tag "${tag}" is missing from the JustWeb DOM address map.`)
+    }
+    const element = document.querySelector(`[data-ddas-id="${ddasIds[0]}"]`)
 
     if (!element) {
       throw new RegistryError(`No DOM element found for route "${path}" (tag "${tag}")`)

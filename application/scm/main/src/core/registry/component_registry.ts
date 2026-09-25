@@ -1,7 +1,7 @@
 import type { Component, ComponentProps } from "../../api/component.js"
 import type { ComponentRegistry } from "../../api/registry.js"
 import { RegistryError } from "../../api/registry.js"
-import type { DomAddressMap } from "../../api/dom-address.js"
+import { assertValidatedJustWebContract, type ValidatedJustWebContract } from "../../api/justweb_contract.js"
 
 export class DefaultComponentRegistry implements ComponentRegistry {
   private components = new Map<string, (props?: ComponentProps) => Component | Promise<Component>>()
@@ -12,15 +12,22 @@ export class DefaultComponentRegistry implements ComponentRegistry {
   // every single time RenderStep and UpdateStep each resolve the same tag
   // within one lifecycle pass.
   private resolved = new Map<string, Promise<Component>>()
+  private sealed = false
 
   constructor(private readonly allowedTags?: ReadonlySet<string>) {}
 
   register(tag: string, factory: (props?: ComponentProps) => Component | Promise<Component>): void {
+    if (this.sealed) {
+      throw new RegistryError("Component registry is sealed after JustWeb contract validation.")
+    }
     if (!tag.includes("-")) {
       throw new RegistryError(`Component tag must include hyphen: ${tag}`)
     }
     if (this.allowedTags && !this.allowedTags.has(tag)) {
       throw new RegistryError(`Component tag "${tag}" is not declared by the JustWeb dom-address-map.`)
+    }
+    if (this.allowedTags && this.components.has(tag)) {
+      throw new RegistryError(`Component tag "${tag}" is already registered under the JustWeb contract.`)
     }
     this.components.set(tag, factory)
     this.resolved.delete(tag)
@@ -55,16 +62,34 @@ export class DefaultComponentRegistry implements ComponentRegistry {
   list(): string[] {
     return Array.from(this.components.keys())
   }
+
+  seal(): void {
+    this.sealed = true
+  }
 }
 
 // Keeps post-boot registration inside the generated JustWeb contract. The
 // caller may retain the original mutable registry, so the runtime uses this
 // facade for every framework-managed lookup and registration after boot.
-export function restrictComponentRegistry(registry: ComponentRegistry, domAddressMap: DomAddressMap): ComponentRegistry {
-  const allowed = new Set(Object.values(domAddressMap.elements).map((element) => element.tag))
+export function restrictComponentRegistry(registry: ComponentRegistry, contract: ValidatedJustWebContract): ComponentRegistry {
+  assertValidatedJustWebContract(contract)
+  const allowed = new Set(Object.values(contract.domAddressMap.elements).map((element) => element.tag))
   const mutable = registry as ComponentRegistry & { register?: DefaultComponentRegistry["register"]; has?: (tag: string) => boolean; list?: () => string[] }
+  const resolved = new Map<string, Promise<Component>>()
   return {
-    get: (tag, props) => registry.get(tag, props),
+    get(tag, props) {
+      if (!allowed.has(tag)) {
+        return Promise.reject(new RegistryError(`Component tag "${tag}" is not declared by the JustWeb dom-address-map.`))
+      }
+      const cached = resolved.get(tag)
+      if (cached) return cached
+      const pending = registry.get(tag, props).catch((error: unknown) => {
+        resolved.delete(tag)
+        throw error
+      })
+      resolved.set(tag, pending)
+      return pending
+    },
     ...(typeof mutable.register === "function" ? {
       register(tag: string, factory: Parameters<DefaultComponentRegistry["register"]>[1]): void {
         if (!allowed.has(tag)) {

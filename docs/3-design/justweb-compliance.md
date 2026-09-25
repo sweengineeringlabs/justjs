@@ -23,9 +23,13 @@ generated boot config. Boot validates the manifest shape, generator revision,
 required generated registries, route artifacts, and the supplied DOM map digest
 before constructing aspects or runtime state. Applications that call `justjs.boot`
 directly must provide the same generated manifest and DOM map.
-The public `createComponentRegistry(domAddressMap)`, `createLifecycle(domAddressMap)`,
-and `createRouter(..., domAddressMap)` factories require the generated map too;
-framework-managed registration is rejected when a tag is absent from that map.
+The public registry, lifecycle, router, and custom-element adapter factories
+require an opaque capability returned by `validateJustWebRuntimeMetadata()`.
+That validator checks the supported pin, manifest schema, canonical artifact
+inventory, and DOM map digest used by boot, then freezes a snapshot. Passing
+only a handwritten DOM map or a fabricated capability is rejected.
+Framework-managed registration is restricted to tags in the validated map,
+and a tag cannot be registered twice under that contract.
 
 The JustWeb producer emits the manifest after all generation steps and records
 the generator revision and whether its source checkout was dirty. The source
@@ -46,9 +50,10 @@ designed signing/attestation system and trusted verifier. No such guarantee is
 claimed by structural contract validation. Enforcement governs supported JustJS
 APIs, not modified framework forks or raw DOM calls outside the framework.
 
-CI runs `bun run check:justweb-artifacts` for all four examples. This verifies
-the checked-in manifest digests and required generated files; local generation
-and boot validation remain active when CI is not run.
+CI installs the pinned JustWeb generator, regenerates all four examples, and
+fails if generation changes any checked-in output. It then verifies the
+manifest digests and required generated files; local generation and boot
+validation remain active when CI is not run.
 
 ## Application setup and migration
 
@@ -65,6 +70,7 @@ The generated boot config supplies the contract to browser and Android startup;
 neither path reads the source tree at runtime. Existing applications must add
 `[justweb]`, regenerate all JustWeb output from a clean checkout at the pinned
 revision, and pass the generated manifest and DOM address map through every
-direct `boot()` or public lifecycle/router factory call. Legacy opt-out and
-warning settings are removed by this breaking change. Apps using external
-services must provide those service credentials before exercising their flows.
+direct `boot()` or public lifecycle/router factory call. Configurations that
+previously weakened DDAS enforcement must be updated to satisfy the mandatory
+contract. Apps using external services must provide those service credentials
+before exercising their flows.

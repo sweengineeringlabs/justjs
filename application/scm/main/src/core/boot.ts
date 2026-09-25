@@ -2,7 +2,7 @@ import type { AspectConfig, AspectProviderSpec, BootConfig, JustJSInstance, Just
 import { BootError } from "../api/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import { resolveDdasKnownTags } from "../api/dom-address.js"
-import { SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION } from "../api/justweb_contract.js"
+import { assertValidatedJustWebContract, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION, validateJustWebRuntimeMetadata, type ValidatedJustWebContract } from "../api/justweb_contract.js"
 import type { JustJSAspect } from "../api/aspect.js"
 import type { ComponentRegistry, LazyCustomElementRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
 import type { Lifecycle } from "../api/lifecycle.js"
@@ -14,8 +14,9 @@ import type { ApiAdapter } from "@justjs/transport"
 import { createApiAdapter } from "@justjs/transport"
 import { createFetchAdapter } from "@justjs/network"
 
-function isComponentRegistry(x: LazyCustomElementRegistry | ComponentRegistry): x is ComponentRegistry {
-  return typeof (x as ComponentRegistry).get === "function"
+function isComponentRegistry(x: LazyCustomElementRegistry | import("../api/registry.js").MutableComponentRegistry): x is import("../api/registry.js").MutableComponentRegistry {
+  const registry = x as import("../api/registry.js").MutableComponentRegistry
+  return typeof registry.get === "function" && typeof registry.list === "function" && typeof registry.register === "function" && typeof registry.seal === "function"
 }
 
 class BootValidator {
@@ -54,7 +55,7 @@ class BootValidator {
     return minDistance < 3 ? nearest : undefined
   }
 
-  async validate(config: BootConfig, justjs: JustJS): Promise<void> {
+  async validate(config: BootConfig, justjs: JustJS): Promise<ValidatedJustWebContract> {
     // Check for missing required config
     if (!config.routes) {
       throw new BootError("MISSING_ROUTES")
@@ -196,6 +197,24 @@ class BootValidator {
           throw new BootError("MISSING_DDAS_ENTRY", tag, known, undefined, message)
         }
       }
+      if (config.componentRegistry) {
+        const componentTags = isComponentRegistry(config.componentRegistry)
+          ? config.componentRegistry.list()
+          : Object.keys(config.componentRegistry)
+        const tagSet = new Set(componentTags)
+        for (const tag of componentTags) {
+          if (!knownComponents.has(tag)) {
+            throw new BootError("MISSING_DDAS_ENTRY", tag, Array.from(knownComponents), undefined,
+              `Registered component tag "${tag}" is not declared by the JustWeb dom-address-map.`)
+          }
+        }
+        for (const [tag] of registryEntries) {
+          if (!tagSet.has(tag)) {
+            throw new BootError("UNKNOWN_COMPONENT", tag, componentTags, undefined,
+              `Route component tag "${tag}" has no matching JustWeb component registration.`)
+          }
+        }
+      }
     }
 
     // AC 1: Validate providers registered in JustJS.providers
@@ -307,10 +326,10 @@ class BootValidator {
         }
       }
     }
-    await this.validateJustWebManifest(config)
+    return await this.validateJustWebManifest(config)
   }
 
-  private async validateJustWebManifest(config: BootConfig): Promise<void> {
+  private async validateJustWebManifest(config: BootConfig): Promise<ValidatedJustWebContract> {
     const manifest = config.justwebManifest
     const fail = (message: string): never => {
       throw new BootError("INVALID_JUSTWEB_MANIFEST", undefined, undefined, undefined, message)
@@ -367,7 +386,16 @@ class BootValidator {
     if (actual !== addressMapArtifact.sha256) {
       fail("The supplied domAddressMap does not match the JustWeb artifact digest. Regenerate and load the map and manifest from the same `justw generate app` run.")
     }
-
+    try {
+      return await validateJustWebRuntimeMetadata({
+        contract,
+        manifest,
+        domAddressMap: addressMap!,
+        ...(config.routes ? { routes: config.routes } : {}),
+      })
+    } catch (error) {
+      throw new BootError("INVALID_JUSTWEB_MANIFEST", undefined, undefined, undefined, error instanceof Error ? error.message : String(error))
+    }
   }
 }
 
@@ -453,7 +481,7 @@ export class JustJS implements JustJSInstance {
     this._componentRegistry = undefined
     this._lifecycle = undefined
     this._router = undefined
-    await this.validator.validate(config, this)
+    const validatedJustWeb = await this.validator.validate(config, this)
 
     const aspects = config.aspects as Record<string, AspectConfig> | undefined
     if (aspects) {
@@ -469,18 +497,18 @@ export class JustJS implements JustJSInstance {
       }
     }
 
-    this.buildRuntime(config)
+    this.buildRuntime(config, validatedJustWeb)
   }
 
-  private buildRuntime(config: BootConfig): void {
+  private buildRuntime(config: BootConfig, validatedJustWeb: ValidatedJustWebContract): void {
+    assertValidatedJustWebContract(validatedJustWeb)
     const rawRegistry = config.componentRegistry
       ? isComponentRegistry(config.componentRegistry)
         ? config.componentRegistry
-        : adaptCustomElementRegistry(config.componentRegistry)
+        : adaptCustomElementRegistry(config.componentRegistry, validatedJustWeb)
       : undefined
 
-    this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
-    const addressMap = config.domAddressMap!
+    const addressMap = validatedJustWeb.domAddressMap
     if (rawRegistry && "list" in rawRegistry && typeof rawRegistry.list === "function") {
       for (const tag of rawRegistry.list()) {
         if (!resolveDdasKnownTags(addressMap).has(tag)) {
@@ -489,23 +517,27 @@ export class JustJS implements JustJSInstance {
         }
       }
     }
-    const registry = rawRegistry ? restrictComponentRegistry(rawRegistry, addressMap) : undefined
-    this._componentRegistry = registry
+    rawRegistry?.seal()
+    const registry = rawRegistry ? restrictComponentRegistry(rawRegistry, validatedJustWeb) : undefined
     const immutableAddressMap: DomAddressMap = Object.freeze({
       ...addressMap,
       elements: Object.freeze(Object.fromEntries(
         Object.entries(addressMap.elements).map(([id, element]) => [id, Object.freeze({ ...element })])
       )),
     })
-    this._lifecycle = new DefaultLifecycle(immutableAddressMap, config.runtimeAdapter, registry, config.errorBoundary)
-    this._router = new DefaultRouter(
+    const lifecycle = new DefaultLifecycle(immutableAddressMap, config.runtimeAdapter, registry, config.errorBoundary)
+    const router = new DefaultRouter(
       config.routes ?? [],
       (config.registry ?? {}) as Record<string, RouteRegistryEntry>,
-      this._lifecycle,
+      lifecycle,
       immutableAddressMap,
       config.featureStore,
       config.eventBus
     )
+    this._apiAdapter = config.apiAdapter ?? createApiAdapter(createFetchAdapter())
+    this._componentRegistry = registry
+    this._lifecycle = lifecycle
+    this._router = router
   }
 }
 

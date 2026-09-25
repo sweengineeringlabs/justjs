@@ -13,9 +13,13 @@ import type {
 import type { DomAddressMap } from "../api/dom-address.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 
+const DDAS = (tag = "x-button"): DomAddressMap => ({
+  elements: { "app:home:x-button:root": { component: "button", tag } },
+})
+
 describe("lifecycle", () => {
   it("test_lifecycle_runs_all_steps", async () => {
-    const lifecycle = new DefaultLifecycle()
+    const lifecycle = new DefaultLifecycle(DDAS())
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -26,7 +30,7 @@ describe("lifecycle", () => {
   })
 
   it("test_lifecycle_fails_without_tag", async () => {
-    const lifecycle = new DefaultLifecycle()
+    const lifecycle = new DefaultLifecycle(DDAS())
     const ctx: ComponentContext = {
       tag: "",
       props: {},
@@ -39,7 +43,7 @@ describe("lifecycle", () => {
   })
 
   it("test_lifecycle_fails_without_element", async () => {
-    const lifecycle = new DefaultLifecycle()
+    const lifecycle = new DefaultLifecycle(DDAS())
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -222,11 +226,8 @@ describe("lifecycle", () => {
   })
 
   it("test_mount_step_rejects_domaddressmap_missing_elements_with_a_clear_error", async () => {
-    // The legacy pre-migration shape (a flat Record<tag, string[]>) has no
-    // `elements` property at all - confirm this fails with an actionable
-    // LifecycleError, not a raw "Object.entries requires..." TypeError.
-    const legacyShapeMap = { "x-button": ["main"] } as unknown as DomAddressMap
-    const lifecycle = new DefaultLifecycle(legacyShapeMap)
+    const malformedMap = { "x-button": ["main"] } as unknown as DomAddressMap
+    const lifecycle = new DefaultLifecycle(malformedMap)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -236,11 +237,7 @@ describe("lifecycle", () => {
     await expect(lifecycle.run(ctx)).rejects.toThrow(/elements/)
   })
 
-  it("test_mount_step_rejects_a_domaddressmap_with_no_tag_field_on_any_element", async () => {
-    // Every element present but none carry `tag` - the signature of output
-    // generated before justweb#56. Must fail with a distinct, actionable
-    // message, not the generic "No DDAS entry found" per-tag message that
-    // would otherwise make this look like a real per-component gap.
+  it("test_mount_step_rejects_a_domaddress_entry_without_a_tag", async () => {
     const preTagFixMap: DomAddressMap = {
       elements: { "app:home:x-button:root": { component: "button" } },
     }
@@ -251,7 +248,7 @@ describe("lifecycle", () => {
       element: { tagName: "div" } as unknown as Element,
     }
 
-    await expect(lifecycle.run(ctx)).rejects.toThrow(/justweb#56/)
+    await expect(lifecycle.run(ctx)).rejects.toThrow(/No DDAS entry found/)
   })
 
   it("test_mount_step_fails_without_ddas_entry_for_tag", async () => {
@@ -278,7 +275,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: { label: "Click me" },
@@ -305,7 +302,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const element = { tagName: "div" } as unknown as Element
     const ctx: ComponentContext = { tag: "x-button", props: {}, element }
 
@@ -331,7 +328,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
 
     const store = createFeatureStore({ count: 0 }, (s) => s)
     const eventBus = createUIEventBus()
@@ -363,7 +360,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -385,7 +382,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -414,7 +411,7 @@ describe("lifecycle", () => {
       },
     }
 
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry, errorBoundary)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: { label: "Click me" },
@@ -449,7 +446,7 @@ describe("lifecycle", () => {
       },
     }
 
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry, errorBoundary)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -477,7 +474,7 @@ describe("lifecycle", () => {
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
     const errorBoundary: ErrorBoundary = { onError() {} }
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry, errorBoundary)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry, errorBoundary)
     const element = { tagName: "div" } as unknown as Element
 
     await lifecycle.run({ tag: "x-button", props: { attempt: 1 }, element })
@@ -489,7 +486,7 @@ describe("lifecycle", () => {
   it("test_render_step_fails_when_tag_has_no_registered_component", async () => {
     const registry = new DefaultComponentRegistry()
     registry.register("x-other", () => ({ name: "x-other", render() {} }))
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -510,7 +507,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: { label: "Updated" },
@@ -534,7 +531,7 @@ describe("lifecycle", () => {
       factoryCalls++
       return component
     })
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},
@@ -554,7 +551,7 @@ describe("lifecycle", () => {
     }
     const registry = new DefaultComponentRegistry()
     registry.register("x-button", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const lifecycle = new DefaultLifecycle(DDAS(), undefined, registry)
     const ctx: ComponentContext = {
       tag: "x-button",
       props: {},

@@ -5,6 +5,28 @@ import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import type { ComponentContext } from "../api/component.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import type { LazyCustomElementRegistry } from "../api/registry.js"
+import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "../api/justweb_contract.js"
+
+async function adaptWithContract(source: LazyCustomElementRegistry) {
+  const elements = Object.fromEntries(Object.keys(source).map((tag) => [`test:feature:${tag}:root`, { component: tag, tag }]))
+  const domAddressMap = { elements }
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(domAddressMap, null, 2)))
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  const contract = await validateJustWebRuntimeMetadata({
+    contract: { generatorVersion: "0.1.0", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
+    manifest: {
+      format: "justweb-artifact-manifest", formatVersion: 1,
+      generator: { name: "justw", version: "0.1.0", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
+      artifacts: [
+        { path: "public/dom-address-map.json", sha256 },
+        { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+        { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+      ],
+    },
+    domAddressMap,
+  })
+  return adaptCustomElementRegistry(source, contract)
+}
 
 // justjs#39: proves the previously-unverified claim - that boot()'s
 // resolution logic actually results in a REAL justweb-generated custom
@@ -26,7 +48,7 @@ describe("real justweb component integration", () => {
     const source: LazyCustomElementRegistry = {
       "js-home": () => import("./fixtures/home_component.gen.js").then((m) => m.HomeBase),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
 
     // Captured verbatim alongside the fixture component (same real
     // `justw generate app` run) - see justjs#45/#49.
@@ -74,7 +96,7 @@ describe("real justweb component integration", () => {
     const source: LazyCustomElementRegistry = {
       "js-home": () => import("./fixtures/home_component.gen.js").then((m) => m.HomeBase),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const domAddressMap: DomAddressMap = {
       elements: {
         "test-app:home:home:button": { component: "home", tag: "js-home" },

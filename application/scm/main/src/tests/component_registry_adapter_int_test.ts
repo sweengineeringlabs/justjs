@@ -2,6 +2,28 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 import { RegistryError, type LazyCustomElementRegistry } from "../api/registry.js"
+import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "../api/justweb_contract.js"
+
+async function adaptWithContract(source: LazyCustomElementRegistry) {
+  const elements = Object.fromEntries(Object.keys(source).map((tag) => [`test:feature:${tag}:root`, { component: tag, tag }]))
+  const domAddressMap = { elements }
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(domAddressMap, null, 2)))
+  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+  const contract = await validateJustWebRuntimeMetadata({
+    contract: { generatorVersion: "0.1.0", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
+    manifest: {
+      format: "justweb-artifact-manifest", formatVersion: 1,
+      generator: { name: "justw", version: "0.1.0", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
+      artifacts: [
+        { path: "public/dom-address-map.json", sha256 },
+        { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+        { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+      ],
+    },
+    domAddressMap,
+  })
+  return adaptCustomElementRegistry(source, contract)
+}
 
 class FakeCustomElement {
   readonly attributes: Record<string, string> = {}
@@ -29,7 +51,7 @@ describe("component_registry_adapter", () => {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
       "x-checkout": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
 
     expect(registry.has("x-home")).toBe(true)
     expect(registry.has("x-checkout")).toBe(true)
@@ -50,7 +72,7 @@ describe("component_registry_adapter", () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(TrackedElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = new FakeContainer()
 
     const component = await registry.get("x-home")
@@ -63,7 +85,7 @@ describe("component_registry_adapter", () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = new FakeContainer()
 
     const component = await registry.get("x-home")
@@ -77,7 +99,7 @@ describe("component_registry_adapter", () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = new FakeContainer()
 
     const component = await registry.get("x-home")
@@ -98,7 +120,7 @@ describe("component_registry_adapter", () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = new FakeContainer()
 
     const component = await registry.get("x-home")
@@ -114,7 +136,7 @@ describe("component_registry_adapter", () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = new FakeContainer()
     const foreignChild = { setAttribute() {} }
     container.replaceChildren(foreignChild)
@@ -127,16 +149,16 @@ describe("component_registry_adapter", () => {
     expect(container.children[0]).toBeInstanceOf(FakeCustomElement)
   })
 
-  it("test_adapter_still_enforces_hyphenated_tag_names", () => {
+  it("test_adapter_still_enforces_hyphenated_tag_names", async () => {
     const source: LazyCustomElementRegistry = {
       "x-home": () => Promise.resolve(FakeCustomElement as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     expect(() => registry.register("nohyphen", () => ({ name: "nohyphen", render() {} }))).toThrow(RegistryError)
   })
 
   it("test_adapter_get_rejects_unregistered_tag", async () => {
-    const registry = adaptCustomElementRegistry({})
+    const registry = await adaptWithContract({})
     await expect(registry.get("x-missing")).rejects.toThrow(RegistryError)
   })
 })
@@ -175,7 +197,7 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     const source: LazyCustomElementRegistry = {
       "x-real-counter": () => Promise.resolve(RealCounter as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = document.createElement("div")
     document.body.appendChild(container) // connectedCallback only fires once actually connected
 
@@ -197,7 +219,7 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     const source: LazyCustomElementRegistry = {
       "x-real-badge": () => Promise.resolve(RealBadge as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = document.createElement("div")
     document.body.appendChild(container)
 
@@ -211,7 +233,7 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
   })
 
   it("test_adapter_does_not_throw_when_the_same_tag_is_resolved_a_second_time", async () => {
-    // A second adaptCustomElementRegistry() call for the same tag+class must
+    // A second adaptWithContract() call for the same tag+class must
     // not hit customElements.define()'s "already defined" error - the
     // adapter's own customElements.get(tag) guard must handle this, since a
     // real app's boot() can plausibly build more than one registry instance
@@ -223,11 +245,11 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     }
     const load = () => Promise.resolve(RealPanel as unknown as CustomElementConstructor)
 
-    const firstRegistry = adaptCustomElementRegistry({ "x-real-panel": load })
+    const firstRegistry = await adaptWithContract({ "x-real-panel": load })
     const firstComponent = await firstRegistry.get("x-real-panel")
     firstComponent.render({}, document.createElement("div"))
 
-    const secondRegistry = adaptCustomElementRegistry({ "x-real-panel": load })
+    const secondRegistry = await adaptWithContract({ "x-real-panel": load })
     const secondComponent = await secondRegistry.get("x-real-panel")
     // render() is synchronous (void, not Promise<void>) - a synchronous
     // "already defined" DOMException would throw here directly, not as a
@@ -254,7 +276,7 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     const source: LazyCustomElementRegistry = {
       "x-store-consumer": () => Promise.resolve(RealStoreConsumer as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = document.createElement("div")
     document.body.appendChild(container)
     const component = await registry.get("x-store-consumer")
@@ -280,7 +302,7 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     const source: LazyCustomElementRegistry = {
       "x-optional-consumer": () => Promise.resolve(RealOptionalConsumer as unknown as CustomElementConstructor),
     }
-    const registry = adaptCustomElementRegistry(source)
+    const registry = await adaptWithContract(source)
     const container = document.createElement("div")
     document.body.appendChild(container)
     const component = await registry.get("x-optional-consumer")
@@ -288,5 +310,15 @@ describe("component_registry_adapter against a real DOM (justjs#64 regression)",
     await component.render({}, container)
 
     expect(received).toBeUndefined()
+  })
+
+  it("rejects a lazy constructor that disagrees with an existing custom-element registration", async () => {
+    class RegisteredElement extends HTMLElement {}
+    class DifferentElement extends HTMLElement {}
+    customElements.define("x-contract-mismatch", RegisteredElement)
+    const registry = await adaptWithContract({
+      "x-contract-mismatch": () => Promise.resolve(DifferentElement as unknown as CustomElementConstructor),
+    })
+    await expect(registry.get("x-contract-mismatch")).rejects.toThrow(/different from the registered JustWeb element/)
   })
 })

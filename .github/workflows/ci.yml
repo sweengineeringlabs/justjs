@@ -43,6 +43,20 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Install pinned JustWeb generator
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Regenerate every JustWeb example
+        run: |
+          cargo install --git https://github.com/sweengineeringlabs/justweb.git --rev 64eb51bf4d471261053f6d08dac6db5ce613abd8 --locked --bin justw swe-justweb-cli
+          for app in hello-justjs cross-target-demo agentic-memory-demo ai-code-editor; do
+            (cd "scm/examples/$app" && justw generate app)
+          done
+          if [ -n "$(git status --porcelain -- scm/examples/hello-justjs scm/examples/cross-target-demo scm/examples/agentic-memory-demo scm/examples/ai-code-editor)" ]; then
+            git status --short -- scm/examples/hello-justjs scm/examples/cross-target-demo scm/examples/agentic-memory-demo scm/examples/ai-code-editor
+            exit 1
+          fi
+
       - name: Verify checked-in JustWeb artifacts
         run: bun run check:justweb-artifacts
 
