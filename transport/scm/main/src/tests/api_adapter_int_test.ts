@@ -1,14 +1,42 @@
 import { describe, it, expect, afterEach } from "bun:test"
 import { DefaultApiAdapter } from "../core/api_adapter.js"
 import { TransportError } from "../api/api_adapter.js"
-import { createFetchAdapter } from "@justjs/network"
+import { configureTransportProxy, createFetchAdapter } from "@justjs/network"
 
 describe("DefaultApiAdapter", () => {
   let server: ReturnType<typeof Bun.serve> | undefined
+  let proxy: ReturnType<typeof Bun.serve> | undefined
+
+  function configureTestProxy(): void {
+    proxy = Bun.serve({
+      port: 0,
+      async fetch(request) {
+        const proxied = await request.json() as { url: string; method?: string; headers?: Record<string, string>; body?: string; bodyEncoding?: "utf8" | "base64" }
+        const body = proxied.bodyEncoding === "base64" && proxied.body
+          ? Uint8Array.from(atob(proxied.body), (character) => character.charCodeAt(0))
+          : proxied.body
+        try {
+          const response = await fetch(proxied.url, {
+            ...(proxied.method ? { method: proxied.method } : {}),
+            ...(proxied.headers ? { headers: proxied.headers } : {}),
+            ...(body !== undefined ? { body } : {}),
+          })
+          const headers: Record<string, string> = {}
+          response.headers.forEach((value, key) => { headers[key] = value })
+          return Response.json({ status: response.status, statusText: response.statusText, headers, body: await response.text(), ok: response.ok })
+        } catch {
+          return new Response("proxy request failed", { status: 502 })
+        }
+      },
+    })
+    configureTransportProxy(`http://localhost:${proxy.port}`)
+  }
 
   afterEach(() => {
     server?.stop()
     server = undefined
+    proxy?.stop()
+    proxy = undefined
   })
 
   it("test_get_makes_a_real_http_request_and_parses_json", async () => {
@@ -23,6 +51,7 @@ describe("DefaultApiAdapter", () => {
         return new Response("Not found", { status: 404 })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get<{ id: number; name: string }>(`http://localhost:${server.port}/api/user/1`)
@@ -48,6 +77,7 @@ describe("DefaultApiAdapter", () => {
         })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.post<{ created: boolean }>(
@@ -73,6 +103,7 @@ describe("DefaultApiAdapter", () => {
         })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     await api.put(`http://localhost:${server.port}/api/users/1`, { name: "Carol" })
@@ -99,6 +130,7 @@ describe("DefaultApiAdapter", () => {
         return new Response(null, { status: 200 })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     const bytes = new Uint8Array([0x1f, 0x8b, 0x08, 0x00, 0xde, 0xad, 0xbe, 0xef])
@@ -116,6 +148,7 @@ describe("DefaultApiAdapter", () => {
         return new Response("Forbidden", { status: 403, statusText: "Forbidden" })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get(`http://localhost:${server.port}/api/secret`)
@@ -131,6 +164,7 @@ describe("DefaultApiAdapter", () => {
         return new Response("plain text response", { headers: { "content-type": "text/plain" } })
       },
     })
+    configureTestProxy()
 
     const api = new DefaultApiAdapter(createFetchAdapter())
     const result = await api.get<string>(`http://localhost:${server.port}/api/text`)
@@ -139,6 +173,7 @@ describe("DefaultApiAdapter", () => {
   })
 
   it("test_network_failure_is_wrapped_in_a_transport_error", async () => {
+    configureTestProxy()
     const api = new DefaultApiAdapter(createFetchAdapter())
 
     await expect(api.get("http://localhost:1/unreachable")).rejects.toThrow(TransportError)

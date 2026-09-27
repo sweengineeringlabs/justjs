@@ -1,0 +1,9 @@
+name: counter
+version: 1
+dom:
+  tag: x-counter
+  builtinStates: false
+  elements:
+    content:
+      tag: main
+      address: true

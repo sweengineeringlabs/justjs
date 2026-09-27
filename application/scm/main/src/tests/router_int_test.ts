@@ -8,6 +8,10 @@ import { RegistryError } from "../api/registry.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import type { Component } from "../api/component.js"
 
+const DDAS = (...tags: string[]): DomAddressMap => ({
+  elements: Object.fromEntries(tags.map((tag) => [`app:home:${tag}:root`, { component: tag, tag }])),
+})
+
 // justjs#56: DefaultRouter.navigate() previously only set a private field —
 // it never resolved a real DOM element or drove the lifecycle. These prove
 // it now does, against a real DOM (happy-dom), not a mock Element.
@@ -31,8 +35,8 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
   })
 
   // Each test appends its own elements to document.body and never removes
-  // them - without this, a later test's bare-tag querySelector fallback can
-  // resolve to a stale element left behind by an earlier test instead of
+  // them - without this, a later DDAS querySelector can resolve to a stale
+  // element left behind by an earlier test instead of
   // its own freshly-created one.
   afterEach(() => {
     document.body.innerHTML = ""
@@ -49,17 +53,14 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap: DomAddressMap = {
+      elements: { "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" } },
+    }
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
 
     const target = document.createElement("x-dashboard")
     target.setAttribute("data-ddas-id", "app:home:dashboard:root")
     document.body.appendChild(target)
-
-    const domAddressMap: DomAddressMap = {
-      elements: {
-        "app:home:dashboard:root": { component: "dashboard", tag: "x-dashboard" },
-      },
-    }
 
     const router = new DefaultRouter(
       ["/dashboard"],
@@ -75,21 +76,15 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
     expect(rendered[0]?.element).toBe(target)
   })
 
-  it("test_navigate_falls_back_to_a_bare_tag_lookup_when_no_dom_address_map_supplied", async () => {
-    const rendered: Element[] = []
+  it("test_navigate_fails_closed_when_no_dom_address_map_is_supplied", async () => {
     const component: Component = {
       name: "counter",
-      render(_props, element) {
-        rendered.push(element)
-      },
+      render() {},
     }
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-counter", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
-
-    const target = document.createElement("x-counter")
-    document.body.appendChild(target)
+    const lifecycle = new DefaultLifecycle()
 
     const router = new DefaultRouter(
       ["/counter"],
@@ -97,25 +92,25 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
       lifecycle
     )
 
-    await router.navigate("/counter")
-
-    expect(rendered).toHaveLength(1)
-    expect(rendered[0]).toBe(target)
+    await expect(router.navigate("/counter")).rejects.toThrow(/validated JustWeb DOM address map/)
   })
 
   it("test_navigate_rejects_a_route_not_in_the_known_routes_list", async () => {
-    const lifecycle = new DefaultLifecycle()
-    const router = new DefaultRouter(["/counter"], {}, lifecycle)
+    const domAddressMap = DDAS()
+    const lifecycle = new DefaultLifecycle(domAddressMap)
+    const router = new DefaultRouter(["/counter"], {}, lifecycle, domAddressMap)
 
     await expect(router.navigate("/unknown")).rejects.toThrow(RegistryError)
   })
 
   it("test_navigate_rejects_when_no_matching_dom_element_exists", async () => {
-    const lifecycle = new DefaultLifecycle()
+    const domAddressMap = DDAS("x-missing")
+    const lifecycle = new DefaultLifecycle(domAddressMap)
     const router = new DefaultRouter(
       ["/missing"],
       { "x-missing": { path: "/missing", component: "missing" } },
-      lifecycle
+      lifecycle,
+      domAddressMap
     )
 
     await expect(router.navigate("/missing")).rejects.toThrow(RegistryError)
@@ -132,16 +127,20 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-order-detail", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap = DDAS("x-order-detail")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
 
-    document.body.appendChild(document.createElement("x-order-detail"))
+    const target = document.createElement("x-order-detail")
+    target.setAttribute("data-ddas-id", "app:home:x-order-detail:root")
+    document.body.appendChild(target)
 
     // Mirrors justweb routes.yaml's real params: shape - :id segment ->
     // order-detail's own declared `id` prop (docs/adr/ADR-0001).
     const router = new DefaultRouter(
       ["/order/:id"],
       { "x-order-detail": { path: "/order/:id", component: "order-detail", params: { id: "id" } } },
-      lifecycle
+      lifecycle,
+      domAddressMap
     )
 
     await router.navigate("/order/42")
@@ -152,11 +151,13 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
   })
 
   it("test_navigate_rejects_a_path_with_the_wrong_number_of_segments_for_a_dynamic_route", async () => {
-    const lifecycle = new DefaultLifecycle()
+    const domAddressMap = DDAS("x-order-detail")
+    const lifecycle = new DefaultLifecycle(domAddressMap)
     const router = new DefaultRouter(
       ["/order/:id"],
       { "x-order-detail": { path: "/order/:id", component: "order-detail", params: { id: "id" } } },
-      lifecycle
+      lifecycle,
+      domAddressMap
     )
 
     await expect(router.navigate("/order")).rejects.toThrow(RegistryError)
@@ -176,15 +177,18 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap = DDAS("x-dashboard")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
 
-    document.body.appendChild(document.createElement("x-dashboard"))
+    const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:x-dashboard:root")
+    document.body.appendChild(target)
 
     const router = new DefaultRouter(
       ["/dashboard"],
       { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
       lifecycle,
-      undefined,
+      domAddressMap,
       store
     )
 
@@ -204,14 +208,18 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap = DDAS("x-dashboard")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
 
-    document.body.appendChild(document.createElement("x-dashboard"))
+    const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:x-dashboard:root")
+    document.body.appendChild(target)
 
     const router = new DefaultRouter(
       ["/dashboard"],
       { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
-      lifecycle
+      lifecycle,
+      domAddressMap
     )
 
     await router.navigate("/dashboard")
@@ -235,15 +243,17 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap = DDAS("x-dashboard")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
     const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:x-dashboard:root")
     document.body.appendChild(target)
 
     const router = new DefaultRouter(
       ["/dashboard"],
       { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
       lifecycle,
-      undefined,
+      domAddressMap,
       store
     )
 
@@ -286,10 +296,14 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => dashboardComponent)
     registry.register("x-settings", () => settingsComponent)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
+    const domAddressMap = DDAS("x-dashboard", "x-settings")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
 
-    document.body.appendChild(document.createElement("x-dashboard"))
-    document.body.appendChild(document.createElement("x-settings"))
+    for (const tag of ["x-dashboard", "x-settings"]) {
+      const target = document.createElement(tag)
+      target.setAttribute("data-ddas-id", `app:home:${tag}:root`)
+      document.body.appendChild(target)
+    }
 
     const router = new DefaultRouter(
       ["/dashboard", "/settings"],
@@ -298,7 +312,7 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
         "x-settings": { path: "/settings", component: "settings" },
       },
       lifecycle,
-      undefined,
+      domAddressMap,
       store
     )
 
@@ -337,14 +351,17 @@ describe("DefaultRouter drives DefaultLifecycle against a real DOM", () => {
 
     const registry = new DefaultComponentRegistry()
     registry.register("x-dashboard", () => component)
-    const lifecycle = new DefaultLifecycle(undefined, undefined, registry)
-    document.body.appendChild(document.createElement("x-dashboard"))
+    const domAddressMap = DDAS("x-dashboard")
+    const lifecycle = new DefaultLifecycle(domAddressMap, undefined, registry)
+    const target = document.createElement("x-dashboard")
+    target.setAttribute("data-ddas-id", "app:home:x-dashboard:root")
+    document.body.appendChild(target)
 
     const router = new DefaultRouter(
       ["/dashboard"],
       { "x-dashboard": { path: "/dashboard", component: "dashboard" } },
       lifecycle,
-      undefined,
+      domAddressMap,
       store
     )
 

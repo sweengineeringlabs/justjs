@@ -2,12 +2,7 @@
 name = "hello-justjs"
 version = "0.1.0"
 
-# DDAS enforcement: optional (only for test scenarios)
-# Set enabled=false to skip DDAS validation (production mode)
-# Set onMissing="warn" to log warnings instead of errors
-[ddas]
-enabled = true
-onMissing = "error"  # "error" | "warn" | "ignore"
+# DDAS validation is mandatory at boot; no enforcement toggle is supported.
 
 [security]
 strategy = "noop"
@@ -46,3 +41,9 @@ domAddressMap = {
   "x-fetch" = "#app",
   "x-form" = "#app"
 }
+
+[justweb]
+generator_version = "0.1.0"
+generator_revision = "64eb51bf4d471261053f6d08dac6db5ce613abd8"
+artifact_schema = 1
+artifact_manifest = "public/justweb-artifacts.gen.json"
