@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
+import { createHash } from "node:crypto"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { createFeatureStore, createUIEventBus } from "@justjs/data"
+import { configureTransportProxy } from "@justjs/network"
 import { BootError, type BootConfig } from "../api/boot.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 import { JustJS } from "../core/boot.js"
@@ -11,6 +13,37 @@ import { DefaultComponentRegistry } from "../core/registry/component_registry.js
 const DDAS = (tags: string[]): DomAddressMap => ({
   elements: Object.fromEntries(tags.map((t) => [`app:home:${t}:root`, { component: t, tag: t }])),
 })
+
+const TEST_JUSTWEB_CONTRACT = {
+  generatorVersion: "0.1.0" as const,
+  generatorRevision: "64eb51bf4d471261053f6d08dac6db5ce613abd8",
+  artifactSchema: 1 as const,
+}
+
+function bootWithGeneratedFixture(justjs: JustJS, config: Partial<BootConfig>): Promise<void> {
+  const map = config.domAddressMap ?? { elements: {} }
+  const artifacts = [
+    { path: "public/dom-address-map.json", sha256: createHash("sha256").update(JSON.stringify(map, null, 2)).digest("hex") },
+    { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+    { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+  ]
+  if ((config.routes?.length ?? 0) > 0) {
+    artifacts.push(
+      { path: "public/routes.gen.json", sha256: "0".repeat(64) },
+      { path: "src/routes.gen.ts", sha256: "0".repeat(64) },
+    )
+  }
+  return justjs.boot({
+    ...config,
+    justwebContract: config.justwebContract ?? TEST_JUSTWEB_CONTRACT,
+    justwebManifest: config.justwebManifest ?? {
+      format: "justweb-artifact-manifest",
+      formatVersion: 1,
+      generator: { name: "justw", version: "0.1.0", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: false },
+      artifacts,
+    },
+  } as BootConfig)
+}
 
 // Every aspect config now requires a `strategy` (ADR-0002 D3) — register a
 // throwaway "test-strategy" for whichever concern a test declares so AC1
@@ -38,7 +71,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(bootWithGeneratedFixture(justjs, config)).resolves.toBeUndefined()
     })
 
     it("test_boot_fails_route_in_aspect_on_not_found", async () => {
@@ -61,7 +94,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).code).toBe("ASPECT_ROUTE_NOT_FOUND")
@@ -88,7 +121,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).code).toBe("ASPECT_ROUTE_NOT_FOUND")
@@ -115,7 +148,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).nearest).toBe("/dashboard")
@@ -144,7 +177,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).code).toBe("ASPECT_COMPONENT_NOT_FOUND")
@@ -171,7 +204,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).code).toBe("ASPECT_COMPONENT_NOT_FOUND")
@@ -198,7 +231,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).nearest).toBe("x-dashboard")
@@ -207,6 +240,21 @@ describe("Boot-time Validation — 4 ACs", () => {
   })
 
   describe("AC 4: DDAS entries exist for all components", () => {
+    it("validates component addresses before creating aspects", async () => {
+      const justjs = JustJS.getInstance()
+      let created = false
+      justjs.providers.register({
+        concern: "address-validation", strategy: "test",
+        factory: () => { created = true; return { weave() {} } },
+      })
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-other"]),
+        aspects: { "address-validation": { strategy: "test" } },
+      })).rejects.toMatchObject({ code: "MISSING_DDAS_ENTRY" })
+      expect(created).toBe(false)
+    })
     it("test_boot_succeeds_with_valid_ddas", async () => {
       const config: BootConfig = {
         routes: ["/", "/dashboard"],
@@ -225,7 +273,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(bootWithGeneratedFixture(justjs, config)).resolves.toBeUndefined()
     })
 
     it("test_boot_fails_missing_ddas_entry", async () => {
@@ -244,7 +292,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+      await expect(bootWithGeneratedFixture(justjs, config)).rejects.toThrow(BootError)
     })
 
     it("test_boot_fails_without_ddas_when_components_registered", async () => {
@@ -258,12 +306,12 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+      await expect(bootWithGeneratedFixture(justjs, config)).rejects.toThrow(BootError)
     })
 
     it("test_boot_rejects_domaddressmap_missing_elements_with_a_clear_error", async () => {
-      // Legacy pre-migration shape (flat Record<tag, string[]>), no
-      // `elements` property - must fail with an actionable BootError, not a
+      // Invalid flat map shape (Record<tag, string[]>), no `elements`
+      // property - must fail with an actionable BootError, not a
       // raw "Object.values requires..." TypeError.
       const config: BootConfig = {
         routes: ["/"],
@@ -272,7 +320,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(/elements/)
+      await expect(bootWithGeneratedFixture(justjs, config)).rejects.toThrow(/elements/)
     })
 
     it("test_boot_rejects_a_domaddressmap_with_no_tag_field_on_any_element", async () => {
@@ -287,7 +335,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       const justjs = JustJS.getInstance()
-      await expect(justjs.boot(config)).rejects.toThrow(/justweb#56/)
+      await expect(bootWithGeneratedFixture(justjs, config)).rejects.toMatchObject({ code: "MISSING_DDAS_ENTRY" })
     })
   })
 
@@ -311,7 +359,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(bootWithGeneratedFixture(justjs, config)).resolves.toBeUndefined()
     })
 
     it("test_boot_fails_unregistered_provider", async () => {
@@ -332,7 +380,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await expect(justjs.boot(config)).rejects.toThrow(BootError)
+      await expect(bootWithGeneratedFixture(justjs, config)).rejects.toThrow(BootError)
     })
 
     it("test_boot_suggests_nearest_provider_on_typo", async () => {
@@ -354,7 +402,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         expect((error as BootError).nearest).toBe("oauth")
@@ -389,7 +437,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(bootWithGeneratedFixture(justjs, config)).resolves.toBeUndefined()
     })
 
     it("test_boot_with_complex_aspect_routing", async () => {
@@ -426,7 +474,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await expect(justjs.boot(config)).resolves.toBeUndefined()
+      await expect(bootWithGeneratedFixture(justjs, config)).resolves.toBeUndefined()
     })
   })
 
@@ -452,7 +500,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       }
 
       try {
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
         expect.unreachable("Should have thrown")
       } catch (error) {
         const e = error as BootError
@@ -498,7 +546,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(wovenTargets).toHaveLength(1)
       expect(wovenTargets[0]).toEqual({
@@ -536,7 +584,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(receivedConfigs).toHaveLength(1)
       expect(receivedConfigs[0]).toEqual({ apiKey: "sk-ant-test" })
@@ -570,7 +618,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(receivedConfigs).toHaveLength(1)
       expect(receivedConfigs[0]).toBeUndefined()
@@ -600,7 +648,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         domAddressMap: DDAS(["x-root"]),
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(weaveCalled).toBe(false)
     })
@@ -630,7 +678,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         },
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(justjs.componentRegistry).toBeDefined()
       const component = await justjs.componentRegistry!.get("x-widget")
@@ -646,7 +694,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         registry: { "x-root": { path: "/", component: "Root" } },
         domAddressMap: DDAS(["x-root"]),
       }
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(justjs.componentRegistry).toBeUndefined()
     })
@@ -660,7 +708,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         registry: { "x-root": { path: "/", component: "Root" } },
         domAddressMap: DDAS(["x-root"]),
       }
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(justjs.lifecycle).toBeDefined()
       expect(typeof justjs.lifecycle!.run).toBe("function")
@@ -672,6 +720,21 @@ describe("Boot-time Validation — 4 ACs", () => {
       const server = Bun.serve({
         port: 0,
         async fetch(req) {
+          if (req.url.endsWith("/proxy")) {
+            const proxyRequest = await req.json() as { url: string; method?: string; headers?: Record<string, string>; body?: string }
+            const proxied = await fetch(proxyRequest.url, {
+              ...(proxyRequest.method ? { method: proxyRequest.method } : {}),
+              ...(proxyRequest.headers ? { headers: proxyRequest.headers } : {}),
+              ...(proxyRequest.body ? { body: proxyRequest.body } : {}),
+            })
+            return Response.json({
+              status: proxied.status,
+              statusText: proxied.statusText,
+              headers: Object.fromEntries(proxied.headers.entries()),
+              body: await proxied.text(),
+              ok: proxied.ok,
+            })
+          }
           if (req.url.includes("/ping")) {
             return new Response(JSON.stringify({ pong: true }), {
               headers: { "content-type": "application/json" },
@@ -682,6 +745,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       })
 
       try {
+        configureTransportProxy(`http://localhost:${server.port}/proxy`)
         const justjs = JustJS.getInstance()
         justjs.clearProviders()
 
@@ -690,7 +754,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         registry: { "x-root": { path: "/", component: "Root" } },
         domAddressMap: DDAS(["x-root"]),
       }
-        await justjs.boot(config)
+        await bootWithGeneratedFixture(justjs, config)
 
         expect(justjs.apiAdapter).toBeDefined()
         const result = await justjs.apiAdapter!.get<{ pong: boolean }>(`http://localhost:${server.port}/ping`)
@@ -717,7 +781,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         domAddressMap: DDAS(["x-root"]),
         apiAdapter: customApiAdapter,
       }
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       expect(justjs.apiAdapter).toBe(customApiAdapter)
     })
@@ -770,7 +834,7 @@ describe("Boot-time Validation — 4 ACs", () => {
         eventBus,
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
       await justjs.router!.navigate("/counter")
 
       expect(rendered).toEqual([{ count: 1 }])
@@ -820,13 +884,98 @@ describe("Boot-time Validation — 4 ACs", () => {
         errorBoundary,
       }
 
-      await justjs.boot(config)
+      await bootWithGeneratedFixture(justjs, config)
 
       // Without the boundary this would reject and fail the test - proves
       // the failure is genuinely contained, not just theoretically possible.
       await expect(justjs.router!.navigate("/dashboard")).resolves.toBeUndefined()
       expect(caught).toHaveLength(1)
       expect((caught[0] as Error).message).toBe("dashboard render boom")
+    })
+
+    it("requires the app pin to match the generated manifest exactly", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebContract: { ...TEST_JUSTWEB_CONTRACT, generatorRevision: "b".repeat(40) },
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+    })
+
+    it("rejects artifacts generated from a modified JustWeb checkout", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      const manifest = {
+        format: "justweb-artifact-manifest" as const,
+        formatVersion: 1 as const,
+        generator: { name: "justw" as const, version: "0.1.0", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: true },
+        artifacts: [
+          { path: "public/dom-address-map.json", sha256: createHash("sha256").update(JSON.stringify(DDAS(["x-root"]), null, 2)).digest("hex") },
+          { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
+          { path: "src/component-registry.gen.ts", sha256: "0".repeat(64) },
+          { path: "public/routes.gen.json", sha256: "0".repeat(64) },
+          { path: "src/routes.gen.ts", sha256: "0".repeat(64) },
+        ],
+      }
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebManifest: manifest,
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+    })
+
+    it("turns malformed contract metadata into an actionable BootError", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebManifest: {} as BootConfig["justwebManifest"],
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+    })
+
+    it("clears an existing runtime when a reconfiguration fails contract validation", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      await bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        apiAdapter: { fetch: async () => ({}) } as any,
+      })
+      expect(justjs.router).toBeDefined()
+
+      await expect(bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        justwebManifest: {} as BootConfig["justwebManifest"],
+      })).rejects.toMatchObject({ code: "INVALID_JUSTWEB_MANIFEST" })
+      expect(justjs.router).toBeUndefined()
+      expect(justjs.lifecycle).toBeUndefined()
+      expect(justjs.componentRegistry).toBeUndefined()
+    })
+
+    it("rejects post-boot registration of a tag outside the JustWeb contract", async () => {
+      const justjs = JustJS.getInstance()
+      justjs.clearProviders()
+      const registry = new DefaultComponentRegistry()
+      registry.register("x-root", () => ({ name: "root", render() {} }))
+      await bootWithGeneratedFixture(justjs, {
+        routes: ["/"],
+        registry: { "x-root": { path: "/", component: "Root" } },
+        domAddressMap: DDAS(["x-root"]),
+        componentRegistry: registry,
+        apiAdapter: { fetch: async () => ({}) } as any,
+      })
+      expect(() => (justjs.componentRegistry as any).register("x-forged", () => ({ name: "forged", render() {} })))
+        .toThrow(/not declared by the JustWeb dom-address-map/)
+      expect(() => registry.register("x-root", () => ({ name: "replacement", render() {} })))
+        .toThrow(/sealed after JustWeb contract validation/)
     })
   })
 })

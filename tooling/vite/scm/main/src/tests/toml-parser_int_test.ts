@@ -78,4 +78,41 @@ except = ["/"]
       except: ["/"],
     })
   })
+
+  it("test_parse_url_with_equals_in_value_preserves_full_url", () => {
+    const toml = `
+[service]
+url = "https://example.com/?key=value"
+`
+    const result = parseToml(toml)
+    const service = result.service as Record<string, unknown>
+    expect(service?.["url"]).toBe("https://example.com/?key=value")
+  })
+
+  it("test_parse_array_with_comma_in_string_value", () => {
+    const toml = `tags = ["hello, world", "foo", "bar"]`
+    const result = parseToml(toml)
+    expect(result.tags).toEqual(["hello, world", "foo", "bar"])
+  })
+
+  it("test_parse_nested_tables", () => {
+    const toml = `
+[database]
+host = "localhost"
+port = 5432
+
+[database.credentials]
+user = "admin"
+`
+    const result = parseToml(toml)
+    const db = result.database as Record<string, unknown>
+    expect(db?.["host"]).toBe("localhost")
+    expect(db?.["port"]).toBe(5432)
+    const creds = db?.["credentials"] as Record<string, unknown>
+    expect(creds?.["user"]).toBe("admin")
+  })
+
+  it("test_parse_invalid_toml_throws", () => {
+    expect(() => parseToml("key = [unclosed")).toThrow()
+  })
 })

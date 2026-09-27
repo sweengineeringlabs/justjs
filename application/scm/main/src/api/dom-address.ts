@@ -7,10 +7,9 @@ export interface DomAddressElement {
   readonly component: string
   // Actually-registered custom-element tag (justweb#56) — resolve against
   // this, not `component` (the bare *_component.yaml name), to match a
-  // customElements/COMPONENT_REGISTRY entry. Optional: older justweb output
-  // predating justweb#56 won't have it, so a missing `tag` correctly fails
-  // to match rather than silently comparing against the wrong field.
-  readonly tag?: string
+  // customElements/COMPONENT_REGISTRY entry. It is mandatory for the
+  // supported JustWeb manifest schema.
+  readonly tag: string
   readonly feature?: string
   readonly interactive?: boolean
   readonly scope?: string
@@ -22,17 +21,6 @@ export interface DomAddressMap {
   readonly elements: Record<string, DomAddressElement>
   readonly schema?: string
   readonly version?: string
-}
-
-// True when `elements` is non-empty but not one of them carries `tag` —
-// the signature of a dom-address-map.json generated before justweb#56, where
-// resolving by tag is impossible (not just absent for this one component).
-// Callers use this to raise one clear, actionable error instead of a
-// generic "no DDAS entry" per component, which would otherwise look
-// indistinguishable from a real per-component authoring mistake.
-export function isLegacyDomAddressMap(map: DomAddressMap): boolean {
-  const elements = Object.values(map.elements)
-  return elements.length > 0 && elements.every((element) => element.tag === undefined)
 }
 
 // Every DDAS address whose `tag` matches the given component tag.

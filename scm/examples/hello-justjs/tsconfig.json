@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": { "@browser/*": ["./src/shared/browser-sdk/*"] }
   },
   "include": ["src"]
 }

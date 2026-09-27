@@ -38,9 +38,9 @@ document.body.innerHTML = `
       <button class="nav-btn" data-route="/fetch">Fetch</button>
       <button class="nav-btn" data-route="/login">Login</button>
     </nav>
-    <div id="mount-counter" class="page active" data-ddas-id="cross-target-demo:home:x-counter:root"></div>
-    <div id="mount-fetch" class="page" data-ddas-id="cross-target-demo:home:x-fetch:root"></div>
-    <div id="mount-login" class="page" data-ddas-id="cross-target-demo:home:x-login:root"></div>
+    <div id="mount-counter" class="page active"></div>
+    <div id="mount-fetch" class="page"></div>
+    <div id="mount-login" class="page"></div>
   </div>
 `;
 

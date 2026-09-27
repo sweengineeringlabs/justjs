@@ -1,9 +1,7 @@
-// Stand-in for the routes.gen.json / registry.gen.ts / dom-address-map.json
-// that justweb would normally generate (see ADR-0001 §DDAS). This demo
-// hand-writes its components instead of running justweb (see justjs#37),
-// so these are authored by hand to match src/components/*.js exactly.
+import domAddressMapJson from '../../public/dom-address-map.json'
+import routesGenJson from '../../public/routes.gen.json'
 
-export const ROUTES = ['/counter', '/fetch', '/form']
+export const ROUTES = routesGenJson.routes.map((route) => route.path)
 
 export const REGISTRY = {
   'x-counter': { path: '/counter', component: 'CounterComponent' },
@@ -34,10 +32,4 @@ export const COMPONENT_REGISTRY = {
 // `tag` (justweb#56) is the actually-registered custom-element tag - what
 // MountStep resolves against; `component` is the bare pre-prefix name and is
 // never compared against a registry tag.
-export const DOM_ADDRESS_MAP = {
-  elements: {
-    'hello-justjs:home:x-counter:root': { component: 'counter', tag: 'x-counter', feature: 'home' },
-    'hello-justjs:home:x-fetch:root': { component: 'fetch', tag: 'x-fetch', feature: 'home' },
-    'hello-justjs:home:x-form:root': { component: 'form', tag: 'x-form', feature: 'home' },
-  },
-}
+export const DOM_ADDRESS_MAP = domAddressMapJson

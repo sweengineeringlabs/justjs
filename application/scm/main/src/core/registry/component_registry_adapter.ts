@@ -1,5 +1,7 @@
 import type { ComponentProps, Component, ComponentDataContext } from "../../api/component.js"
 import type { LazyCustomElementRegistry, MutableComponentRegistry } from "../../api/registry.js"
+import { assertValidatedJustWebContract, type ValidatedJustWebContract } from "../../api/justweb_contract.js"
+import { RegistryError } from "../../api/registry.js"
 import { DefaultComponentRegistry } from "./component_registry.js"
 
 // Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's
@@ -37,10 +39,17 @@ import { DefaultComponentRegistry } from "./component_registry.js"
 // different logical instance. No caller in this codebase currently passes
 // a non-empty container, so this hasn't been a live bug - flagging it here
 // rather than leaving it undocumented.
-export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): MutableComponentRegistry {
-  const registry = new DefaultComponentRegistry()
+export function adaptCustomElementRegistry(source: LazyCustomElementRegistry, contract: ValidatedJustWebContract): MutableComponentRegistry {
+  try { assertValidatedJustWebContract(contract) } catch (error) {
+    throw new RegistryError(error instanceof Error ? error.message : String(error))
+  }
+  const allowedTags = new Set(Object.values(contract.domAddressMap.elements).map((element) => element.tag))
+  const registry = new DefaultComponentRegistry(allowedTags)
 
   for (const [tag, load] of Object.entries(source)) {
+    if (!allowedTags.has(tag)) {
+      throw new RegistryError(`Custom-element tag "${tag}" is not declared by the JustWeb dom-address-map.`)
+    }
     registry.register(tag, async (): Promise<Component> => {
       const ElementCtor = await load()
       // `new ElementCtor()` below throws "Illegal constructor" against a real
@@ -54,8 +63,18 @@ export function adaptCustomElementRegistry(source: LazyCustomElementRegistry): M
       // Guarded on `customElements` existing at all — this codebase's own
       // non-DOM unit tests construct plain JS stand-ins with no global DOM
       // present, and must keep working unchanged.
-      if (typeof customElements !== "undefined" && !customElements.get(tag)) {
-        customElements.define(tag, ElementCtor)
+      if (typeof customElements !== "undefined") {
+        const registered = customElements.get(tag)
+        if (registered && registered !== ElementCtor) {
+          throw new RegistryError(`Lazy custom-element loader for "${tag}" returned a constructor different from the registered JustWeb element.`)
+        }
+        if (!registered) {
+          try {
+            customElements.define(tag, ElementCtor)
+          } catch (error) {
+            throw new RegistryError(`Could not register the lazy JustWeb constructor for "${tag}": ${error instanceof Error ? error.message : String(error)}`)
+          }
+        }
       }
       let previousKeys = new Set<string>()
       return {
