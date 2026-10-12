@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test"
-import { generateCodeWithStrategies } from "../core/codegen"
+import { generateCodeWithStrategies } from "../saf/index.js"
 import type { JustJSConfig } from "../api/config"
 
 const mockStrategies = new Map([

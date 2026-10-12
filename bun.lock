@@ -9,6 +9,7 @@
       },
       "devDependencies": {
         "@changesets/cli": "^2.31.0",
+        "typescript": "^5.5.0",
       },
     },
     "ai-assist/scm/main": {
@@ -216,8 +217,9 @@
         "@justjs/data": "*",
         "@justjs/network": "*",
         "@justjs/transport": "*",
-        "@types/bun": "^1.1.0",
+        "@types/bun": "^1.4.2",
         "@types/node": "^20.10.0",
+        "typescript": "^5.5.0",
       },
     },
     "platform/desktop/scm/main": {
@@ -399,6 +401,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@justjs/application": "^0.1.0",
+        "@justjs/html": "^0.1.0",
       },
       "devDependencies": {
         "@types/bun": "^1.4.2",
@@ -407,11 +410,23 @@
         "typescript": "^5.5.0",
       },
     },
+    "tooling/html/scm/main": {
+      "name": "@justjs/html",
+      "version": "0.1.0",
+      "dependencies": {
+        "@justjs/application": "^0.1.0",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
+        "typescript": "^5.5.0",
+      },
+    },
     "tooling/ssr/scm/main": {
       "name": "@justjs/ssr",
       "version": "0.1.0",
       "dependencies": {
         "@justjs/application": "^0.1.0",
+        "@justjs/html": "^0.1.0",
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "^15.0.0",
@@ -568,6 +583,8 @@
     "@justjs/component-view": ["@justjs/component-view@workspace:component-view/scm/main"],
 
     "@justjs/data": ["@justjs/data@workspace:data/scm/main"],
+
+    "@justjs/html": ["@justjs/html@workspace:tooling/html/scm/main"],
 
     "@justjs/image-connect": ["@justjs/image-connect@workspace:image-connect/scm/main"],
 
@@ -1071,8 +1088,6 @@
 
     "@justjs/network/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
 
-    "@justjs/osi-layers-integration/@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
-
     "@justjs/osi-layers-integration/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
 
     "@justjs/ssr/@types/node": ["@types/node@20.19.43", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA=="],
@@ -1121,8 +1136,6 @@
 
     "@justjs/network/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
-    "@justjs/osi-layers-integration/@types/bun/bun-types": ["bun-types@1.3.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-4N0ig0fEomHt5R0KCFWjovxow98rIoRwKolrYdCcknNwMekCXRnWEUvgu5soYV8QXtVsrUD8B95MBOZGPvr6KQ=="],
-
     "@justjs/osi-layers-integration/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "@justjs/ssr/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
@@ -1138,7 +1151,5 @@
     "hello-justjs/happy-dom/entities": ["entities@7.0.1", "", {}, "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="],
 
     "read-yaml-file/js-yaml/argparse": ["argparse@1.0.10", "", { "dependencies": { "sprintf-js": "~1.0.2" } }, "sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg=="],
-
-    "@justjs/osi-layers-integration/@types/bun/bun-types/@types/node": ["@types/node@26.0.1", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw=="],
   }
 }

@@ -6,9 +6,9 @@
   "description": "Demo app showing JustJS data flow through 4 OSI layers + AOP aspects",
   "scripts": {
     "codegen": "bun run scripts/codegen.js",
-    "dev": "bun run codegen && vite",
-    "build": "bun run codegen && vite build",
-    "preview": "vite preview",
+    "dev": "bun run codegen && bun --bun vite",
+    "build": "bun run codegen && bun --bun vite build",
+    "preview": "bun --bun vite preview",
     "typecheck": "bun run codegen && tsc --noEmit"
   },
   "dependencies": {

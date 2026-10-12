@@ -1,3 +1,5 @@
+export { createArchiveWriter } from "./archive-writer.js";
+export type { ArchiveWriter } from "./archive-writer.js";
 export type {
   CloudConnectProvider,
   CloudResource,

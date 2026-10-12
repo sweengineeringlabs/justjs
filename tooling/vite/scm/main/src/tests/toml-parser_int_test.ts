@@ -1,7 +1,8 @@
 import { describe, it, expect } from "bun:test"
-import { parseToml } from "../core/toml-parser"
+import { createTomlParser } from "../saf/index.js"
 
-describe("toml-parser", () => {
+describe.each(["core", "bun"])("toml-parser (%s)", (strategy) => {
+  const parseToml = (content: string) => createTomlParser(strategy).parse(content)
   it("test_parse_empty_string_returns_empty_object", () => {
     const result = parseToml("")
     expect(result).toEqual({})

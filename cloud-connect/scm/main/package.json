@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build": "bun ../../../scripts/ci/check-tooling-layers.ts && tsc --build tsconfig.json",
     "typecheck": "tsc --build tsconfig.json",
     "test": "bun test"
   },
@@ -27,5 +27,17 @@
   "devDependencies": {
     "typescript": "^5.5.0",
     "happy-dom": "^15.0.0"
+  },
+  "justjsLayers": {
+    "core": [
+      "src/core/tar_writer.ts"
+    ],
+    "spi": [
+      "src/spi/*archive*/**/*.ts"
+    ],
+    "api": [
+      "src/api/archive-writer.ts",
+      "src/api/provider.ts"
+    ]
   }
 }

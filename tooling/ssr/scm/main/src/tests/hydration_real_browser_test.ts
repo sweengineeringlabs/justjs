@@ -3,7 +3,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { writeFileSync, mkdtempSync, rmSync } from "fs"
 import { tmpdir } from "os"
 import { join } from "path"
-import { renderComponent } from "../core/renderer.js"
+import { renderComponent } from "../saf/index.js"
 
 // Closes justjs#66: ADR-0005 claims a real browser natively hoists a
 // `<template shadowrootmode="open">` into a real, attached shadow root

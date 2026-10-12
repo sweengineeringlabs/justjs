@@ -4,15 +4,8 @@ import type {
   HtmlOutput,
 } from "../api/bundle.js"
 import { BuildError } from "../api/bundle.js"
-
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
+import type { ImportScanner } from "../api/import-scanner.js"
+import { DefaultImportScanner } from "./import-scanner.js"
 
 export function validateImportMap(importmap: ImportMap): void {
   if (!importmap.imports || typeof importmap.imports !== "object") {
@@ -65,24 +58,15 @@ ${bundleCode}
 }
 
 export function extractImportsFromCode(code: string): string[] {
-  const transpiler = new Bun.Transpiler({ loader: "ts" })
-  const scanned = transpiler.scanImports(code)
-  const imports = new Set(
-    scanned
-      .filter(
-        (i) => i.kind === "import-statement" || i.kind === "dynamic-import"
-      )
-      .map((i) => i.path)
-      .filter((p) => !p.startsWith("."))
-  )
-  return Array.from(imports).sort()
+  return new DefaultImportScanner().scan(code)
 }
 
 export function validateTreeShaking(
   bundleCode: string,
-  importmap: ImportMap
+  importmap: ImportMap,
+  scanner: ImportScanner = new DefaultImportScanner()
 ): string[] {
-  const importsInCode = extractImportsFromCode(bundleCode)
+  const importsInCode = scanner.scan(bundleCode)
   const validImports = Object.keys(importmap.imports)
 
   const invalidImports = importsInCode.filter(
@@ -100,9 +84,10 @@ export function validateTreeShaking(
 
 export function generateBundleResult(
   bundleCode: string,
-  importmap: ImportMap
+  importmap: ImportMap,
+  scanner: ImportScanner = new DefaultImportScanner()
 ): BundleResult {
-  const importsUsed = validateTreeShaking(bundleCode, importmap)
+  const importsUsed = validateTreeShaking(bundleCode, importmap, scanner)
 
   return {
     code: bundleCode,

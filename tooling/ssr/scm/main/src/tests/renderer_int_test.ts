@@ -4,7 +4,7 @@ import {
   escapeHtml,
   renderComponent,
   renderDeclarativeShadowDom,
-} from "../core/renderer.js"
+} from "../saf/index.js"
 import { SSRError } from "../api/component.js"
 
 // renderComponent() constructs a real CustomElementConstructor against

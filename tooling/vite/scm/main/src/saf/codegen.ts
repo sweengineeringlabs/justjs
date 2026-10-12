@@ -105,13 +105,13 @@ export function readJustWebManifest(): JustWebArtifactManifest {
   return manifest
 }
 
-export function readConfig(): JustJSConfig {
+export function readConfig(tomlStrategy = "bun"): JustJSConfig {
   if (!existsSync(CONFIG_PATH)) {
     throw new CodegenError(`Config not found: ${CONFIG_PATH}`)
   }
 
   const content = readFileSync(CONFIG_PATH, "utf-8")
-  const parsed = parseToml(content)
+  const parsed = parseToml(content, tomlStrategy)
   const config: Record<string, unknown> = {}
 
   if (parsed.security) {
@@ -297,9 +297,9 @@ export function writeOutput(code: string): void {
   console.log(`✓ Generated: ${OUTPUT_PATH}`)
 }
 
-export async function runCodegen(): Promise<void> {
+export async function runCodegen(tomlStrategy = "bun"): Promise<void> {
   try {
-    const config = readConfig()
+    const config = readConfig(tomlStrategy)
     const output = generateCode(config)
     writeOutput(output.code)
   } catch (error) {
@@ -314,15 +314,15 @@ export async function runCodegen(): Promise<void> {
   }
 }
 
-export async function watchAndCodegen(): Promise<void> {
-  await runCodegen()
+export async function watchAndCodegen(tomlStrategy = "bun"): Promise<void> {
+  await runCodegen(tomlStrategy)
 
   console.log(`\nWatching ${CONFIG_PATH}...`)
 
   watchFile(CONFIG_PATH, async () => {
     try {
       console.log(`\n[${new Date().toLocaleTimeString()}] Config changed`)
-      await runCodegen()
+      await runCodegen(tomlStrategy)
     } catch (error) {
       if (error instanceof CodegenError) {
         console.error(`Error: ${error.message}`)

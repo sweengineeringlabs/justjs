@@ -6,7 +6,7 @@ import {
   extractImportsFromCode,
   validateTreeShaking,
   generateBundleResult,
-} from "../core/bundler.js"
+} from "../saf/index.js"
 import type { ImportMap } from "../api/bundle.js"
 import { BuildError } from "../api/bundle.js"
 

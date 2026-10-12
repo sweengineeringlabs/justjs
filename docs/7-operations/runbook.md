@@ -8,7 +8,7 @@ Day-to-day commands for working in this repository.
 
 | Tool | Version | Purpose |
 |---|---|---|
-| bun | >= 1.0 | Package manager + script runner |
+| bun | 1.4.2 | Package manager and tooling runtime; see [Bun tooling](../bun-tooling.md) |
 | Node.js | >= 20 | TypeScript compilation (tsc) |
 | git | any | Source control |
 
@@ -19,7 +19,7 @@ Day-to-day commands for working in this repository.
 ```bash
 git clone <repo>
 cd justjs
-bun install
+bun install --frozen-lockfile
 ```
 
 ---
@@ -99,7 +99,7 @@ dep there.
 After any structural change (new package, changed exports):
 
 ```bash
-bun install          # re-resolve workspace links
+bun install --frozen-lockfile          # re-resolve workspace links
 bun run --filter '@justjs/core' build
 bun run typecheck    # both packages must pass
 ```

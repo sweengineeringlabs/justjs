@@ -5,9 +5,9 @@
   "type": "module",
   "description": "One composition root (src/app.ts), compiled unmodified for two targets: a real browser (vite build) and Android (justc build --bundle --format iife via js-runtime's generator) - demonstrates @justjs/memory's pluggable dummy provider across three views (chat, dashboard, agent curation) sharing one FeatureStore and one MemoryProvider instance.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "bun --bun vite",
+    "build": "bun --bun vite build",
+    "preview": "bun --bun vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

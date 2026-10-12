@@ -10,17 +10,29 @@
     }
   },
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build": "bun ../../../../scripts/ci/check-tooling-layers.ts && tsc --build tsconfig.json",
     "typecheck": "tsc --build tsconfig.json",
     "test": "bun test"
   },
   "dependencies": {
-    "@justjs/application": "^0.1.0"
+    "@justjs/application": "^0.1.0",
+    "@justjs/html": "^0.1.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",
     "@types/node": "^20.10.0",
     "bun-types": "^1.4.2",
     "typescript": "^5.5.0"
+  },
+  "justjsLayers": {
+    "core": [
+      "src/core/**/*.ts"
+    ],
+    "spi": [
+      "src/spi/**/*.ts"
+    ],
+    "api": [
+      "src/api/**/*.ts"
+    ]
   }
 }

@@ -1,14 +1,6 @@
 import type { ComponentProps, ComponentSlot, RenderedComponent, LazyCustomElementLoader } from "../api/component.js"
 import { SSRError } from "../api/component.js"
 
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
 
 // Constructs the real custom element class server-side and reads back
 // whatever its own connectedCallback/render logic produced, instead of a
@@ -57,8 +49,9 @@ async function renderShadowDomFor(
 export async function renderComponent(
   tag: string,
   load: LazyCustomElementLoader,
-  props: ComponentProps = {},
-  slots: readonly ComponentSlot[] = []
+  props: ComponentProps,
+  slots: readonly ComponentSlot[],
+  escapeHtml: (text: string) => string
 ): Promise<RenderedComponent> {
   if (!tag.includes("-")) {
     throw new SSRError(

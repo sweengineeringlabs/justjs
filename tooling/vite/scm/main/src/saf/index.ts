@@ -1,3 +1,5 @@
+export { createTomlParser, parseToml } from "./toml-parser.js"
+export type { ParsedToml, TomlParser } from "./toml-parser.js"
 export type {
   JustJSConfig,
   SecurityConfig,
@@ -16,4 +18,4 @@ export {
   readAvailableStrategies,
   runCodegen,
   watchAndCodegen,
-} from "../core/codegen.js"
+} from "./codegen.js"

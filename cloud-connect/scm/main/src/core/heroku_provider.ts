@@ -3,7 +3,7 @@ import type { CloudConnectProvider, CloudResource, CloudDeployFile, CloudDeployR
 import { CloudConnectProviderError } from "../api/provider.js";
 import { DefaultCloudConnectProvider } from "./default_cloud_connect_provider.js";
 import type { BearerProviderDescriptor } from "./default_cloud_connect_provider.js";
-import { buildTarGz } from "./tar_writer.js";
+import { createArchiveWriter } from "../saf/archive-writer.js";
 
 const HEROKU_ACCEPT_HEADER = "application/vnd.heroku+json; version=3";
 
@@ -67,7 +67,8 @@ export class HerokuCloudConnectProvider implements CloudConnectProvider {
 
   constructor(
     private readonly config: BearerTokenConfig,
-    private readonly apiAdapter: ApiAdapter
+    private readonly apiAdapter: ApiAdapter,
+    private readonly archiveStrategy = "core"
   ) {
     this.listEngine = new DefaultCloudConnectProvider(LIST_APPS_DESCRIPTOR, config, this.apiAdapter);
   }
@@ -91,7 +92,7 @@ export class HerokuCloudConnectProvider implements CloudConnectProvider {
     }
     const { get_url: getUrl, put_url: putUrl } = sourceResponse.data.source_blob;
 
-    const tarGzBytes = await buildTarGz(files);
+    const tarGzBytes = await createArchiveWriter(this.archiveStrategy).write(files);
     try {
       const uploadResponse = await this.apiAdapter.put(putUrl, tarGzBytes);
       if (uploadResponse.error !== undefined) {

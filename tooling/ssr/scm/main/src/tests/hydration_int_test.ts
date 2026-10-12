@@ -3,7 +3,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "@justjs/application"
 import type { DomAddressMap, LazyCustomElementRegistry } from "@justjs/application"
 import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "@justjs/application"
-import { renderComponent } from "../core/renderer.js"
+import { renderComponent } from "../saf/index.js"
 
 async function adaptWithContract(source: LazyCustomElementRegistry) {
   const elements = Object.fromEntries(Object.keys(source).map((tag) => [`test:feature:${tag}:root`, { component: tag, tag }]))

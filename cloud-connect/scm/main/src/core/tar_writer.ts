@@ -1,4 +1,11 @@
 import type { CloudDeployFile } from "../api/provider.js";
+import type { ArchiveWriter } from "../api/archive-writer.js";
+
+export class DefaultArchiveWriter implements ArchiveWriter {
+  write(files: readonly CloudDeployFile[]): Promise<Uint8Array> {
+    return buildTarGz(files);
+  }
+}
 
 // A minimal, hand-rolled USTAR (POSIX tar) writer - Heroku's real build
 // API needs a gzipped tarball at a URL, and there is no third-party

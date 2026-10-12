@@ -5,9 +5,9 @@
   "type": "module",
   "description": "One composition root (src/app.ts), compiled unmodified for two targets: a real browser (vite build) and Android (justc build --bundle --format iife via js-runtime's generator) - proves network/transport/application/data + all six AOP aspects work identically on both, through a real DDAS router.navigate() mount, not a narrated version of it.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "bun --bun vite",
+    "build": "bun --bun vite build",
+    "preview": "bun --bun vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

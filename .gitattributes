@@ -1,0 +1,4 @@
+# JustWeb manifests hash exact generator bytes. CRLF conversion invalidates them.
+scm/examples/**/public/dom-address-map.json* text eol=lf
+scm/examples/**/public/*.gen.json text eol=lf
+scm/examples/**/src/**/*.gen.ts text eol=lf

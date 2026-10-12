@@ -5,9 +5,9 @@
   "type": "module",
   "description": "One composition root (src/app.ts), compiled unmodified for two targets: a real browser (vite build) and Android (justc build --bundle --format iife via js-runtime's generator) - a lightweight code editor with real Anthropic-backed AI completion, chat, structured review, and scaffolding via @justjs/ai-assist.",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "bun --bun vite",
+    "build": "bun --bun vite build",
+    "preview": "bun --bun vite preview",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

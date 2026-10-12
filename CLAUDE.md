@@ -47,11 +47,13 @@ docs/adr/   — architecture decisions
 
 ## Commands
 
+Use Bun 1.4.2; see [tooling runtime boundaries and validation](docs/bun-tooling.md).
+
 ```bash
-pnpm install
-pnpm build
-pnpm typecheck
-pnpm test
+bun install --frozen-lockfile
+bun run build
+bun run typecheck
+bun run test
 ```
 
 ## Key invariants

@@ -11,5 +11,5 @@ justjs.providers.register({
   concern: "cloudConnect",
   strategy: "heroku",
   factory: (config?: BearerTokenConfig) =>
-    new HerokuCloudConnectProvider(config ?? { token: "" }, createApiAdapter(createFetchAdapter())),
+    new HerokuCloudConnectProvider(config ?? { token: "" }, createApiAdapter(createFetchAdapter()), config?.archiveStrategy ?? "core"),
 });

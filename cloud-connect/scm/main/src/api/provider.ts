@@ -20,6 +20,8 @@ export interface CloudResource {
 // `Authorization: Bearer <token>`.
 export interface BearerTokenConfig {
   readonly token: string;
+  /** Heroku deployment archive strategy; defaults to the browser-compatible "core". */
+  readonly archiveStrategy?: string;
 }
 
 // AWS needs a real access-key-ID + secret-access-key pair and real
