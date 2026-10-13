@@ -28,6 +28,17 @@ const justweb = {
 
 describe("codegen", () => {
   describe("generateCodeWithStrategies", () => {
+    it("resolves package aliases without requiring Vite aliases", () => {
+      const concerns = ["security", "observability", "flags", "analytics", "theming", "i18n"]
+      const strategies = new Map(concerns.map(name => [`@justjs/aop-${name}-noop`, `@justjs/aop-${name}`]))
+      const config = { justweb, ...Object.fromEntries(concerns.map(name => [name, { strategy: "noop" }])) }
+      const output = generateCodeWithStrategies(config, strategies, justwebManifest)
+      for (const name of concerns) {
+        expect(output.imports).toContain(`import "@justjs/aop-${name}"`)
+        expect(output.code).not.toContain(`@justjs/aop-${name}-noop`)
+      }
+    })
+
     it("test_generate_empty_config_produces_minimal_boot", () => {
       const config: JustJSConfig = { justweb }
       const output = generateCodeWithStrategies(config, mockStrategies, justwebManifest)

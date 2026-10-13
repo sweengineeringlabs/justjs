@@ -49,7 +49,10 @@
     "test:vendor-external": "bun test scm/tests/vendor_external_int_test.ts",
     "check:tooling-layers": "bun scripts/ci/check-tooling-layers.ts",
     "test:tooling-layers": "bun test scm/tests/tooling_layers_int_test.ts",
-    "check:browser-runtime": "bun scripts/ci/check-browser-runtime.ts"
+    "check:browser-runtime": "bun scripts/ci/check-browser-runtime.ts",
+    "test:e2e-tooling": "bun test scm/examples/e2e-tooling/e2e_test.ts",
+    "check:cli-examples": "bun scripts/ci/check-cli-examples.ts",
+    "check:cli-browser": "bun scripts/ci/check-cli-browser.ts"
   },
   "_comment_build_order": "bun's --filter runs matched packages concurrently with no dependency-graph awareness, so build/typecheck are split into explicit sequential phases matching the real @justjs/* dependency graph (network/data/@justscript-core -> transport -> application -> component-view -> html -> everything else -> hello-justjs). component-view gets its own phase because @justjs/provider-connect (in the 'everything else' phase) depends on it - without a dedicated earlier phase, bun's concurrent same-phase execution could race provider-connect's tsc --build against component-view's own build. Confirmed necessary by reproducing a real failure from a genuinely clean checkout (no stale dist/ or .tsbuildinfo), not assumed.",
   "engines": {

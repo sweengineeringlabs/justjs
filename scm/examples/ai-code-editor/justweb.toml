@@ -16,6 +16,15 @@
 name = "ai-code-editor"
 version = "0.1.0"
 
+# Bun bundles the authored HTML, scripts, and styles for the JustJS CLI.
+[build]
+entry = "index.html"
+outdir = "dist-cli"
+
+[serve]
+root = "dist-cli"
+port = 3201
+
 [layout]
 preset = "by-feature"
 

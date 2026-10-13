@@ -23,7 +23,9 @@ describe("scm/vendor-external.sh (justjs#40 external consumption)", () => {
           ["bash", "scm/vendor-external.sh", vendorDir, "@justjs/application", "@justjs/platform-mobile"],
           { cwd: repoRoot }
         )
-        expect(vendorResult.exitCode).toBe(0)
+        if (vendorResult.exitCode !== 0) {
+          throw new Error(`vendor script failed:\n${vendorResult.stdout.toString()}\n${vendorResult.stderr.toString()}`)
+        }
 
         const fragmentPath = join(vendorDir, "package-fragment.json")
         expect(existsSync(fragmentPath)).toBe(true)

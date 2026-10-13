@@ -5,7 +5,7 @@ import { resolve } from "node:path"
 // accidental inclusion of the native tooling providers in browser/WebView code.
 const root = resolve(import.meta.dir, "../..")
 for (const app of ["hello-justjs", "cross-target-demo", "agentic-memory-demo", "ai-code-editor"]) {
-  const directory = resolve(root, "scm/examples", app, "dist")
+  const directory = resolve(root, "scm/examples", app, process.argv.includes("--cli") ? "dist-cli" : "dist")
   const chunks = readdirSync(directory, { recursive: true }).filter((file) => typeof file === "string" && file.endsWith(".js"))
   if (chunks.length === 0) throw new Error(`${app}: build the example before checking its browser runtime`)
   for (const chunk of chunks) {

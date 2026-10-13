@@ -170,6 +170,13 @@ export function generateCodeWithStrategies(
   const bootConfig: Record<string, unknown> = {}
   const aspects: Record<string, unknown> = {}
 
+  // Package aliases in the import map must also work in native bundlers.
+  // URL mappings retain their public specifier for browser import-map resolution.
+  const strategyImport = (key: string): string => {
+    const target = strategies.get(key)
+    return target?.startsWith("@justjs/") ? target : key
+  }
+
   if (config.security) {
     const strategyKey = `@justjs/aop-security-${config.security.strategy}`
     if (!strategies.has(strategyKey)) {
@@ -177,7 +184,7 @@ export function generateCodeWithStrategies(
         `Unknown security strategy: ${config.security.strategy}`
       )
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.security = toAspectConfig(config.security)
   }
 
@@ -188,7 +195,7 @@ export function generateCodeWithStrategies(
         `Unknown observability strategy: ${config.observability.strategy}`
       )
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.observability = toAspectConfig(config.observability)
   }
 
@@ -199,7 +206,7 @@ export function generateCodeWithStrategies(
         `Unknown flags strategy: ${config.flags.strategy}`
       )
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.flags = toAspectConfig(config.flags)
   }
 
@@ -210,7 +217,7 @@ export function generateCodeWithStrategies(
         `Unknown analytics strategy: ${config.analytics.strategy}`
       )
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.analytics = toAspectConfig(config.analytics)
   }
 
@@ -221,7 +228,7 @@ export function generateCodeWithStrategies(
         `Unknown theming strategy: ${config.theming.strategy}`
       )
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.theming = toAspectConfig(config.theming)
   }
 
@@ -230,7 +237,7 @@ export function generateCodeWithStrategies(
     if (!strategies.has(strategyKey)) {
       throw new CodegenError(`Unknown i18n strategy: ${config.i18n.strategy}`)
     }
-    imports.push(`import "${strategyKey}"`)
+    imports.push(`import "${strategyImport(strategyKey)}"`)
     aspects.i18n = toAspectConfig(config.i18n)
   }
 
