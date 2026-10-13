@@ -64,7 +64,7 @@ try {
   }
   async function evaluate(expression: string): Promise<any> {
     const result = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-    if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
+    if (result.exceptionDetails) throw new Error(`${expression}: ${JSON.stringify(result.exceptionDetails)}`);
     return result.result.value;
   }
   await call("Runtime.enable");

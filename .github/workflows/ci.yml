@@ -135,12 +135,17 @@ jobs:
       - name: Install tested CLI
         run: cargo install --path tools/justweb-dev/scm/main/justjs --locked --debug
       - name: Verify complete CLI example workflows
+        id: cli
         env:
           GH_TOKEN: ${{ secrets.JUSTWEB_READ_TOKEN }}
         run: bun run check:cli-examples
       - name: Verify regeneration is reproducible
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
         run: git diff --exit-code -- scm/examples
       - run: bun run check:justweb-artifacts
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
       - run: bun scripts/ci/check-browser-runtime.ts --cli
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
       - name: Exercise real Chrome pages and stop every dev server
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
         run: bun run check:cli-browser
