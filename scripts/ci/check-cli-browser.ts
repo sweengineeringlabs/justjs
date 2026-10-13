@@ -30,7 +30,14 @@ let server: ReturnType<typeof Bun.spawn> | undefined;
 try {
   const port = await until(async () => {
     const path = join(profile, "DevToolsActivePort");
-    return existsSync(path) ? readFileSync(path, "utf8").split("\n")[0] : "";
+    try {
+      // Chrome can hold this file exclusively while publishing its debug port.
+      const value = readFileSync(path, "utf8").split("\n")[0].trim();
+      return /^\d+$/.test(value) ? value : "";
+    } catch (error) {
+      if (["ENOENT", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "")) return "";
+      throw error;
+    }
   }, "Chrome startup");
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json() as any;
   socket = new WebSocket(target.webSocketDebuggerUrl);
