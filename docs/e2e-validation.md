@@ -20,7 +20,7 @@
 | CLI `check` with Bun fallback (no `tsc` on PATH) | Pass for all four examples |
 | CLI `check` with `tsc` on PATH | **Fails in pinned JustWeb** for all four examples; see below |
 | Patched JustWeb checker, source revision `c4bde0b` | Passes `justw check` with TypeScript 5.5 on PATH for all four examples, including 45 generated AI editor files; upstream PR [#108](https://github.com/sweengineeringlabs/justweb/pull/108) is draft and not released |
-| Native CLI matrix with patched checker | Passes install twice, cache listing, generate, check, typecheck and build from nested `src/` in all four examples using an isolated verified cache; the patched binary is locally built, not yet the published pin |
+| Native CLI matrix with patched checker | Passes install twice, cache listing, generate, check, typecheck and build from nested `src/` in all four examples using a temporary cache seeded with the locally built checker and its digest; this proves CLI delegation, not the published pin |
 | Real Chrome via `justjs dev` | Pass for all four examples; page/bundle requests, interactions, no runtime exceptions, servers stopped |
 | Browser interactions | Counter/form validation; counter/login/logout; memory add/browse/settings; AI editor route mounts, SDLC navigation, editing and persistence |
 | Layer/runtime boundaries | 17 dependency tests and 9 Node runtime tests pass; Vite and native CLI output contain no required native Bun APIs |
@@ -28,7 +28,8 @@
 | External consumer | Plain npm install and real Node execution pass, using Git Bash on Windows |
 | Fresh CLI bootstrap/scaffold | Downloaded the draft Windows CLI asset, verified its SHA-256, then `new`, clean-cache toolchain install twice/list and build passed outside the workspace. Typecheck first hit an incomplete Bun `bunx` package cache; it passed after reinstalling TypeScript into that cache |
 | Linux hosted CI | All checks pass in [run 38429859452](https://github.com/sweengineeringlabs/justjs/actions/runs/38429859452), including pinned-source regeneration and external consumption |
-| Windows hosted CLI CI | Confirms the pinned generator's TypeScript config failure |
+| Windows hosted CLI CI | In [run 38567701794](https://github.com/sweengineeringlabs/justjs/actions/runs/38567701794), all four Chrome flows pass; the CLI matrix still fails on the published `justw 0.1.0` pin |
+| JustWeb hosted CI for checker fix | Could not start on any runner: GitHub reports recent account payments failed or spending limit reached; local tests pass |
 | Android IIFE compilation | Pass for cross-target-demo, agentic-memory-demo and ai-code-editor |
 | Android APK packaging | Fresh debug-signed APKs build for all three mobile examples using just-mobile's generator |
 | Android device execution | Pending: no physical device connected; installed API 34 Play Store AVD remains offline during attempted cold boot |
