@@ -63,6 +63,7 @@ jobs:
           ref: 64eb51bf4d471261053f6d08dac6db5ce613abd8
           path: tools/justweb
           token: ${{ secrets.JUSTWEB_READ_TOKEN }}
+          submodules: recursive
           persist-credentials: false
 
       - name: Install pinned JustWeb generator
@@ -105,5 +106,46 @@ jobs:
       - name: Test tooling runtime boundaries
         run: bun test scm/tests/tooling_runtime_int_test.ts
 
+      - name: Test config-to-browser tooling pipeline
+        run: bun run test:e2e-tooling
+
       - name: Test external consumption (vendor-external.sh)
         run: bun run test:vendor-external
+
+  cli-windows:
+    # The pinned justw release currently publishes a Windows binary only.
+    # Linux above continues validating regeneration from pinned source.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Check out tested CLI with TOML 1.1 support
+        uses: actions/checkout@v4
+        with:
+          repository: sweengineeringlabs/justweb-dev
+          ref: c7e5ed7e9268c7884edc8938c9bb50d7a1caf629
+          path: tools/justweb-dev
+          token: ${{ secrets.JUSTWEB_READ_TOKEN }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install tested CLI
+        run: cargo install --path tools/justweb-dev/scm/main/justjs --locked --debug
+      - name: Verify complete CLI example workflows
+        id: cli
+        env:
+          GH_TOKEN: ${{ secrets.JUSTWEB_READ_TOKEN }}
+        run: bun run check:cli-examples
+      - name: Verify regeneration is reproducible
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
+        run: git diff --exit-code -- scm/examples
+      - run: bun run check:justweb-artifacts
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
+      - run: bun scripts/ci/check-browser-runtime.ts --cli
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
+      - name: Exercise real Chrome pages and stop every dev server
+        if: ${{ !cancelled() && steps.cli.outcome != 'skipped' }}
+        run: bun run check:cli-browser

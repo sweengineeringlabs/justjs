@@ -151,10 +151,10 @@ check emitted JavaScript for native Bun tooling APIs. CI runs this check
 and `bun run test:tooling-layers` explicitly in addition to the build-time
 dependency constraints.
 
-The legacy `scm/examples/e2e-tooling/e2e_test.ts` remains a known validation
-gap: its relative import points at nonexistent `scm/tooling/...` and references
-the removed `ConfigParser` API. It is outside the workspace `bun run test`
-suite; do not represent workspace success as a pass for that legacy test.
+Run `bun run test:e2e-tooling` for the real example config/codegen/bundle
+pipeline. This replaces the obsolete `ConfigParser` test and runs in CI.
+See [end-to-end validation](e2e-validation.md) for the current CLI/browser
+results and remaining upstream checks.
 
 ## Local validation (2026-10-12)
 

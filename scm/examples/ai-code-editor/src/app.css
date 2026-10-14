@@ -1456,7 +1456,7 @@ textarea:focus {
   border-left: 3px solid var(--stage-color, var(--accent));
 }
 
-/* Design (Markdown + Mermaid doc generator) - .design-*/#design-*/
+/* Design (Markdown + Mermaid doc generator): design classes and IDs.
    .mermaid-* moved into DocGeneratorControl's own Shadow DOM <style>
    block (justjs#123), shared with Presentation via
    PresentationGeneratorControl extends DocGeneratorControl. */
