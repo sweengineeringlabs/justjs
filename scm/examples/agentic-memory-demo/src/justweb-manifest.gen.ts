@@ -2,104 +2,196 @@
 export const JUSTWEB_MANIFEST = {
   "artifacts": [
     {
+      "kind": "dom-address-map",
       "path": "public/dom-address-map.json",
+      "schema": "justweb.dom-address-map/1",
       "sha256": "2dcc0a6b30e67f35e4a963c5be1eb404d5ce8a2d6193d865e63d6bc3e9d95f4a"
     },
     {
+      "kind": "dom-address-map-digest",
       "path": "public/dom-address-map.json.sha256",
+      "schema": "justweb.dom-address-map-digest/1",
       "sha256": "36183935e68e402004129142f7fed7d23e8cf249f52c37b1c6f83e1f29ce29be"
     },
     {
-      "path": "public/importmap.gen.json",
-      "sha256": "badf3b5138c68bf66f0b12612d5ae8922abfc46d411602192f49c132ef957ec9"
-    },
-    {
+      "kind": "routes",
       "path": "public/routes.gen.json",
+      "schema": "justweb.routes/1",
       "sha256": "6b9d412f3fbdd92dee2da2cf20dde4220c71751d629a5ecde822c9981532ebbb"
     },
     {
+      "kind": "registry",
       "path": "src/component-registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "d6e9faa17f0a982820ae1a906c302f319d573fbd65093b254e8b7d9fbebf61d6"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "534d6794dc63d379db60ab238c80cfb4910d643ec1843d4c981fec42ce39b805"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/chat/chat_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "ed1e5353971f291aff715a28c9b6bac1718fcabde1c57151047c11c6ce4f9fed"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/chat/chat_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "046ef957a76869b837a354574e8dfd36b7704f43444b4d8a025e9b601b208fe7"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "833cf058f27282fff93f0eb77c487c6731e1d754fcba42efa8293106c338aa7d"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "a2ceab8ee983ba3ac4eab1581009da96c032d06b64100bc0ca63bd404ab39354"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/chat/chat_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "2436896fa7fe1fb306b8866477e50c4b0f3bbb1f1500d0b2ecde71b4cbc14cb6"
     },
     {
+      "kind": "component-test",
       "path": "src/features/curation/curation_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "bc58750d817b917c60ea4810f57f89e1551c02fcc449b1d945efe8da1ca192a7"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/curation/curation_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "ec5644c5fd40c78f85523256f9032293096f5dcd70e1391db39451fd9fa4edc9"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/curation/curation_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "c7f856de5eafd3f99f93703b9abc2e472410f4898d42e54feaa07b45a8e444a6"
     },
     {
+      "kind": "component-test",
       "path": "src/features/curation/curation_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "7b9e6cbfeef3345d2f479899434f60c26aa92423cc8d4a7d6cf01742e7c3321b"
     },
     {
+      "kind": "component-test",
       "path": "src/features/curation/curation_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "6e025b8fbfcbbb02fffce2538994e9f3182438b991b94593a567f207cf7a254c"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/curation/curation_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "94d398be4b48db435d672c2d7015d02f91530d969d86994d55a99199ac37c396"
     },
     {
+      "kind": "component-test",
       "path": "src/features/dashboard/dashboard_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "0e577ded5ed33295ee71d81b99e58689f5b6b006a76863ec49267dc22a60df24"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/dashboard/dashboard_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "c19514dca55c415f3933383d939720acf814f7a633a3d545c702ce42f26818bd"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/dashboard/dashboard_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "a2c0c04c6ec68ffe21f2d69b53053f4221fbdecdb9b49978c83ad3165eaed0af"
     },
     {
+      "kind": "component-test",
       "path": "src/features/dashboard/dashboard_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "4354785bf5a1c00f185606a8854841ea1f6c403c82684f9c9d4e6580eec12657"
     },
     {
+      "kind": "component-test",
       "path": "src/features/dashboard/dashboard_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "08b241a658c1d875bf7472b58a26af8c497c33e8773b18e2250a6ddc4bb914e5"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/dashboard/dashboard_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "78b8ac5bf63e8657e86d5c70543a17c05357bf350f6586d58696f93a90d18225"
     },
     {
+      "kind": "mounts",
       "path": "src/mounts.gen.ts",
+      "schema": "justweb.mounts/1",
       "sha256": "12ef26b4c056b08abe390d01b944e54861237aff76c3a4bd5137c17aedc6338e"
     },
     {
+      "kind": "registry",
       "path": "src/registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "81321b63f767164866d9f27dd24d0c387ff232574c90c581d9cc7caf7dd2098c"
     },
     {
+      "kind": "routes",
       "path": "src/routes.gen.ts",
+      "schema": "justweb.routes/1",
       "sha256": "97447076d1ba99a09487d5e20bab5a1fe4880646b30c54315eed1dda08f1a462"
     }
   ],
+  "canonicalization": {
+    "digest": "sha256, lowercase hex",
+    "digestInput": "the artifact's bytes exactly as justw wrote them (LF, no normalization); never a bundled or transformed form",
+    "ordering": "artifacts sorted by path, ascending byte order",
+    "pathForm": "project-root-relative, '/'-separated, no leading '/', no '..'",
+    "verification": "build-time only; a browser runtime must not recompute digests from bundled output"
+  },
   "format": "justweb-artifact-manifest",
   "formatVersion": 1,
   "generator": {
+    "artifactSchemas": {
+      "component-markup": "justweb.component-markup/1",
+      "component-mock": "justweb.component-mock/1",
+      "component-source": "justweb.component-source/1",
+      "component-style": "justweb.component-style/1",
+      "component-test": "justweb.component-test/1",
+      "dom-address-map": "justweb.dom-address-map/1",
+      "dom-address-map-digest": "justweb.dom-address-map-digest/1",
+      "feature-api": "justweb.feature-api/1",
+      "mounts": "justweb.mounts/1",
+      "other": "justweb.other/1",
+      "registry": "justweb.registry/1",
+      "routes": "justweb.routes/1",
+      "service-worker": "justweb.service-worker/1"
+    },
     "name": "justw",
-    "revision": "64eb51bf4d471261053f6d08dac6db5ce613abd8",
+    "revision": "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
     "sourceDirty": false,
-    "version": "0.1.0"
+    "version": "0.1.1"
+  },
+  "provenance": {
+    "authenticated": false,
+    "guarantees": "consistency of the artifact set",
+    "kind": "self-declared",
+    "note": "hashes and version fields detect missing, stale, mixed or modified artifacts; they do not prove which generator produced the files"
+  },
+  "scope": {
+    "roots": [
+      "public",
+      "src"
+    ]
   }
 } as const;

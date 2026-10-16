@@ -43,7 +43,7 @@ domAddressMap = {
 }
 
 [justweb]
-generator_version = "0.1.0"
-generator_revision = "64eb51bf4d471261053f6d08dac6db5ce613abd8"
+generator_version = "0.1.1"
+generator_revision = "4aeb2f0d00869e527c49b59da699e7aa9861de5c"
 artifact_schema = 1
 artifact_manifest = "public/justweb-artifacts.gen.json"

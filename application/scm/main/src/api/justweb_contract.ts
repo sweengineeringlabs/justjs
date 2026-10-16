@@ -1,8 +1,8 @@
 import type { DomAddressMap } from "./dom-address.js"
 
 /** Exact file digests produced by `justw generate app`. */
-export const SUPPORTED_JUSTWEB_GENERATOR_VERSION = "0.1.0" as const
-export const SUPPORTED_JUSTWEB_GENERATOR_REVISION = "64eb51bf4d471261053f6d08dac6db5ce613abd8" as const
+export const SUPPORTED_JUSTWEB_GENERATOR_VERSION = "0.1.1" as const
+export const SUPPORTED_JUSTWEB_GENERATOR_REVISION = "4aeb2f0d00869e527c49b59da699e7aa9861de5c" as const
 export const SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA = 1 as const
 
 export interface JustWebArtifactDigest {
@@ -11,7 +11,7 @@ export interface JustWebArtifactDigest {
 }
 
 export interface JustWebContractPin {
-  readonly generatorVersion: "0.1.0"
+  readonly generatorVersion: "0.1.1"
   readonly generatorRevision: string
   readonly artifactSchema: 1
 }

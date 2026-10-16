@@ -1,5 +1,9 @@
 # JustWeb manifests hash exact generator bytes. CRLF conversion invalidates them.
+# Every generated artifact kind the manifest covers must stay LF on checkout.
 scm/examples/**/public/dom-address-map.json* text eol=lf
 scm/examples/**/public/*.gen.json text eol=lf
-scm/examples/**/src/**/*.gen.ts text eol=lf
+scm/examples/**/*.gen.ts text eol=lf
+scm/examples/**/*.gen.js text eol=lf
+scm/examples/**/*.gen.css text eol=lf
+scm/examples/**/*.gen.html text eol=lf
 *.sh text eol=lf
