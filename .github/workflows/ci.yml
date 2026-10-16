@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sweengineeringlabs/justweb
-          ref: 64eb51bf4d471261053f6d08dac6db5ce613abd8
+          ref: 4aeb2f0d00869e527c49b59da699e7aa9861de5c
           path: tools/justweb
           token: ${{ secrets.JUSTWEB_READ_TOKEN }}
           submodules: recursive

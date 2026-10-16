@@ -16,12 +16,12 @@ const mockStrategies = new Map([
 const justwebManifest = {
   format: "justweb-artifact-manifest" as const,
   formatVersion: 1 as const,
-  generator: { name: "justw", version: "0.1.0", revision: "64eb51bf4d471261053f6d08dac6db5ce613abd8", sourceDirty: false },
+  generator: { name: "justw", version: "0.1.1", revision: "4aeb2f0d00869e527c49b59da699e7aa9861de5c", sourceDirty: false },
   artifacts: [],
 }
 const justweb = {
-  generator_version: "0.1.0",
-  generator_revision: "64eb51bf4d471261053f6d08dac6db5ce613abd8",
+  generator_version: "0.1.1",
+  generator_revision: "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
   artifact_schema: 1,
   artifact_manifest: "public/justweb-artifacts.gen.json",
 }

@@ -75,10 +75,10 @@ export function readJustWebManifest(): JustWebArtifactManifest {
     throw new CodegenError(`Invalid JustWeb manifest JSON: ${String(error)}`)
   }
   if (manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== 1 ||
-      manifest.generator?.name !== "justw" || manifest.generator.version !== "0.1.0" ||
+      manifest.generator?.name !== "justw" || manifest.generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
       !/^[a-f0-9]{40}$/.test(manifest.generator.revision) || manifest.generator.sourceDirty !== false ||
       !Array.isArray(manifest.artifacts)) {
-    throw new CodegenError("Unsupported or malformed JustWeb manifest; JustJS requires the justweb-artifact-manifest format 1 from justw 0.1.0.")
+    throw new CodegenError("Unsupported or malformed JustWeb manifest; JustJS requires the justweb-artifact-manifest format 1 from justw 0.1.1.")
   }
   const seen = new Set<string>()
   for (const artifact of manifest.artifacts) {

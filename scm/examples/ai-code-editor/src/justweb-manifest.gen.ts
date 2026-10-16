@@ -2,224 +2,412 @@
 export const JUSTWEB_MANIFEST = {
   "artifacts": [
     {
+      "kind": "dom-address-map",
       "path": "public/dom-address-map.json",
+      "schema": "justweb.dom-address-map/1",
       "sha256": "ddcc8ddcb6271d33841efc455a4cc325b757c954f013f7715030f575d3898094"
     },
     {
+      "kind": "dom-address-map-digest",
       "path": "public/dom-address-map.json.sha256",
+      "schema": "justweb.dom-address-map-digest/1",
       "sha256": "85893a8d48091df4caac17c5790753ec04543e4e7d69a5f0c7f8c225d135db53"
     },
     {
-      "path": "public/importmap.gen.json",
-      "sha256": "026a81299f185b2335bc9e306d65733006bf0db0a53c268531c242fe6b7c504c"
-    },
-    {
+      "kind": "routes",
       "path": "public/routes.gen.json",
+      "schema": "justweb.routes/1",
       "sha256": "e9326e29b3356ad476f361404d72f0813564d4817cf034e535b6d0ae3ab83c46"
     },
     {
+      "kind": "registry",
       "path": "src/component-registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "3b0f9ae614671df94519b50fbd86e651a4c6c8c6133ce36ae585f38ec4587e01"
     },
     {
+      "kind": "component-test",
       "path": "src/features/cartoon/cartoon_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "299a9beea3a22e8969d30bcb291805f2aeeb87553d6bd96cb6ccaff37e17b4db"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/cartoon/cartoon_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "7efc820c20a96b44d48d040e7098523adf186a45247d68e81a32ff91ff357268"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/cartoon/cartoon_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "04fcc1bbcd711c38d574ba7316fe9c4592ff8cdc4028ce55450a5ac478589d8a"
     },
     {
+      "kind": "component-test",
       "path": "src/features/cartoon/cartoon_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "b7efbcda8840244feee3097ec3aef82e55c99d70391b7d7ff629e24c65194b68"
     },
     {
+      "kind": "component-test",
       "path": "src/features/cartoon/cartoon_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "476eef8e9490bdb4f7e6a2773c230b6715cc62998653591c871b8a448372cbaa"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/cartoon/cartoon_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "dac728d1d0006105944905127bf633f46181239401a90d91ed4c7deeae765a48"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "775ef27ee602735fac52856723737d7a12fbed64a083ce43b3e3d5b0927f8794"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/chat/chat_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "dbb654c07fcb658381e257d730b009dbe430feb6a739e49fecd1b49b37c42091"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/chat/chat_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "6578eec10d7e20bd53d514c49d1eb9c937f52b92e52edd47e7a185da736703de"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "96628a6f4ed5236ec9b82e675a536da33ee0699cff669ade6276ce67041c7642"
     },
     {
+      "kind": "component-test",
       "path": "src/features/chat/chat_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "a2ceab8ee983ba3ac4eab1581009da96c032d06b64100bc0ca63bd404ab39354"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/chat/chat_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "fca860e304add15dc72bf45d3947f140aa476c6c71cd480ca6bb96ec62a70e0c"
     },
     {
+      "kind": "component-test",
       "path": "src/features/communication/communication_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "f5ca303cc4f876956157f773d98f81678e83b2b7f36a82b3c47729842b5769a2"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/communication/communication_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "910fd82cad737661bce493bfffd4d7efc03fc8a4211b9a6ee1c785a13438a9ae"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/communication/communication_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "dcd750a35a12c4478d2b5f57a8e67894af79dea10b72448d766dd8572d15e996"
     },
     {
+      "kind": "component-test",
       "path": "src/features/communication/communication_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "2e10e45d0fe23455a03b77a2ee1d160029441bd0184c94a89f62e94c4d83ce5d"
     },
     {
+      "kind": "component-test",
       "path": "src/features/communication/communication_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "6faf0dcfe7aa7acba2ad0d37c8f1d9f34528e626517c1df0eb73b18e3dc81e1c"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/communication/communication_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "1fd0e887b97598e5e2e90ce0f25d5659a19bcca944bdc418cc2a758e03896d48"
     },
     {
+      "kind": "component-test",
       "path": "src/features/connect/connect_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "d54d2421b50963d517c1e365c69d3fbe8c506e428ff02bfce92a47b15ed5a5b1"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/connect/connect_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "7334dafecd7e77746cbc357d296a193c88ad44ed05a071972d43ab0ef0858f4c"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/connect/connect_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "52fe0c4c1c77058d104c271159bf59efa8d427f4dd9641786a07dda7dd33ce28"
     },
     {
+      "kind": "component-test",
       "path": "src/features/connect/connect_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "aaccb5076aaa97affdbeee561367ecb383dde6e16d939d44e35cf1a1b7d7bd8d"
     },
     {
+      "kind": "component-test",
       "path": "src/features/connect/connect_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "55725d600cea7ba000c926d37080bf1c1e2fa5898b251d76a45e3d33b476ccb9"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/connect/connect_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "10996699be63e544d04100aa7e7fe086e426ebaea08f5926ce8fe655873e5906"
     },
     {
+      "kind": "component-test",
       "path": "src/features/editor/editor_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "cf73b2cb0268b73fabf6bc0ae193f6fc97e68c1416dd5a7865d30d9c02376159"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/editor/editor_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "271d22e3eb5ba7bfab405c66c11bbe27ffc6b59626824f8465473d9af2c21fb1"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/editor/editor_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "47bb11ec0cbfc58c5247367d21d4525473c867fdcbf216c0a07072324c769fd8"
     },
     {
+      "kind": "component-test",
       "path": "src/features/editor/editor_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "6a5386e5412499ccef57c0645c7eeeeb2ef0e39d57e36c51db0dd4c01ac3fc4c"
     },
     {
+      "kind": "component-test",
       "path": "src/features/editor/editor_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "9407ea0b36b0c6770814185c1b4bde588be3c9faf273d43d5e19162700a848a8"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/editor/editor_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "d93c48b60f81e5b732ebe24abd9af24430e2b01743d5a226d60cb3eff92bd13a"
     },
     {
+      "kind": "component-test",
       "path": "src/features/home/home_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "e1b9ed039f5088bcf743aad785192be740f886a094108f634d68446d4c336e74"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/home/home_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "6172cf5b5e577dbd6cbdaa7d0d6875b7d2c9e99a266b9cffc56c829a60152121"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/home/home_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "331e641b6cbdcc90690aa1d5a294a1bcec43ea2131f673eba4cf9d43c04cb3a7"
     },
     {
+      "kind": "component-test",
       "path": "src/features/home/home_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "55ddd0ed63506bdb9485b4ac170b1c949eb06e27043ae17e9c432d1393cc3300"
     },
     {
+      "kind": "component-test",
       "path": "src/features/home/home_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "a3c693282850b5e366d418d0ad993ea9a7ae0b3f9baa0b57d9753e5fc80bdae3"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/home/home_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "927a5960344cde37c6098793be4544582e65ddf99db33c2c711c3390159e9bd9"
     },
     {
+      "kind": "component-test",
       "path": "src/features/review/review_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "df72b752129b8e9900b2d58f9d66a9fce28e5e98acef3b433ea74ca6a5da66fd"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/review/review_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "3bcbaa15c1ca7f097fa4ddb50fb56fa0cd64ed07e635d017e27374dbd959bb09"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/review/review_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "215bf85636d327478544b48ec50ee89369f082b5950de4bd4290210edf988626"
     },
     {
+      "kind": "component-test",
       "path": "src/features/review/review_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "40a885ac987a5435add6b1f5e0770fa87ff14a6bc028cdbb6045287405fa3d0c"
     },
     {
+      "kind": "component-test",
       "path": "src/features/review/review_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "41a66a830176ab6f0088f0d11baa28a555a68a225e16ecd5f1f685022f80a81c"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/review/review_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "f903216ba7ae5e2f69bf8b278d17278c6b97f27aa07a5966a2855da5ed3893ea"
     },
     {
+      "kind": "component-test",
       "path": "src/features/scaffold/scaffold_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "730ea0be739c403d2bdd315a418fe4cecdb585b91a5fc2438582b48c1c9e52c1"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/scaffold/scaffold_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "ca7201f43b8ff70f10b8feedf9f025bc27afd7c5b259094049cbdb1588d8e508"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/scaffold/scaffold_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "252ec40d18f1053f4292a51684773288b604a8ee29ba471d65f6b6ccdcc14759"
     },
     {
+      "kind": "component-test",
       "path": "src/features/scaffold/scaffold_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "66963079e02c2e630f80224d12a477ca873236d39fa510fd054c37afab607e6d"
     },
     {
+      "kind": "component-test",
       "path": "src/features/scaffold/scaffold_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "783070199a2fb2d4c3d4c0ba9d748e50ebcdcce9072c32556ab95ccb35c97d7b"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/scaffold/scaffold_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "31636c3a20c28f6d172c7d5afdbf0b1d9d293dfc565d5b029488c609c328f227"
     },
     {
+      "kind": "component-test",
       "path": "src/features/socials/socials_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "57cbd61db284e2d6e5fb873a4b78fa9c97ff10f13c2477b52422559b08faa6b2"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/socials/socials_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "7f2675449b6e44bcdcdc1132a8f2b78e1434bd570ed0bdab533f40ddb80e9312"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/socials/socials_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "d27b3a51211ae0bb60649215d33206ad286a5e615880cbaec8fa366733a792cd"
     },
     {
+      "kind": "component-test",
       "path": "src/features/socials/socials_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "de1b24dd14d778fe44e33e6f3235a72e1c49c190a45132abf1e455735fe02194"
     },
     {
+      "kind": "component-test",
       "path": "src/features/socials/socials_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "a171648e6510f2269d5e3133c6aa5a290294bb31811dc6c860e86a52503da756"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/socials/socials_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "8e1d5c9886548213fb7bd293082e2dc2e293f20cd7bcf25ecf510a98ab80a4fe"
     },
     {
+      "kind": "mounts",
       "path": "src/mounts.gen.ts",
+      "schema": "justweb.mounts/1",
       "sha256": "ba10b53040b187fffa1b19ac8a878fb7abe360a0adc2077ac736799a492f4bfb"
     },
     {
+      "kind": "registry",
       "path": "src/registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "deedab6b2557332370e0d23f9136f802319e6b2fc6309318443142be5f75cf18"
     },
     {
+      "kind": "routes",
       "path": "src/routes.gen.ts",
+      "schema": "justweb.routes/1",
       "sha256": "c30640f67b3e1266afa3aa2888849fa957380cd094508f23a86f938d2a9b1412"
     }
   ],
+  "canonicalization": {
+    "digest": "sha256, lowercase hex",
+    "digestInput": "the artifact's bytes exactly as justw wrote them (LF, no normalization); never a bundled or transformed form",
+    "ordering": "artifacts sorted by path, ascending byte order",
+    "pathForm": "project-root-relative, '/'-separated, no leading '/', no '..'",
+    "verification": "build-time only; a browser runtime must not recompute digests from bundled output"
+  },
   "format": "justweb-artifact-manifest",
   "formatVersion": 1,
   "generator": {
+    "artifactSchemas": {
+      "component-markup": "justweb.component-markup/1",
+      "component-mock": "justweb.component-mock/1",
+      "component-source": "justweb.component-source/1",
+      "component-style": "justweb.component-style/1",
+      "component-test": "justweb.component-test/1",
+      "dom-address-map": "justweb.dom-address-map/1",
+      "dom-address-map-digest": "justweb.dom-address-map-digest/1",
+      "feature-api": "justweb.feature-api/1",
+      "mounts": "justweb.mounts/1",
+      "other": "justweb.other/1",
+      "registry": "justweb.registry/1",
+      "routes": "justweb.routes/1",
+      "service-worker": "justweb.service-worker/1"
+    },
     "name": "justw",
-    "revision": "64eb51bf4d471261053f6d08dac6db5ce613abd8",
+    "revision": "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
     "sourceDirty": false,
-    "version": "0.1.0"
+    "version": "0.1.1"
+  },
+  "provenance": {
+    "authenticated": false,
+    "guarantees": "consistency of the artifact set",
+    "kind": "self-declared",
+    "note": "hashes and version fields detect missing, stale, mixed or modified artifacts; they do not prove which generator produced the files"
+  },
+  "scope": {
+    "roots": [
+      "public",
+      "src"
+    ]
   }
 } as const;

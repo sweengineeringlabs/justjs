@@ -1,104 +1,196 @@
 {
   "artifacts": [
     {
+      "kind": "dom-address-map",
       "path": "public/dom-address-map.json",
+      "schema": "justweb.dom-address-map/1",
       "sha256": "ff6e055d7700d5f230834861a5a59be05d9395d9d0a6b5255ac1f90dbd35205e"
     },
     {
+      "kind": "dom-address-map-digest",
       "path": "public/dom-address-map.json.sha256",
+      "schema": "justweb.dom-address-map-digest/1",
       "sha256": "ec217101c03485a7c1385558177082e4f78361e8ec115a560ac865128e2ec556"
     },
     {
-      "path": "public/importmap.gen.json",
-      "sha256": "2b5af0be26c94011cb2af7bfd20c8d63b335f8433373acd64a50b1f2a5374ea8"
-    },
-    {
+      "kind": "routes",
       "path": "public/routes.gen.json",
+      "schema": "justweb.routes/1",
       "sha256": "5e423936ed5c3f8ff8128c18f0dfd69b343b147642c4f6038b83276e40466671"
     },
     {
+      "kind": "registry",
       "path": "src/component-registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "71f2a8fcdfedd7b88684b5c5c664a6c3c0fb1a2d71e4ef17ee77aed4543d29ba"
     },
     {
+      "kind": "component-test",
       "path": "src/features/counter/counter_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "90278c339a5c91f1c604c5b8411e381792f404fd95cbbc33f0961260781e0f2c"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/counter/counter_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "61bb2599574efc340e90d2cc1720f5a793070e28e573778f5bf644311c52752e"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/counter/counter_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "29e6faff69e5312610a8e615d4cb32cac947db25732670fc9ff66565fcc3dd66"
     },
     {
+      "kind": "component-test",
       "path": "src/features/counter/counter_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "cf8b9e9a828b38f00b6e737b79153e4321c944fe7366aeb027311bd57d07b0ad"
     },
     {
+      "kind": "component-test",
       "path": "src/features/counter/counter_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "12a869de69052e252ab7e9d688c163c8e5c5f2c35ba8d907b75250189f0002bf"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/counter/counter_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "ca6f2c3e25fd4eaa4de5c303520248e8275afafb52328a167b1b977b2c0a5135"
     },
     {
+      "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "2c9ce56a5b679aee19bf15cca6ec4a067cbd4d4370f8b63bc0836b7b061e9af8"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/fetch-demo/fetch_demo_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "64f9ec0698ba99c387bd717b62afbc14f83b8f0e6f1422a9791f0184cabcaca3"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/fetch-demo/fetch_demo_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "2effab8702949a5ba44bb55250fc217fb2f39e93b9a2480d0e3e5070d3a303e9"
     },
     {
+      "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "7c7245dd5bf2c36fcf955349a1cc995e9d2e14d7da4a0cbebbd9a3bcc1923eaa"
     },
     {
+      "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "e38b61fb36d6c559189184ce3fbd39579c05d86c59fb9350b9712dacf35576dc"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/fetch-demo/fetch_demo_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "2923789d481a72c9af107d45b6e71eb50c2c55758d7bfd3f70063901df35d6ed"
     },
     {
+      "kind": "component-test",
       "path": "src/features/form-demo/form_demo_browser_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "1887632ba373340a425293e38530b3fbbce545f2a3c284b9d8d62698f03306c0"
     },
     {
+      "kind": "component-markup",
+      "path": "src/features/form-demo/form_demo_component.gen.html",
+      "schema": "justweb.component-markup/1",
+      "sha256": "33e9608fa3278c6e77b886b011ac295df6c707f4225e188c5b2c9afc08e95575"
+    },
+    {
+      "kind": "component-source",
       "path": "src/features/form-demo/form_demo_component.gen.ts",
+      "schema": "justweb.component-source/1",
       "sha256": "e02f7b53fe43b85f7eb81e597a023812c84e651a3631222a0f566405843b86f8"
     },
     {
+      "kind": "component-test",
       "path": "src/features/form-demo/form_demo_e2e_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "d031397b387aa0739a5664010c2955c957b2334d6de54a2e8d8e085ba3de1c6a"
     },
     {
+      "kind": "component-test",
       "path": "src/features/form-demo/form_demo_int_test.gen.ts",
+      "schema": "justweb.component-test/1",
       "sha256": "7032f14c1f398f76b830165a50e069b15577881b2697562d2248aba7d37c66a0"
     },
     {
+      "kind": "component-mock",
       "path": "src/features/form-demo/form_demo_mock.gen.ts",
+      "schema": "justweb.component-mock/1",
       "sha256": "6281d88544d87febc069f5243b5d8bd806ae0bb0514e4db6c26cac25a3cf47f1"
     },
     {
+      "kind": "mounts",
       "path": "src/mounts.gen.ts",
+      "schema": "justweb.mounts/1",
       "sha256": "ba3063354e01f0c2240bb7b0c5936f536a37a766507153cd94a84ff7ba740b7d"
     },
     {
+      "kind": "registry",
       "path": "src/registry.gen.ts",
+      "schema": "justweb.registry/1",
       "sha256": "d89341610896aa60226c28283140d32a821a275b2aa069399de91dc1224e8061"
     },
     {
+      "kind": "routes",
       "path": "src/routes.gen.ts",
+      "schema": "justweb.routes/1",
       "sha256": "6257a90051508ca6fa0df683150e50d06d4e041dadbe2dad2d2d28a1bc53f53b"
     }
   ],
+  "canonicalization": {
+    "digest": "sha256, lowercase hex",
+    "digestInput": "the artifact's bytes exactly as justw wrote them (LF, no normalization); never a bundled or transformed form",
+    "ordering": "artifacts sorted by path, ascending byte order",
+    "pathForm": "project-root-relative, '/'-separated, no leading '/', no '..'",
+    "verification": "build-time only; a browser runtime must not recompute digests from bundled output"
+  },
   "format": "justweb-artifact-manifest",
   "formatVersion": 1,
   "generator": {
+    "artifactSchemas": {
+      "component-markup": "justweb.component-markup/1",
+      "component-mock": "justweb.component-mock/1",
+      "component-source": "justweb.component-source/1",
+      "component-style": "justweb.component-style/1",
+      "component-test": "justweb.component-test/1",
+      "dom-address-map": "justweb.dom-address-map/1",
+      "dom-address-map-digest": "justweb.dom-address-map-digest/1",
+      "feature-api": "justweb.feature-api/1",
+      "mounts": "justweb.mounts/1",
+      "other": "justweb.other/1",
+      "registry": "justweb.registry/1",
+      "routes": "justweb.routes/1",
+      "service-worker": "justweb.service-worker/1"
+    },
     "name": "justw",
-    "revision": "64eb51bf4d471261053f6d08dac6db5ce613abd8",
+    "revision": "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
     "sourceDirty": false,
-    "version": "0.1.0"
+    "version": "0.1.1"
+  },
+  "provenance": {
+    "authenticated": false,
+    "guarantees": "consistency of the artifact set",
+    "kind": "self-declared",
+    "note": "hashes and version fields detect missing, stale, mixed or modified artifacts; they do not prove which generator produced the files"
+  },
+  "scope": {
+    "roots": [
+      "public",
+      "src"
+    ]
   }
 }
