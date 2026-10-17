@@ -13,10 +13,10 @@ async function validatedContract(domAddressMap: DomAddressMap, routes: string[] 
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(domAddressMap, null, 2)))
   const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
   return validateJustWebRuntimeMetadata({
-    contract: { generatorVersion: "0.1.1", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
+    contract: { generatorVersion: "0.1.2", generatorRevision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, artifactSchema: 1 },
     manifest: {
       format: "justweb-artifact-manifest", formatVersion: 1,
-      generator: { name: "justw", version: "0.1.1", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
+      generator: { name: "justw", version: "0.1.2", revision: SUPPORTED_JUSTWEB_GENERATOR_REVISION, sourceDirty: false },
       artifacts: [
         { path: "public/dom-address-map.json", sha256 },
         { path: "src/registry.gen.ts", sha256: "0".repeat(64) },

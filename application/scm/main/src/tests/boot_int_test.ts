@@ -15,8 +15,8 @@ const DDAS = (tags: string[]): DomAddressMap => ({
 })
 
 const TEST_JUSTWEB_CONTRACT = {
-  generatorVersion: "0.1.1" as const,
-  generatorRevision: "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
+  generatorVersion: "0.1.2" as const,
+  generatorRevision: "4d2828d47ac0a5eac50677efa835994dfdee18a9",
   artifactSchema: 1 as const,
 }
 
@@ -39,7 +39,7 @@ function bootWithGeneratedFixture(justjs: JustJS, config: Partial<BootConfig>): 
     justwebManifest: config.justwebManifest ?? {
       format: "justweb-artifact-manifest",
       formatVersion: 1,
-      generator: { name: "justw", version: "0.1.1", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: false },
+      generator: { name: "justw", version: "0.1.2", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: false },
       artifacts,
     },
   } as BootConfig)
@@ -910,7 +910,7 @@ describe("Boot-time Validation — 4 ACs", () => {
       const manifest = {
         format: "justweb-artifact-manifest" as const,
         formatVersion: 1 as const,
-        generator: { name: "justw" as const, version: "0.1.1", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: true },
+        generator: { name: "justw" as const, version: "0.1.2", revision: TEST_JUSTWEB_CONTRACT.generatorRevision, sourceDirty: true },
         artifacts: [
           { path: "public/dom-address-map.json", sha256: createHash("sha256").update(JSON.stringify(DDAS(["x-root"]), null, 2)).digest("hex") },
           { path: "src/registry.gen.ts", sha256: "0".repeat(64) },
