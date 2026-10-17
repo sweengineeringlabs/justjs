@@ -1,3 +1,10 @@
+# Addendum — 2026-10-17: justw 0.1.2 re-pin
+
+- `justw` 0.1.2 @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` pinned in all four examples (#163).
+- CLI job checks out `justweb-dev` `5db7d42d2c62ce6053df5f2fb462693384c4816d` (bundled pin 0.1.2) (#164).
+- Hosted CI (`test` on Linux, `cli-windows`) passed on #163 and #164 with those pins; manifests regenerated with no artifact changes.
+- Not covered: macOS; justw 0.1.2 release is Windows x86_64 only.
+
 # End-to-end validation — 2026-10-14
 
 ## Versions and scope
