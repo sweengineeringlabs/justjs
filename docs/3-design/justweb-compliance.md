@@ -11,7 +11,7 @@ enforcement setting, compatibility mode, or warning-only path.
 
 ## Required generator contract
 
-Every boot requires a versioned JustWeb artifact manifest from `justw 0.1.1`.
+Every boot requires a versioned JustWeb artifact manifest from `justw 0.1.2`.
 Every `justjs.config.toml` also requires a `[justweb]` section that pins that
 version, an exact 40-character generator revision, artifact schema `1`, and the
 manifest path `public/justweb-artifacts.gen.json`. The framework owns the

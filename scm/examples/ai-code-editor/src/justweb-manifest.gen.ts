@@ -394,9 +394,9 @@ export const JUSTWEB_MANIFEST = {
       "service-worker": "justweb.service-worker/1"
     },
     "name": "justw",
-    "revision": "4aeb2f0d00869e527c49b59da699e7aa9861de5c",
+    "revision": "4d2828d47ac0a5eac50677efa835994dfdee18a9",
     "sourceDirty": false,
-    "version": "0.1.1"
+    "version": "0.1.2"
   },
   "provenance": {
     "authenticated": false,
