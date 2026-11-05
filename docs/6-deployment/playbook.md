@@ -6,6 +6,11 @@ and verified end-to-end 2026-07-10 (real Samsung SM-A055F) — see justjs#16
 and `platform/mobile/scm/main/README.md`'s "Real-hardware verification"
 section for the full writeup.
 
+> Releasing or re-pinning the *toolchain* (`justjs` CLI, `justw`, `csslense`, `browsectl`) is a
+> different procedure, in [the operations playbook](../7-operations/playbook.md#re-pin-the-toolchain);
+> the architecture of the pin and verify flow is under "Pinned toolchain" in
+> [the architecture](../3-design/architecture.md#pinned-toolchain).
+
 This spans two repos. Each has its own docs for its own piece — this
 playbook is the thing that ties `justjs`'s half together, not a replacement
 for either:

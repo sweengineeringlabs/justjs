@@ -54,6 +54,7 @@ bun install --frozen-lockfile
 bun run build
 bun run typecheck
 bun run test
+bun run check:docs   # doc links and pinned versions (justw, Rust, Bun, CLI ref)
 ```
 
 ## Key invariants

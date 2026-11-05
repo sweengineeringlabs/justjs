@@ -1,3 +1,23 @@
+# Current status — 2026-11-05
+
+This file records dated validation runs; the sections below say what was true on their dates.
+What is true now:
+
+- `justw` 0.1.2 @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` is pinned in all four generator
+  examples, and CI builds the generator from that commit.
+- The `justjs` CLI used by CI is built from `sweengineeringlabs/justweb-dev` commit
+  `5db7d42d2c62ce6053df5f2fb462693384c4816d`, which includes TOML 1.1 support (justweb-dev
+  PR #22 has merged). CI builds it with Rust 1.99.1; the examples use Bun 1.4.2.
+- The `justjs` CLI itself has a published release, v0.1.2, with Linux x86_64, macOS (x86_64
+  and arm64) and Windows x86_64 binaries. Its Linux and Windows binaries were verified by the
+  `Release verify` workflow; its macOS legs were cancelled for runner capacity and are not yet
+  verified.
+- The tool releases are published but carry a **Windows x86_64 binary only** (`justw` 0.1.2,
+  `csslense` 0.1.1, `browsectl` 0.2.1). Four-platform releases are tracked in
+  justweb-dev#37, so Linux CI regenerates from the pinned source and the Windows job
+  downloads the release.
+- Not covered: macOS.
+
 # Addendum — 2026-10-17: justw 0.1.2 re-pin
 
 - `justw` 0.1.2 @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` pinned in all four examples (#163).

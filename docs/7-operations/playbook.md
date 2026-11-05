@@ -174,3 +174,68 @@ try {
 | `UNKNOWN_ROUTE` | Path in `on`/`except` not in `routes.gen.json` | Regenerate routes or fix the path spelling |
 | `UNKNOWN_COMPONENT` | Tag name in `on`/`except` not in `registry.gen.ts` | Regenerate registry or fix the tag name |
 | `UNKNOWN_STRATEGY` | Strategy name has no registered provider | Import and register the provider before `boot()` |
+
+---
+
+## Re-pin the toolchain
+
+Use this when a new `justw` (or `csslense`, `browsectl`) release should be what the examples
+and CI use. The pins live in four places that must agree: each example's `justjs.config.toml`,
+the `justweb` checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for the CLI) the
+`justweb-dev` checkout `ref:`. `bun run check:docs` fails if they drift.
+
+### Order across repositories
+
+1. **Release the tool** from its own repository (`justweb` for `justw`), following that
+   repository's release playbook. A release is only usable if it carries every platform you need.
+2. **Re-pin and release the CLI** in `justweb-dev` if its bundled pin should change.
+3. **Then re-pin here.** Never pin a version or commit that is not yet a published release or
+   on `main`.
+
+### Steps
+
+1. **Read the release's identity.** The version is the tag; the revision is the commit the
+   binary was built from:
+
+   ```sh
+   gh release download vX.Y.Z -R sweengineeringlabs/justweb -p toolchain-manifest.json -O -
+   ```
+
+2. **Pin it in every example that uses the generator** (`hello-justjs`, `cross-target-demo`,
+   `agentic-memory-demo`, `ai-code-editor`) by editing the two lines under `[justweb]` in its
+   `justjs.config.toml`:
+
+   ```toml
+   generator_version = "X.Y.Z"
+   generator_revision = "<40-character revision>"
+   ```
+
+   Edit by hand rather than with `justjs toolchain pin`: `pin` validates and rewrites the whole
+   file, which drops the examples' explanatory comments and re-sorts their sections (seen on
+   `hello-justjs`), turning a two-line change into a large diff. `pin` is fine for a project
+   whose config has no comments. Either way the CLI validates the pin the next time it runs.
+3. **Install and regenerate.** CI regenerates every example and fails on any difference, so do
+   the same and commit what changes:
+
+   ```sh
+   justjs toolchain install
+   for app in hello-justjs cross-target-demo agentic-memory-demo ai-code-editor; do
+     (cd scm/examples/$app && justjs generate)
+   done
+   git status --short scm/examples
+   ```
+
+4. **Update CI.** In `.github/workflows/ci.yml` set the `sweengineeringlabs/justweb` checkout
+   `ref:` to the same 40-character revision (the check requires it to equal the examples' pin).
+   If the CLI changed, set the `sweengineeringlabs/justweb-dev` `ref:` to a commit on its `main`.
+5. **Update the docs.** The pin table under "Pinned toolchain" in the
+   [architecture](../3-design/architecture.md#pinned-toolchain), and a dated addendum in
+   `docs/e2e-validation.md` recording what you verified.
+6. **Check consistency:** `bun run check:docs`. It names every file that still says the old
+   version, revision or ref.
+7. **Verify.** `bun run check:cli-examples` runs the complete example workflows locally (it
+   needs the CLI on `PATH`, a browser, and a token for private downloads); CI runs the same on
+   Linux and Windows. Open the pull request and wait for CI.
+
+The failures you are most likely to meet are in the
+[runbook](runbook.md#pinned-toolchain-failures).
