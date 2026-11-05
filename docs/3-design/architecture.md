@@ -323,6 +323,59 @@ This runs entirely on Bun today — no `edge-bootstrap` involvement, no compiled
 
 ---
 
+## Pinned toolchain
+
+JustJS applications are generated and checked by tools that live in other repositories. A
+project does not use whatever versions happen to be installed: it **pins** them, and the
+`justjs` CLI installs, verifies and runs exactly those.
+
+```mermaid
+sequenceDiagram
+    actor Dev as Developer
+    participant CLI as justjs CLI
+    participant Cfg as justjs.config.toml
+    participant GH as GitHub release of the tool
+    participant Cache as ~/.justjs/toolchains
+    participant Justw as justw (cached)
+
+    Dev->>CLI: justjs toolchain install
+    CLI->>Cfg: read [justweb] generator_version + generator_revision
+    CLI->>Cache: valid binary and receipt already cached?
+    alt not cached, or digest differs
+        CLI->>GH: toolchain-manifest.json
+        CLI->>CLI: manifest tool, version and revision must equal the pin
+        CLI->>GH: binary for this platform
+        CLI->>CLI: SHA-256 must equal the manifest's
+        CLI->>Cache: store binary + receipt atomically
+    end
+    Dev->>CLI: justjs generate
+    CLI->>Cache: path of the verified justw (never one from PATH)
+    CLI->>Justw: justw generate app (once per workspace member)
+```
+
+What is pinned, and where:
+
+| Pin | Value | Declared in | Enforced by |
+|---|---|---|---|
+| `justw` version and source commit | `0.1.2` @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` | `[justweb] generator_version` / `generator_revision` in each example's `justjs.config.toml` | `bun run check:docs`: all examples agree, CI builds the generator from that very commit, docs state the same |
+| `csslense`, `browsectl` | optional `[csslense]` / `[browsectl]` sections, same `version` + `revision` form | `justjs.config.toml` | the CLI; not used by the examples here |
+| `justjs` CLI | built from source in CI at `sweengineeringlabs/justweb-dev` commit `5db7d42d2c62ce6053df5f2fb462693384c4816d` | `.github/workflows/ci.yml` (`ref:`) | `bun run check:docs`: docs that name a `justweb-dev` commit match it |
+| Rust (to build the CLI and the generator) | `1.99.1` | `dtolnay/rust-toolchain@1.99.1` in `ci.yml` | `bun run check:docs` |
+| Bun | `1.4.2` | `packageManager` and `bun-version` in `ci.yml` | CI verifies `bun --version`; `bun run check:docs` |
+
+The three tools are released from their own repositories (`justweb`, `csslense`, `browsectl`),
+not from `justweb-dev` (ADR-0024 describes where the CLI crate lives). A tool release carries
+a `toolchain-manifest.json` listing each platform's binary and its SHA-256; the CLI refuses a
+manifest whose tool, version or revision differs from the pin, or that lacks the host platform.
+The `justw` 0.1.2 release currently carries a Windows x86_64 binary only, so CI validates
+regeneration from the pinned source on Linux, and on Windows builds the CLI and runs the
+downloaded `justw` release through the example workflows.
+
+A commit used as a CI checkout ref must be on the other repository's `main`, not the tip of a
+branch that may later be deleted: a ref that no longer exists fails the checkout. The
+failure modes and fixes are in the [runbook](../7-operations/runbook.md#pinned-toolchain-failures),
+and the re-pin procedure is in the [playbook](../7-operations/playbook.md#re-pin-the-toolchain).
+
 ## Interface inventory
 
 Interfaces are organised by the workspace they belong to. Each workspace's `api/` also defines its own error types.

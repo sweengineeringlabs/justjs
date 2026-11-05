@@ -106,6 +106,168 @@ bun run typecheck    # both packages must pass
 
 ---
 
+## Pinned toolchain failures
+
+The `justjs` CLI installs and runs the exact `justw` (and optionally `csslense` and `browsectl`)
+a project pins in `justjs.config.toml`; see "Pinned toolchain" in the
+[architecture](../3-design/architecture.md#pinned-toolchain). Each entry gives the symptom,
+the cause, the fix and how to check it. The messages are those the published `justjs` 0.1.2
+prints, except where an entry says it was not reproduced.
+
+### `could not find justjs.config.toml`
+
+**Symptom.** `error: could not find justjs.config.toml in this directory or its parents: … run
+this command from inside a JustJS project, or run `justjs new <name>` to create one`.
+
+**Cause.** The command ran outside a project. `justjs` looks in the current directory and every
+parent.
+
+**Fix.** `cd` into the project (for example `scm/examples/hello-justjs`), or create one with
+`justjs new <name>`.
+
+**Check.** `justjs toolchain list` prints the pinned tools.
+
+### `must be pinned: use an exact semver version and full 40-character hex commit revision`
+
+**Symptom.** `error: invalid justjs.config.toml: [justweb] generator_version must be pinned: use
+an exact semver version and full 40-character hex commit revision`.
+
+**Cause.** `generator_version` is not an exact version (`0.1`, `^0.1.2`, `latest`) or
+`generator_revision` is not the full 40-character commit hash (an abbreviated hash is rejected).
+
+**Fix.** Pin both exactly. The revision is the one in the tool release's
+`toolchain-manifest.json`:
+
+```sh
+gh release download v0.1.2 -R sweengineeringlabs/justweb -p toolchain-manifest.json -O -
+justjs toolchain pin justw 0.1.2 4d2828d47ac0a5eac50677efa835994dfdee18a9
+```
+
+(`pin` rewrites the whole file and drops its comments; in a commented config, edit the two
+lines by hand instead.)
+
+**Check.** `justjs toolchain list` no longer reports a config error.
+
+### `justw 0.1.2 is not installed`
+
+**Symptom.** `justjs generate` or `check` fails with `error: pinned justw unavailable or
+invalid; run `justjs toolchain install`: justw 0.1.2 is not installed …`. `justjs toolchain list`
+shows `justw 0.1.2 (4d2828d4)  missing or invalid`.
+
+**Cause.** The pinned binary is not in the cache (`~/.justjs/toolchains/justw/0.1.2/`, or
+`$JUSTJS_TOOLCHAIN_HOME`), or it failed verification.
+
+**Fix.** `justjs toolchain install`. It is idempotent: a valid cached tool is left alone and
+needs no network.
+
+**Check.** `justjs toolchain list` shows `installed`, and `justjs generate` runs.
+
+### `manifest identity does not match the pinned tool, version and revision`
+
+**Symptom.** `error: invalid release for justw: manifest identity does not match the pinned
+tool, version and revision` during `toolchain install`.
+
+**Cause.** The release at `v<generator_version>` was built from a different commit than
+`generator_revision`: a typo, a revision copied from the wrong place, or a release that was
+rebuilt.
+
+**Fix.** Read the revision the release actually carries and pin that, never the reverse:
+
+```sh
+gh release download v0.1.2 -R sweengineeringlabs/justweb -p toolchain-manifest.json -O - | grep revision
+```
+
+**Check.** `justjs toolchain install` prints `toolchain install: ok`.
+
+### Download fails with 404
+
+**Symptom.** `error: download failed for justw <version> from
+https://github.com/…/v<version>/toolchain-manifest.json: HTTP status client error (404 Not Found) …`.
+
+**Cause.** No release exists at that version, **or** the repository is private and the request
+was not authorised (GitHub answers 404, not 401, for a private repository). The CLI sends
+`GITHUB_TOKEN` or `GH_TOKEN` if set, otherwise the token of `gh auth login`, and on a 4xx falls
+back to `gh api`. This was reproduced for a version that does not exist; the unauthorised case
+follows from the source and was not reproduced.
+
+**Fix.** Check the version exists (`gh release list -R sweengineeringlabs/justweb`), then make
+sure a token with read access is available:
+
+```sh
+gh auth status
+justjs toolchain install
+```
+
+`JUSTJS_GITHUB_AUTH` and `JUSTJS_VERSION` are read only by the CLI's `install.sh`, not by the
+`justjs` binary.
+
+**Check.** `justjs toolchain install` prints `toolchain install: ok`.
+
+### `digest mismatch`
+
+**Symptom.** `error: pinned justw unavailable or invalid; …: digest mismatch for justw 0.1.2:
+expected <sha256>, got <sha256> — re-run `justjs toolchain install` to re-download`, and
+`toolchain list` shows `missing or invalid`.
+
+**Cause.** The cached binary is not the one the release manifest describes: an interrupted
+copy, a disk fault, or a hand edit. (Reproduced by appending a byte to the cached `justw`.)
+
+**Fix.** Re-run `justjs toolchain install`; it detects the invalid binary and downloads it
+again. If the mismatch returns straight after a fresh download, the release itself is wrong:
+do not work around it, and report it to the tool's maintainers.
+
+**Check.** `justjs toolchain list` shows `installed`.
+
+### CI cannot check out or build the CLI at the pinned `justweb-dev` commit
+
+**Symptom.** In `.github/workflows/ci.yml`, the step that checks out
+`sweengineeringlabs/justweb-dev` (or `justweb`) fails, or `cargo install --path
+tools/justweb-dev/scm/main/justjs --locked` fails after it. (Not reproduced.)
+
+**Cause.** A `ref:` must be a commit that still exists in the other repository. A commit that
+was only ever on a feature branch disappears when that branch is deleted. The token is also
+required: the `JUSTWEB_READ_TOKEN` secret must have read access to both private repositories.
+
+**Fix.** Pin a commit that is on the other repository's `main`:
+
+```sh
+git ls-remote https://github.com/sweengineeringlabs/justweb-dev.git refs/heads/main
+# in a justweb-dev checkout: the ref must be an ancestor of main
+git merge-base --is-ancestor <ref> origin/main && echo ok
+```
+
+then update `ref:` (and the docs, which `bun run check:docs` will name) in one change.
+
+**Check.** The checkout and `cargo install` steps pass in CI.
+
+### `TS2688: Cannot find type definition file for 'node'` from `justw check`
+
+**Symptom.** `justjs check` fails with `error TS2688: Cannot find type definition file for 'node'`.
+
+**Cause.** The project's `tsconfig.json` sets `"types": ["node"]` but `@types/node` is not
+installed. `justw check` type-checks the generated `.gen.ts` files with the project's config.
+
+**Fix.** Install the dependencies first: `bun install --frozen-lockfile`.
+
+**Check.** `justjs check` exits 0.
+
+### `bun run check:docs` fails
+
+**Symptom.** `error: <file>: says justw <old version> but the pin is <current version>` (or
+`Rust`, `Bun`, a `generator_revision` or a `justweb-dev` commit), a broken relative link, or `examples disagree
+on the justw pin`.
+
+**Cause.** A document, an example's `justjs.config.toml` or `ci.yml` was changed without the
+others. The check compares what the docs state with the pins declared in the examples and in
+CI.
+
+**Fix.** Make them agree in the same change (see the
+[re-pin procedure](playbook.md#re-pin-the-toolchain)). Files that record past runs
+(`docs/e2e-validation.md`, `docs/adr/`) are exempt from the version comparison because they
+say what was true on a date.
+
+**Check.** `bun run check:docs` prints `docs check OK`.
+
 ## Common errors
 
 ### `Cannot find module '@justjs/core'`

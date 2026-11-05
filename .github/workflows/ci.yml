@@ -67,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Install pinned JustWeb generator
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.99.1
 
       - name: Regenerate every JustWeb example
         run: |
@@ -112,6 +112,23 @@ jobs:
       - name: Test external consumption (vendor-external.sh)
         run: bun run test:vendor-external
 
+  docs:
+    # Relative links in README.md, CLAUDE.md and docs/ resolve, and the toolchain
+    # versions the docs state (justw, Rust, Bun, the CLI checkout) equal the pins in
+    # the examples' justjs.config.toml and in this workflow (justjs#165). Needs no
+    # install and no token.
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+      - name: Tests for the docs check
+        run: bun run test:docs
+      - name: Docs link and pin check
+        run: bun run check:docs
+
   cli-windows:
     # The pinned justw release currently publishes a Windows binary only.
     # Linux above continues validating regeneration from pinned source.
@@ -131,7 +148,7 @@ jobs:
           path: tools/justweb-dev
           token: ${{ secrets.JUSTWEB_READ_TOKEN }}
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.1
       - name: Install tested CLI
         run: cargo install --path tools/justweb-dev/scm/main/justjs --locked --debug
       - name: Verify complete CLI example workflows
