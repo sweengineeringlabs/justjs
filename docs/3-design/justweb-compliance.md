@@ -34,7 +34,7 @@ and a tag cannot be registered twice under that contract.
 The JustWeb producer emits the manifest after all generation steps and records
 the generator revision and whether its source checkout was dirty. The source
 change is tracked upstream in
-https://github.com/sweengineeringlabs/justweb/issues/106. A dirty-source
+https://github.com/sweengineeringlabs/machineweb/issues/106. A dirty-source
 manifest is rejected, so artifacts must be regenerated using a clean build of
 the pinned generator before an application can boot.
 

@@ -19,7 +19,7 @@ const ci = (opts: { rust?: string; bun?: string; generatorRef?: string; cliRef?:
           bun-version: "${opts.bun ?? "1.4.2"}"
       - uses: actions/checkout@v4
         with:
-          repository: sweengineeringlabs/justweb
+          repository: sweengineeringlabs/machineweb
           ref: ${opts.generatorRef ?? REV}
       - uses: dtolnay/rust-toolchain@${opts.rust ?? "1.99.1"}
       - uses: actions/checkout@v4
