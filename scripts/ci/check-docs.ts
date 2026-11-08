@@ -7,9 +7,9 @@ import { dirname, relative, resolve } from "node:path"
  * 1. Every relative link in README.md, CLAUDE.md and docs/ resolves to a file. External URLs,
  *    `#anchors` and fenced code blocks are skipped; a fragment is checked for the file only.
  * 2. The pins are consistent where they are declared: all example `justjs.config.toml` files
- *    agree on the `justw` version and revision, CI pins one exact Rust and one exact Bun, and
+ *    agree on the generator version and revision, CI pins one exact Rust and one exact Bun, and
  *    CI builds the generator from the very revision the examples pin.
- * 3. Versions stated in prose equal those pins: `justw X.Y.Z` the generator version, `Rust X.Y.Z`
+ * 3. Versions stated in prose equal those pins: `mweb X.Y.Z` (or legacy `justw X.Y.Z`) the generator version, `Rust X.Y.Z`
  *    the CI Rust toolchain, `Bun X.Y.Z` the CI Bun, `generator_revision … <hex>` the revision,
  *    and a hash on a line that mentions `justweb-dev` a prefix of the CI checkout ref.
  *
@@ -62,9 +62,9 @@ export function readPins(root: string, errors: string[]): Pins | undefined {
     versions.push(version)
     revisions.push(revision)
   }
-  if (!versions.length) { errors.push("no scm/examples/*/justjs.config.toml with a justw pin found"); return undefined }
+  if (!versions.length) { errors.push("no scm/examples/*/justjs.config.toml with a generator pin found"); return undefined }
   if (distinct(versions).length > 1 || distinct(revisions).length > 1) {
-    errors.push(`examples disagree on the justw pin: versions ${distinct(versions).join(", ")}, revisions ${distinct(revisions).join(", ")}`)
+    errors.push(`examples disagree on the generator pin: versions ${distinct(versions).join(", ")}, revisions ${distinct(revisions).join(", ")}`)
     return undefined
   }
 
@@ -79,7 +79,7 @@ export function readPins(root: string, errors: string[]): Pins | undefined {
   if (bun.length !== 1) errors.push(`ci.yml must pin exactly one Bun version, found: ${bun.join(", ") || "none"}`)
   if (cliRefs.length !== 1) errors.push(`ci.yml must check out sweengineeringlabs/justweb-dev at exactly one 40-character commit, found: ${cliRefs.join(", ") || "none"}`)
   if (generatorRefs.length !== 1) errors.push(`ci.yml must check out sweengineeringlabs/machineweb at exactly one 40-character commit, found: ${generatorRefs.join(", ") || "none"}`)
-  else if (generatorRefs[0] !== revisions[0]) errors.push(`ci.yml builds justw from ${generatorRefs[0]} but the examples pin generator_revision ${revisions[0]}`)
+  else if (generatorRefs[0] !== revisions[0]) errors.push(`ci.yml builds the generator from ${generatorRefs[0]} but the examples pin generator_revision ${revisions[0]}`)
   if (errors.length) return undefined
   return { generatorVersion: versions[0]!, generatorRevision: revisions[0]!, rust: rust[0]!, bun: bun[0]!, cliRef: cliRefs[0]! }
 }
@@ -103,7 +103,7 @@ export function checkDocs(root: string): string[] {
     const claim = (what: string, found: string, expected: string) => {
       if (found !== expected) errors.push(`${file}: says ${what} ${found} but the pin is ${expected}`)
     }
-    for (const m of text.matchAll(/\bjustw\b\W{1,3}(\d+\.\d+\.\d+)/g)) claim("justw", m[1]!, pins.generatorVersion)
+    for (const m of text.matchAll(/\b(mweb|justw)\b\W{1,3}(\d+\.\d+\.\d+)/g)) claim(m[1]!, m[2]!, pins.generatorVersion)
     for (const m of text.matchAll(/\bRust\b\W{1,3}(\d+\.\d+\.\d+)/g)) claim("Rust", m[1]!, pins.rust)
     for (const m of text.matchAll(/\bBun\b\W{1,3}(\d+\.\d+\.\d+)/g)) claim("Bun", m[1]!, pins.bun)
     // A commit hash is attributed to the nearest keyword before it on the same line, so a line
@@ -136,5 +136,5 @@ if (import.meta.main) {
     process.exit(1)
   }
   const pins = readPins(root, [])!
-  console.log(`docs check OK: links resolve; justw ${pins.generatorVersion} @ ${pins.generatorRevision.slice(0, 7)}, Rust ${pins.rust}, Bun ${pins.bun}, CLI ${pins.cliRef.slice(0, 7)}`)
+  console.log(`docs check OK: links resolve; mweb ${pins.generatorVersion} @ ${pins.generatorRevision.slice(0, 7)}, Rust ${pins.rust}, Bun ${pins.bun}, CLI ${pins.cliRef.slice(0, 7)}`)
 }

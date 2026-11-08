@@ -1,8 +1,8 @@
 // editor — browser test (auto-generated)
 // Source: editor_component.yaml (v1)
-// Run:    justw test editor_browser_test.gen.ts --browser
+// Run:    mweb test editor_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component editor
+// DO NOT EDIT — regenerate with: mweb generate component editor
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

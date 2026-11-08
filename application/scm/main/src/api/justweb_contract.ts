@@ -1,8 +1,8 @@
 import type { DomAddressMap } from "./dom-address.js"
 
-/** Exact file digests produced by `justw generate app`. */
-export const SUPPORTED_JUSTWEB_GENERATOR_VERSION = "0.1.2" as const
-export const SUPPORTED_JUSTWEB_GENERATOR_REVISION = "4d2828d47ac0a5eac50677efa835994dfdee18a9" as const
+/** Exact file digests produced by `mweb generate app`. */
+export const SUPPORTED_JUSTWEB_GENERATOR_VERSION = "0.5.0" as const
+export const SUPPORTED_JUSTWEB_GENERATOR_REVISION = "9035afa17bca513bcfd3e3081ae0fcba26df902e" as const
 export const SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA = 1 as const
 
 export interface JustWebArtifactDigest {
@@ -11,7 +11,7 @@ export interface JustWebArtifactDigest {
 }
 
 export interface JustWebContractPin {
-  readonly generatorVersion: "0.1.2"
+  readonly generatorVersion: "0.5.0"
   readonly generatorRevision: string
   readonly artifactSchema: 1
 }
@@ -21,7 +21,7 @@ export interface JustWebArtifactManifest {
   readonly format: "justweb-artifact-manifest"
   readonly formatVersion: 1
   readonly generator: {
-    readonly name: "justw"
+    readonly name: "mweb"
     readonly version: string
     readonly revision: string
     readonly sourceDirty: boolean
@@ -69,14 +69,14 @@ export async function validateJustWebRuntimeMetadata(metadata: JustWebRuntimeMet
   if (manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA) {
     fail("A JustWeb artifact manifest with the supported schema is required.")
   }
-  if (!generator || generator.name !== "justw" || generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
+  if (!generator || generator.name !== "mweb" || generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
       generator.revision !== SUPPORTED_JUSTWEB_GENERATOR_REVISION || generator.sourceDirty !== false ||
       contract.generatorVersion !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
       contract.generatorRevision !== SUPPORTED_JUSTWEB_GENERATOR_REVISION ||
       contract.artifactSchema !== SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA ||
       contract.generatorVersion !== generator.version || contract.generatorRevision !== generator.revision ||
       contract.artifactSchema !== manifest.formatVersion) {
-    fail(`Unsupported JustWeb contract. JustJS requires clean justw ${SUPPORTED_JUSTWEB_GENERATOR_VERSION} at ${SUPPORTED_JUSTWEB_GENERATOR_REVISION}, schema ${SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA}.`)
+    fail(`Unsupported JustWeb contract. JustJS requires clean mweb ${SUPPORTED_JUSTWEB_GENERATOR_VERSION} at ${SUPPORTED_JUSTWEB_GENERATOR_REVISION}, schema ${SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA}.`)
   }
   if (typeof domAddressMap.elements !== "object") fail("A JustWeb DOM address map is required.")
   if (manifest.artifacts.length === 0) fail("The JustWeb manifest has no artifacts.")

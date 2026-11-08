@@ -108,10 +108,10 @@ bun run typecheck    # both packages must pass
 
 ## Pinned toolchain failures
 
-The `justjs` CLI installs and runs the exact `justw` (and optionally `csslense` and `browsectl`)
+The `justjs` CLI installs and runs the exact `mweb` (and optionally `csslense` and `browsectl`)
 a project pins in `justjs.config.toml`; see "Pinned toolchain" in the
 [architecture](../3-design/architecture.md#pinned-toolchain). Each entry gives the symptom,
-the cause, the fix and how to check it. The messages are those the published `justjs` 0.1.2
+the cause, the fix and how to check it. The messages are those the published `justjs` 0.1.4
 prints, except where an entry says it was not reproduced.
 
 ### `could not find justjs.config.toml`
@@ -132,15 +132,15 @@ parent.
 **Symptom.** `error: invalid justjs.config.toml: [justweb] generator_version must be pinned: use
 an exact semver version and full 40-character hex commit revision`.
 
-**Cause.** `generator_version` is not an exact version (`0.1`, `^0.1.2`, `latest`) or
+**Cause.** `generator_version` is not an exact version (`0.1`, `^0.5.0`, `latest`) or
 `generator_revision` is not the full 40-character commit hash (an abbreviated hash is rejected).
 
 **Fix.** Pin both exactly. The revision is the one in the tool release's
 `toolchain-manifest.json`:
 
 ```sh
-gh release download v0.1.2 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O -
-justjs toolchain pin justw 0.1.2 4d2828d47ac0a5eac50677efa835994dfdee18a9
+gh release download v0.5.0 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O -
+justjs toolchain pin mweb 0.5.0 9035afa17bca513bcfd3e3081ae0fcba26df902e
 ```
 
 (`pin` rewrites the whole file and drops its comments; in a commented config, edit the two
@@ -148,13 +148,13 @@ lines by hand instead.)
 
 **Check.** `justjs toolchain list` no longer reports a config error.
 
-### `justw 0.1.2 is not installed`
+### `mweb 0.5.0 is not installed`
 
-**Symptom.** `justjs generate` or `check` fails with `error: pinned justw unavailable or
-invalid; run `justjs toolchain install`: justw 0.1.2 is not installed …`. `justjs toolchain list`
-shows `justw 0.1.2 (4d2828d4)  missing or invalid`.
+**Symptom.** `justjs generate` or `check` fails with `error: pinned mweb unavailable or
+invalid; run `justjs toolchain install`: mweb 0.5.0 is not installed …`. `justjs toolchain list`
+shows `mweb 0.5.0 (9035afa1)  missing or invalid`.
 
-**Cause.** The pinned binary is not in the cache (`~/.justjs/toolchains/justw/0.1.2/`, or
+**Cause.** The pinned binary is not in the cache (`~/.justjs/toolchains/mweb/0.5.0/`, or
 `$JUSTJS_TOOLCHAIN_HOME`), or it failed verification.
 
 **Fix.** `justjs toolchain install`. It is idempotent: a valid cached tool is left alone and
@@ -164,7 +164,7 @@ needs no network.
 
 ### `manifest identity does not match the pinned tool, version and revision`
 
-**Symptom.** `error: invalid release for justw: manifest identity does not match the pinned
+**Symptom.** `error: invalid release for mweb: manifest identity does not match the pinned
 tool, version and revision` during `toolchain install`.
 
 **Cause.** The release at `v<generator_version>` was built from a different commit than
@@ -174,14 +174,14 @@ rebuilt.
 **Fix.** Read the revision the release actually carries and pin that, never the reverse:
 
 ```sh
-gh release download v0.1.2 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O - | grep revision
+gh release download v0.5.0 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O - | grep revision
 ```
 
 **Check.** `justjs toolchain install` prints `toolchain install: ok`.
 
 ### Download fails with 404
 
-**Symptom.** `error: download failed for justw <version> from
+**Symptom.** `error: download failed for mweb <version> from
 https://github.com/…/v<version>/toolchain-manifest.json: HTTP status client error (404 Not Found) …`.
 
 **Cause.** No release exists at that version, **or** the repository is private and the request
@@ -205,12 +205,12 @@ justjs toolchain install
 
 ### `digest mismatch`
 
-**Symptom.** `error: pinned justw unavailable or invalid; …: digest mismatch for justw 0.1.2:
+**Symptom.** `error: pinned mweb unavailable or invalid; …: digest mismatch for mweb 0.5.0:
 expected <sha256>, got <sha256> — re-run `justjs toolchain install` to re-download`, and
 `toolchain list` shows `missing or invalid`.
 
 **Cause.** The cached binary is not the one the release manifest describes: an interrupted
-copy, a disk fault, or a hand edit. (Reproduced by appending a byte to the cached `justw`.)
+copy, a disk fault, or a hand edit. (The original reproduction appended a byte to the cached legacy `justw`; `mweb` uses the same digest verification.)
 
 **Fix.** Re-run `justjs toolchain install`; it detects the invalid binary and downloads it
 again. If the mismatch returns straight after a fresh download, the release itself is wrong:
@@ -240,12 +240,12 @@ then update `ref:` (and the docs, which `bun run check:docs` will name) in one c
 
 **Check.** The checkout and `cargo install` steps pass in CI.
 
-### `TS2688: Cannot find type definition file for 'node'` from `justw check`
+### `TS2688: Cannot find type definition file for 'node'` from `mweb check`
 
 **Symptom.** `justjs check` fails with `error TS2688: Cannot find type definition file for 'node'`.
 
 **Cause.** The project's `tsconfig.json` sets `"types": ["node"]` but `@types/node` is not
-installed. `justw check` type-checks the generated `.gen.ts` files with the project's config.
+installed. `mweb check` type-checks the generated `.gen.ts` files with the project's config.
 
 **Fix.** Install the dependencies first: `bun install --frozen-lockfile`.
 
@@ -253,9 +253,9 @@ installed. `justw check` type-checks the generated `.gen.ts` files with the proj
 
 ### `bun run check:docs` fails
 
-**Symptom.** `error: <file>: says justw <old version> but the pin is <current version>` (or
+**Symptom.** `error: <file>: says mweb <old version> but the pin is <current version>` (or
 `Rust`, `Bun`, a `generator_revision` or a `justweb-dev` commit), a broken relative link, or `examples disagree
-on the justw pin`.
+on the generator pin`.
 
 **Cause.** A document, an example's `justjs.config.toml` or `ci.yml` was changed without the
 others. The check compares what the docs state with the pins declared in the examples and in

@@ -3,7 +3,17 @@
 **Status:** Accepted  
 **Date:** 2026-09-26
 
-## Context
+## Current implementation (2026-11-08)
+
+The CLI is released as `justjs` v0.1.4 from `sweengineeringlabs/justweb-dev`.
+Install it from that checkout with `cargo install --path scm/main/justjs --locked`.
+It downloads MachineWeb (`mweb` 0.5.0 onward, legacy `justw` for earlier pins)
+from `sweengineeringlabs/machineweb`; the generator is built and released separately.
+The framework repository is `sweengineeringlabs/justweb`, and its four examples
+now pin `mweb` 0.5.0. The original decision and dated corrections below record
+how the implementation evolved.
+
+## Original context
 
 justjs#158 originally proposed `sweengineeringlabs/justjs-cli` as a standalone Rust binary crate, mirroring the pattern of `justw` living in `sweengineeringlabs/machineweb`. The CLI would be distributed separately from the framework repo.
 
@@ -18,7 +28,7 @@ The `justjs` Rust crate lives as a workspace member of `sweengineeringlabs/justw
 
 Install via:
 ```
-cargo install --path justjs   # from the justweb-dev workspace root
+cargo install --path scm/main/justjs --locked   # from the justweb-dev repository root
 ```
 
 A future GitHub Releases distribution step (curl-install script) is tracked separately. The binary produced is still a single self-contained executable.

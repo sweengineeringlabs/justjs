@@ -1,8 +1,8 @@
 // login — native integration test (auto-generated)
 // Source: styles/login_component.yaml (v1)
-// Run:    justw test src/features/login/login_int_test.gen.ts --native
+// Run:    mweb test src/features/login/login_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component login
+// DO NOT EDIT — regenerate with: mweb generate component login
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

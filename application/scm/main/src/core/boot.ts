@@ -335,7 +335,7 @@ class BootValidator {
       throw new BootError("INVALID_JUSTWEB_MANIFEST", undefined, undefined, undefined, message)
     }
     if (!manifest || manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== 1) {
-      fail("A JustWeb artifact manifest (formatVersion 1) is required. Run `justw generate app` and pass its generated manifest to boot().")
+      fail("A JustWeb artifact manifest (formatVersion 1) is required. Run `mweb generate app` and pass its generated manifest to boot().")
     }
     const generator = manifest.generator
     const contract = config.justwebContract
@@ -343,18 +343,18 @@ class BootValidator {
         contract.generatorRevision !== generator.revision || contract.artifactSchema !== manifest.formatVersion) {
       fail("The mandatory JustWeb contract pin must exactly match the generated manifest's version, revision, and artifact schema.")
     }
-    if (generator?.name !== "justw" || generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
+    if (generator?.name !== "mweb" || generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
         generator.revision !== SUPPORTED_JUSTWEB_GENERATOR_REVISION || manifest.formatVersion !== SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA) {
-      fail(`Unsupported JustWeb generator. JustJS requires justw ${SUPPORTED_JUSTWEB_GENERATOR_VERSION} at ${SUPPORTED_JUSTWEB_GENERATOR_REVISION} with artifact schema ${SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA}.`)
+      fail(`Unsupported JustWeb generator. JustJS requires mweb ${SUPPORTED_JUSTWEB_GENERATOR_VERSION} at ${SUPPORTED_JUSTWEB_GENERATOR_REVISION} with artifact schema ${SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA}.`)
     }
     if (!/^[a-f0-9]{40}$/.test(manifest.generator.revision)) {
       fail("JustWeb manifest must record the exact 40-character generator source revision.")
     }
     if (manifest.generator.sourceDirty !== false) {
-      fail("JustWeb manifest was emitted from a modified generator checkout; regenerate with a clean, pinned justw source revision.")
+      fail("JustWeb manifest was emitted from a modified generator checkout; regenerate with a clean, pinned mweb source revision.")
     }
     if (!Array.isArray(manifest.artifacts) || manifest.artifacts.length === 0) {
-      fail("JustWeb manifest has no generated artifacts. Regenerate the app with `justw generate app`.")
+      fail("JustWeb manifest has no generated artifacts. Regenerate the app with `mweb generate app`.")
     }
     const paths = new Set<string>()
     for (const artifact of manifest.artifacts) {
@@ -384,7 +384,7 @@ class BootValidator {
     const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes)
     const actual = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
     if (actual !== addressMapArtifact.sha256) {
-      fail("The supplied domAddressMap does not match the JustWeb artifact digest. Regenerate and load the map and manifest from the same `justw generate app` run.")
+      fail("The supplied domAddressMap does not match the JustWeb artifact digest. Regenerate and load the map and manifest from the same `mweb generate app` run.")
     }
     try {
       return await validateJustWebRuntimeMetadata({

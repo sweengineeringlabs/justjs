@@ -179,14 +179,14 @@ try {
 
 ## Re-pin the toolchain
 
-Use this when a new `justw` (or `csslense`, `browsectl`) release should be what the examples
+Use this when a new `mweb` (or `csslense`, `browsectl`) release should be what the examples
 and CI use. The pins live in four places that must agree: each example's `justjs.config.toml`,
-the `justweb` checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for the CLI) the
+the `machineweb` source checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for the CLI) the
 `justweb-dev` checkout `ref:`. `bun run check:docs` fails if they drift.
 
 ### Order across repositories
 
-1. **Release the tool** from its own repository (`justweb` for `justw`), following that
+1. **Release the tool** from its own repository (`machineweb` for `mweb`), following that
    repository's release playbook. A release is only usable if it carries every platform you need.
 2. **Re-pin and release the CLI** in `justweb-dev` if its bundled pin should change.
 3. **Then re-pin here.** Never pin a version or commit that is not yet a published release or
@@ -234,8 +234,7 @@ the `justweb` checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for 
 6. **Check consistency:** `bun run check:docs`. It names every file that still says the old
    version, revision or ref.
 7. **Verify.** `bun run check:cli-examples` runs the complete example workflows locally (it
-   needs the CLI on `PATH`, a browser, and a token for private downloads); CI runs the same on
-   Linux and Windows. Open the pull request and wait for CI.
+   needs the CLI on `PATH`, a browser, and a token for private downloads); Windows CI runs the same workflow; Linux CI regenerates from the pinned source. Open the pull request and wait for CI.
 
 The failures you are most likely to meet are in the
 [runbook](runbook.md#pinned-toolchain-failures).

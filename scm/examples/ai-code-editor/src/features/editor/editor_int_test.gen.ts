@@ -1,8 +1,8 @@
 // editor — native integration test (auto-generated)
 // Source: styles/editor_component.yaml (v1)
-// Run:    justw test src/features/editor/editor_int_test.gen.ts --native
+// Run:    mweb test src/features/editor/editor_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component editor
+// DO NOT EDIT — regenerate with: mweb generate component editor
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

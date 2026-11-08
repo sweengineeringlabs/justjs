@@ -1,9 +1,9 @@
 // connect — browser E2E test (auto-generated)
 // Source: styles/connect_component.yaml (v1)
-// Run:    justw test src/features/connect/connect_e2e_test.gen.ts --browser --e2e
+// Run:    mweb test src/features/connect/connect_e2e_test.gen.ts --browser --e2e
 //
-// Requires: justw serve running (auto-started when justweb.toml present)
-// DO NOT EDIT — regenerate with: justw generate component connect
+// Requires: mweb serve running (auto-started when justweb.toml present)
+// DO NOT EDIT — regenerate with: mweb generate component connect
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

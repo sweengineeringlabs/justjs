@@ -1,8 +1,8 @@
 // scaffold — browser test (auto-generated)
 // Source: scaffold_component.yaml (v1)
-// Run:    justw test scaffold_browser_test.gen.ts --browser
+// Run:    mweb test scaffold_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component scaffold
+// DO NOT EDIT — regenerate with: mweb generate component scaffold
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

@@ -6,7 +6,7 @@ and verified end-to-end 2026-07-10 (real Samsung SM-A055F) — see justjs#16
 and `platform/mobile/scm/main/README.md`'s "Real-hardware verification"
 section for the full writeup.
 
-> Releasing or re-pinning the *toolchain* (`justjs` CLI, `justw`, `csslense`, `browsectl`) is a
+> Releasing or re-pinning the *toolchain* (`justjs` CLI, `mweb`, `csslense`, `browsectl`) is a
 > different procedure, in [the operations playbook](../7-operations/playbook.md#re-pin-the-toolchain);
 > the architecture of the pin and verify flow is under "Pinned toolchain" in
 > [the architecture](../3-design/architecture.md#pinned-toolchain).
@@ -124,7 +124,7 @@ a matching `data-ddas-id` attribute on the mount container.
 node js-runtime/main/features/mobile-bridge/scripts/generate-app-entry.mjs <path/to/registry.gen.ts> <output-dir> --app-name <name>
 ```
 
-Parses a real, unmodified `registry.gen.ts` — `justw generate app`'s own
+Parses a real, unmodified `registry.gen.ts` — `mweb generate app`'s own
 output, `DO NOT EDIT` header and all — for its `[tag, ComponentClass]`
 list and each class's import path, and generates `<output-dir>/src/app.ts`
 + `<output-dir>/index.html`. Two modes, auto-detected by whether a real

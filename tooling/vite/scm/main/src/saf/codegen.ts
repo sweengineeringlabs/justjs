@@ -66,7 +66,7 @@ function validateJustWebConfig(value: unknown): JustWebConfig {
 
 export function readJustWebManifest(): JustWebArtifactManifest {
   if (!existsSync(JUSTWEB_MANIFEST_PATH)) {
-    throw new CodegenError(`Required JustWeb manifest not found: ${JUSTWEB_MANIFEST_PATH}. Run the pinned justw generate app first.`)
+    throw new CodegenError(`Required JustWeb manifest not found: ${JUSTWEB_MANIFEST_PATH}. Run the pinned mweb generate app first.`)
   }
   let manifest: JustWebArtifactManifest
   try {
@@ -75,10 +75,10 @@ export function readJustWebManifest(): JustWebArtifactManifest {
     throw new CodegenError(`Invalid JustWeb manifest JSON: ${String(error)}`)
   }
   if (manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== 1 ||
-      manifest.generator?.name !== "justw" || manifest.generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
+      manifest.generator?.name !== "mweb" || manifest.generator.version !== SUPPORTED_JUSTWEB_GENERATOR_VERSION ||
       !/^[a-f0-9]{40}$/.test(manifest.generator.revision) || manifest.generator.sourceDirty !== false ||
       !Array.isArray(manifest.artifacts)) {
-    throw new CodegenError("Unsupported or malformed JustWeb manifest; JustJS requires the justweb-artifact-manifest format 1 from justw 0.1.2.")
+    throw new CodegenError("Unsupported or malformed JustWeb manifest; JustJS requires the justweb-artifact-manifest format 1 from mweb 0.5.0.")
   }
   const seen = new Set<string>()
   for (const artifact of manifest.artifacts) {
@@ -96,7 +96,7 @@ export function readJustWebManifest(): JustWebArtifactManifest {
     }
     if (!existsSync(artifactPath)) throw new CodegenError(`JustWeb artifact missing: ${artifact.path}`)
     const actual = createHash("sha256").update(readFileSync(artifactPath)).digest("hex")
-    if (actual !== artifact.sha256) throw new CodegenError(`JustWeb artifact changed after generation: ${artifact.path}. Regenerate with the pinned justw.`)
+    if (actual !== artifact.sha256) throw new CodegenError(`JustWeb artifact changed after generation: ${artifact.path}. Regenerate with the pinned mweb.`)
   }
   const has = (name: string) => [...seen].some((path) => path.endsWith(name))
   if (!has("dom-address-map.json") || !has("registry.gen.ts") || !has("component-registry.gen.ts")) {
@@ -162,7 +162,7 @@ export function generateCodeWithStrategies(
 ): GeneratedOutput {
   const pin = validateJustWebConfig(config.justweb)
   if (justwebManifest.format !== "justweb-artifact-manifest" || justwebManifest.formatVersion !== pin.artifact_schema ||
-      justwebManifest.generator?.name !== "justw" || justwebManifest.generator.version !== pin.generator_version ||
+      justwebManifest.generator?.name !== "mweb" || justwebManifest.generator.version !== pin.generator_version ||
       justwebManifest.generator.revision !== pin.generator_revision || justwebManifest.generator.sourceDirty !== false) {
     throw new CodegenError("JustWeb manifest does not satisfy the exact clean generator version, revision, and schema pinned by this application.")
   }

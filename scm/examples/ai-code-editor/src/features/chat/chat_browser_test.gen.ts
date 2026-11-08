@@ -1,8 +1,8 @@
 // chat — browser test (auto-generated)
 // Source: chat_component.yaml (v1)
-// Run:    justw test chat_browser_test.gen.ts --browser
+// Run:    mweb test chat_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component chat
+// DO NOT EDIT — regenerate with: mweb generate component chat
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

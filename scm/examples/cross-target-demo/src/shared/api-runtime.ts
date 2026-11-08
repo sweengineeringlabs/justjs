@@ -1,4 +1,4 @@
-// AUTO-GENERATED — do not edit. Regenerate with: justw generate app
+// AUTO-GENERATED — do not edit. Regenerate with: mweb generate app
 //
 // Shared HTTP client + mock interception. Standards-only: fetch() + Map +
 // Response. Works in any modern browser, Node >= 18, Deno, or Bun.

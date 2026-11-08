@@ -24,8 +24,8 @@ for (const example of examples) {
   if (manifest.format !== "justweb-artifact-manifest" || manifest.formatVersion !== 1) {
     throw new Error(`${example}: unsupported JustWeb artifact manifest format`)
   }
-  if (manifest.generator?.name !== "justw" || manifest.generator.sourceDirty !== false) {
-    throw new Error(`${example}: manifest must identify a clean justw generation`)
+  if (manifest.generator?.name !== "mweb" || manifest.generator.sourceDirty !== false) {
+    throw new Error(`${example}: manifest must identify a clean mweb generation`)
   }
   if (!manifest.artifacts?.length) {
     throw new Error(`${example}: manifest contains no artifacts`)

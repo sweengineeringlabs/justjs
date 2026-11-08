@@ -1,8 +1,8 @@
 // scaffold — native integration test (auto-generated)
 // Source: styles/scaffold_component.yaml (v1)
-// Run:    justw test src/features/scaffold/scaffold_int_test.gen.ts --native
+// Run:    mweb test src/features/scaffold/scaffold_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component scaffold
+// DO NOT EDIT — regenerate with: mweb generate component scaffold
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

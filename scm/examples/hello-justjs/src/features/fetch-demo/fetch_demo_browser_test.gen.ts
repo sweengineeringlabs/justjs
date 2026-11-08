@@ -1,8 +1,8 @@
 // fetch-demo — browser test (auto-generated)
 // Source: fetch_demo_component.yaml (v1)
-// Run:    justw test fetch_demo_browser_test.gen.ts --browser
+// Run:    mweb test fetch_demo_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component fetch-demo
+// DO NOT EDIT — regenerate with: mweb generate component fetch-demo
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

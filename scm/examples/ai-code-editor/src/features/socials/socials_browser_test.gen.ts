@@ -1,8 +1,8 @@
 // socials — browser test (auto-generated)
 // Source: socials_component.yaml (v1)
-// Run:    justw test socials_browser_test.gen.ts --browser
+// Run:    mweb test socials_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component socials
+// DO NOT EDIT — regenerate with: mweb generate component socials
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

@@ -70,7 +70,7 @@ screen's future CSS edit from silently breaking another screen's
 `.provider-card`).
 
 This does **not** mean going through JustJS's `*_component.yaml` /
-`justw generate app` pipeline. That pipeline exists for **routed,
+`mweb generate app` pipeline. That pipeline exists for **routed,
 top-level, boot-validated** components — one YAML maps to one mount point,
 checked against `routes.gen.json`/`registry.gen.ts`/`dom-address-map.json`
 at boot (ADR-0001's DDAS section). `component-view`'s elements are not
@@ -83,7 +83,7 @@ library would be consumed. Concretely:
   `attachShadow({ mode: "open" })`, with its own `<style>` in the shadow
   root. No `x-*`/`js-*` vendor prefix — checked via grep, that split
   exists in this app specifically to distinguish hand-authored vs.
-  justw-generated **routed** top-level components (`x-cartoon` vs.
+  mweb-generated **routed** top-level components (`x-cartoon` vs.
   `js-cartoon`), which `component-view`'s nested elements were never part
   of to begin with.
 - It self-registers via `customElements.define(...)` as an import

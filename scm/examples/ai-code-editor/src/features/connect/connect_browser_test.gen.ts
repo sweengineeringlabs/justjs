@@ -1,8 +1,8 @@
 // connect — browser test (auto-generated)
 // Source: connect_component.yaml (v1)
-// Run:    justw test connect_browser_test.gen.ts --browser
+// Run:    mweb test connect_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component connect
+// DO NOT EDIT — regenerate with: mweb generate component connect
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

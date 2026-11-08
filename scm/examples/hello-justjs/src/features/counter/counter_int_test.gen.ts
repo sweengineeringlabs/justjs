@@ -1,8 +1,8 @@
 // counter — native integration test (auto-generated)
 // Source: styles/counter_component.yaml (v1)
-// Run:    justw test src/features/counter/counter_int_test.gen.ts --native
+// Run:    mweb test src/features/counter/counter_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component counter
+// DO NOT EDIT — regenerate with: mweb generate component counter
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

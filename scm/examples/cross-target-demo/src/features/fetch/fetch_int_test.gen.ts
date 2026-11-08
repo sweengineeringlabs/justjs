@@ -1,8 +1,8 @@
 // fetch — native integration test (auto-generated)
 // Source: styles/fetch_component.yaml (v1)
-// Run:    justw test src/features/fetch/fetch_int_test.gen.ts --native
+// Run:    mweb test src/features/fetch/fetch_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component fetch
+// DO NOT EDIT — regenerate with: mweb generate component fetch
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

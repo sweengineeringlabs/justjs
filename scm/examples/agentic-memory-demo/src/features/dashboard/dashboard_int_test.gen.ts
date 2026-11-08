@@ -1,8 +1,8 @@
 // dashboard — native integration test (auto-generated)
 // Source: styles/dashboard_component.yaml (v1)
-// Run:    justw test src/features/dashboard/dashboard_int_test.gen.ts --native
+// Run:    mweb test src/features/dashboard/dashboard_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component dashboard
+// DO NOT EDIT — regenerate with: mweb generate component dashboard
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

@@ -1,5 +1,28 @@
 # hello-justjs — Data Flow Demo
 
+## Pinned generator and CLI
+
+This example uses MachineWeb (`mweb`) 0.5.0 at
+`9035afa17bca513bcfd3e3081ae0fcba26df902e`, pinned in `justjs.config.toml`.
+Use `justjs` v0.1.4 from `sweengineeringlabs/justweb-dev` to install and run it:
+
+```sh
+justjs toolchain install
+justjs toolchain list
+justjs generate
+justjs check
+justjs typecheck
+justjs build
+justjs dev
+```
+
+Run these commands from this example or its `src/` directory, after building the
+framework workspace from the repository root with `bun run build`.
+The CLI invokes the verified cached `mweb` binary. The generator release currently
+contains a Windows x86_64 binary only; Linux CI builds the same pinned source.
+The `[justweb]` section, `justweb.toml`, and artifact filenames retain their names.
+See [E2E validation](../../../docs/e2e-validation.md) for the verified versions and scope.
+
 A minimal demo app showing **data traveling through JustJS's 4 OSI layers** and **AOP aspects** in real-time.
 
 ## What You'll See

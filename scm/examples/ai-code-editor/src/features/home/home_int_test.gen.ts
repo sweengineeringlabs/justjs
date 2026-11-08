@@ -1,8 +1,8 @@
 // home — native integration test (auto-generated)
 // Source: styles/home_component.yaml (v1)
-// Run:    justw test src/features/home/home_int_test.gen.ts --native
+// Run:    mweb test src/features/home/home_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component home
+// DO NOT EDIT — regenerate with: mweb generate component home
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs

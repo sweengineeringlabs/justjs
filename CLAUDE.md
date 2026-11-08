@@ -6,7 +6,7 @@ JustJS is the UI domain layer — the frontend equivalent of what `edge-domain` 
 
 > _JavaScript components that just run in the browser._
 
-The developer writes a `*_component.yaml` in justweb. Places an HTML tag. Everything else flows — routing, auth, state, API transport, lifecycle, CSS, observability, platform delivery — all for free.
+The developer writes a `*_component.yaml` with MachineWeb (`mweb`). Places an HTML tag. Everything else flows — routing, auth, state, API transport, lifecycle, CSS, observability, platform delivery — all for free.
 
 ## Architecture
 
@@ -54,7 +54,7 @@ bun install --frozen-lockfile
 bun run build
 bun run typecheck
 bun run test
-bun run check:docs   # doc links and pinned versions (justw, Rust, Bun, CLI ref)
+bun run check:docs   # doc links and pinned versions (mweb, Rust, Bun, CLI ref)
 ```
 
 ## Key invariants

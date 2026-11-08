@@ -1,8 +1,8 @@
 // communication — native integration test (auto-generated)
 // Source: styles/communication_component.yaml (v1)
-// Run:    justw test src/features/communication/communication_int_test.gen.ts --native
+// Run:    mweb test src/features/communication/communication_int_test.gen.ts --native
 //
-// DO NOT EDIT — regenerate with: justw generate component communication
+// DO NOT EDIT — regenerate with: mweb generate component communication
 
 // Minimal shim: the generated component class extends `HTMLElement`, which
 // doesn't exist outside a browser/jsdom. Only the class *declaration* needs
