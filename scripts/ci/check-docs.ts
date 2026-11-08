@@ -71,14 +71,14 @@ export function readPins(root: string, errors: string[]): Pins | undefined {
   const ci = read(resolve(root, ".github/workflows/ci.yml"))
   const rust = distinct([...ci.matchAll(/dtolnay\/rust-toolchain@(\S+)/g)].map((m) => m[1]!))
   const bun = distinct([...ci.matchAll(/bun-version:\s*"?([^"\s]+)"?/g)].map((m) => m[1]!))
-  const refs = [...ci.matchAll(/repository:\s*sweengineeringlabs\/(justweb-dev|justweb)\s*\n\s*ref:\s*([0-9a-f]{40})/g)]
+  const refs = [...ci.matchAll(/repository:\s*sweengineeringlabs\/(justweb-dev|machineweb)\s*\n\s*ref:\s*([0-9a-f]{40})/g)]
   const cliRefs = distinct(refs.filter((m) => m[1] === "justweb-dev").map((m) => m[2]!))
-  const generatorRefs = distinct(refs.filter((m) => m[1] === "justweb").map((m) => m[2]!))
+  const generatorRefs = distinct(refs.filter((m) => m[1] === "machineweb").map((m) => m[2]!))
 
   if (rust.length !== 1 || !/^\d+\.\d+\.\d+$/.test(rust[0]!)) errors.push(`ci.yml must pin exactly one exact Rust toolchain (dtolnay/rust-toolchain@X.Y.Z), found: ${rust.join(", ") || "none"}`)
   if (bun.length !== 1) errors.push(`ci.yml must pin exactly one Bun version, found: ${bun.join(", ") || "none"}`)
   if (cliRefs.length !== 1) errors.push(`ci.yml must check out sweengineeringlabs/justweb-dev at exactly one 40-character commit, found: ${cliRefs.join(", ") || "none"}`)
-  if (generatorRefs.length !== 1) errors.push(`ci.yml must check out sweengineeringlabs/justweb at exactly one 40-character commit, found: ${generatorRefs.join(", ") || "none"}`)
+  if (generatorRefs.length !== 1) errors.push(`ci.yml must check out sweengineeringlabs/machineweb at exactly one 40-character commit, found: ${generatorRefs.join(", ") || "none"}`)
   else if (generatorRefs[0] !== revisions[0]) errors.push(`ci.yml builds justw from ${generatorRefs[0]} but the examples pin generator_revision ${revisions[0]}`)
   if (errors.length) return undefined
   return { generatorVersion: versions[0]!, generatorRevision: revisions[0]!, rust: rust[0]!, bun: bun[0]!, cliRef: cliRefs[0]! }

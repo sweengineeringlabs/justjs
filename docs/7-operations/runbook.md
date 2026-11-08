@@ -139,7 +139,7 @@ an exact semver version and full 40-character hex commit revision`.
 `toolchain-manifest.json`:
 
 ```sh
-gh release download v0.1.2 -R sweengineeringlabs/justweb -p toolchain-manifest.json -O -
+gh release download v0.1.2 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O -
 justjs toolchain pin justw 0.1.2 4d2828d47ac0a5eac50677efa835994dfdee18a9
 ```
 
@@ -174,7 +174,7 @@ rebuilt.
 **Fix.** Read the revision the release actually carries and pin that, never the reverse:
 
 ```sh
-gh release download v0.1.2 -R sweengineeringlabs/justweb -p toolchain-manifest.json -O - | grep revision
+gh release download v0.1.2 -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O - | grep revision
 ```
 
 **Check.** `justjs toolchain install` prints `toolchain install: ok`.
@@ -190,7 +190,7 @@ was not authorised (GitHub answers 404, not 401, for a private repository). The 
 back to `gh api`. This was reproduced for a version that does not exist; the unauthorised case
 follows from the source and was not reproduced.
 
-**Fix.** Check the version exists (`gh release list -R sweengineeringlabs/justweb`), then make
+**Fix.** Check the version exists (`gh release list -R sweengineeringlabs/machineweb`), then make
 sure a token with read access is available:
 
 ```sh

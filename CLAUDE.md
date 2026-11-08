@@ -10,7 +10,7 @@ The developer writes a `*_component.yaml` in justweb. Places an HTML tag. Everyt
 
 ## Architecture
 
-See `docs/adr/ADR-0001-ui-domain-layer.md` and the full decision in `sweengineeringlabs/justweb` at `docs/3-design/adr/ADR-0004-justjs.md`.
+See `docs/adr/ADR-0001-ui-domain-layer.md` and the full decision in `sweengineeringlabs/machineweb` at `docs/3-design/adr/ADR-0004-justjs.md`.
 
 ### Four layers
 - **Network** — raw browser APIs (fetch, WebSocket, Service Worker, Custom Elements)

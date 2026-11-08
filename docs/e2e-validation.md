@@ -46,7 +46,7 @@ What is true now:
 | Native CLI build and project typecheck | Pass for all four examples |
 | CLI `check` with Bun fallback (no `tsc` on PATH) | Pass for all four examples |
 | CLI `check` with `tsc` on PATH | **Fails in pinned JustWeb** for all four examples; see below |
-| Patched JustWeb checker, source revision `c4bde0b` | Passes `justw check` with TypeScript 5.5 on PATH for all four examples, including 45 generated AI editor files; upstream PR [#108](https://github.com/sweengineeringlabs/justweb/pull/108) merged as `cb304ad`, but no release contains the fix yet |
+| Patched JustWeb checker, source revision `c4bde0b` | Passes `justw check` with TypeScript 5.5 on PATH for all four examples, including 45 generated AI editor files; upstream PR [#108](https://github.com/sweengineeringlabs/machineweb/pull/108) merged as `cb304ad`, but no release contains the fix yet |
 | Native CLI matrix with patched checker | Passes install twice, cache listing, generate, check, typecheck and build from nested `src/` in all four examples using a temporary cache seeded with the locally built checker and its digest; this proves CLI delegation, not the published pin |
 | Real Chrome via `justjs dev` | Pass for all four examples; page/bundle requests, interactions, no runtime exceptions, servers stopped |
 | Browser interactions | Counter/form validation; counter/login/logout; memory add/browse/settings; AI editor route mounts, SDLC navigation, editing and persistence |
@@ -65,7 +65,7 @@ What is true now:
 
 `bun run check:cli-examples` makes the workspace TypeScript compiler available on PATH. The pinned generator calls `tsc --noEmit --skipLibCheck <generated files>`, which ignores the project's tsconfig. This loses the ES2022 target and `@browser/*` path mapping, producing TS18028 and TS2307 errors. A direct CLI invocation on the original shell instead used `bun build --no-bundle`, explaining the earlier successful check.
 
-The independent `justjs typecheck` commands respect each project's config and pass. The checker fix now uses a temporary TypeScript project that extends the consumer config, includes ambient declaration files, and lists generated files only. Its regression suite passes locally, and the patched binary passes all four real examples. The upstream fix is in draft [justweb PR #108](https://github.com/sweengineeringlabs/justweb/pull/108); until it is merged and released, the examples' declared `justw` pin still uses the failing published binary. The JustJS command matrix therefore has not yet passed against the published pin.
+The independent `justjs typecheck` commands respect each project's config and pass. The checker fix now uses a temporary TypeScript project that extends the consumer config, includes ambient declaration files, and lists generated files only. Its regression suite passes locally, and the patched binary passes all four real examples. The upstream fix is in draft [justweb PR #108](https://github.com/sweengineeringlabs/machineweb/pull/108); until it is merged and released, the examples' declared `justw` pin still uses the failing published binary. The JustJS command matrix therefore has not yet passed against the published pin.
 
 The pinned release currently publishes a Windows binary only; Linux CLI download/install acceptance remains unfulfilled. Linux CI validates the pinned generator from source instead. The CLI TOML upgrade also remains unmerged upstream ([justweb-dev#22](https://github.com/sweengineeringlabs/justweb-dev/pull/22)).
 

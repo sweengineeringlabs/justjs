@@ -5,7 +5,7 @@
 
 ## Context
 
-justjs#158 originally proposed `sweengineeringlabs/justjs-cli` as a standalone Rust binary crate, mirroring the pattern of `justw` living in `sweengineeringlabs/justweb`. The CLI would be distributed separately from the framework repo.
+justjs#158 originally proposed `sweengineeringlabs/justjs-cli` as a standalone Rust binary crate, mirroring the pattern of `justw` living in `sweengineeringlabs/machineweb`. The CLI would be distributed separately from the framework repo.
 
 During implementation it became clear that the CLI has hard runtime dependencies on `justw`, `csslense`, and `browsectl` — all of which are already built and versioned inside `sweengineeringlabs/justweb-dev`. Keeping the CLI in its own repo would require either:
 
@@ -34,7 +34,7 @@ A future GitHub Releases distribution step (curl-install script) is tracked sepa
 Two statements above no longer describe the project:
 
 - **The tools are not built inside `justweb-dev`.** `justw`, `csslense` and `browsectl` are
-  built and released from their own repositories (`sweengineeringlabs/justweb`, `csslense`
+  built and released from their own repositories (`sweengineeringlabs/machineweb`, `csslense`
   and `browsectl`). The `justweb-dev` workspace holds the CLI and the crates that install and
   verify those releases (config, toolchain, release, and one provider per tool). The CLI
   downloads the pinned release of each tool; it does not compile them.

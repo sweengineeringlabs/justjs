@@ -198,7 +198,7 @@ the `justweb` checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for 
    binary was built from:
 
    ```sh
-   gh release download vX.Y.Z -R sweengineeringlabs/justweb -p toolchain-manifest.json -O -
+   gh release download vX.Y.Z -R sweengineeringlabs/machineweb -p toolchain-manifest.json -O -
    ```
 
 2. **Pin it in every example that uses the generator** (`hello-justjs`, `cross-target-demo`,
@@ -225,7 +225,7 @@ the `justweb` checkout `ref:` in `.github/workflows/ci.yml`, the docs, and (for 
    git status --short scm/examples
    ```
 
-4. **Update CI.** In `.github/workflows/ci.yml` set the `sweengineeringlabs/justweb` checkout
+4. **Update CI.** In `.github/workflows/ci.yml` set the `sweengineeringlabs/machineweb` checkout
    `ref:` to the same 40-character revision (the check requires it to equal the examples' pin).
    If the CLI changed, set the `sweengineeringlabs/justweb-dev` `ref:` to a commit on its `main`.
 5. **Update the docs.** The pin table under "Pinned toolchain" in the
