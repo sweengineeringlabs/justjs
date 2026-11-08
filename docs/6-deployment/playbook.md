@@ -15,7 +15,7 @@ This spans two repos. Each has its own docs for its own piece — this
 playbook is the thing that ties `justjs`'s half together, not a replacement
 for either:
 
-- `sweengineeringlabs/justjs` (this repo) — the `@justjs/*` packages themselves
+- `sweengineeringlabs/justweb` (this repo) — the `@justjs/*` packages themselves
 - `sweengineeringlabs/js-runtime` (repo dir: `justscript_runtime`) — `main/features/mobile-bridge/tests/fixtures/app/` (the vendoring + entry script) and `main/features/mobile-bridge/tests/android-shell/` (the APK shell); see that repo's `docs/4-development/runbook/android-webview-verification.md` for the underlying `justc`/APK/`adb` toolchain this playbook builds on
 
 ## What CI covers, and what it doesn't (justjs#76)

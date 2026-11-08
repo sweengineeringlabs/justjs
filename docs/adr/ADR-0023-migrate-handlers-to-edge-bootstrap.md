@@ -8,7 +8,7 @@
 
 This ADR decides one thing: the Anthropic-key retirement. It's Phase 1 of
 a much larger goal tracked in
-[justjs#155](https://github.com/sweengineeringlabs/justjs/issues/155) —
+[justjs#155](https://github.com/sweengineeringlabs/justweb/issues/155) —
 retiring justjs's hand-rolled transport/AOP infrastructure entirely in
 favor of edge-bootstrap Handlers, not just this one integration. Later
 retirements (`@justjs/transport`, `aop/security`, `aop/observability`,
@@ -157,6 +157,6 @@ scaffold) still work through the new path.
 
 ## Relates to
 
-- [justjs#155](https://github.com/sweengineeringlabs/justjs/issues/155) — the tracking epic this ADR backs
+- [justjs#155](https://github.com/sweengineeringlabs/justweb/issues/155) — the tracking epic this ADR backs
 - `ai-assist/scm/main/src/core/anthropic_provider.ts` — the client-side integration this retires
 - [edge-bootstrap#62](https://github.com/sweengineeringlabs/edge-bootstrap/issues/62) — unrelated to this now; kept open as independent future work on the Wasm-component contract from the v2 investigation

@@ -372,7 +372,7 @@ describe("ProviderConnectorControl", () => {
         expect(providerId).toBe("github");
         return { session: "real" };
       };
-      el.list = async (_id, session) => [{ id: "1", name: "sweengineeringlabs/justjs", status: "public" }];
+      el.list = async (_id, session) => [{ id: "1", name: "sweengineeringlabs/justweb", status: "public" }];
       let connectedDetail: { providerId: string } | undefined;
       el.addEventListener("connected", (e) => {
         connectedDetail = (e as CustomEvent).detail;
@@ -390,7 +390,7 @@ describe("ProviderConnectorControl", () => {
       expect(connectValues).toEqual({ token: "gho_real_token" });
       expect(connectedDetail).toEqual({ providerId: "github" });
       const list = el.shadowRoot?.querySelector("view-list") as { items?: readonly { name: string }[] } | null;
-      expect(list?.items?.[0]?.name).toBe("sweengineeringlabs/justjs");
+      expect(list?.items?.[0]?.name).toBe("sweengineeringlabs/justweb");
     });
 
     it("surfaces a device-flow rejection (e.g. expired code) via the status line, same as a failed connect", async () => {

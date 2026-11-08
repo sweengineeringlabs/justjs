@@ -1,6 +1,6 @@
 # Bun tooling and runtime boundaries
 
-Issue: [justjs#156](https://github.com/sweengineeringlabs/justjs/issues/156).
+Issue: [justjs#156](https://github.com/sweengineeringlabs/justweb/issues/156).
 
 Use Bun **1.4.2** for development and CI. `packageManager` and the CI setup
 pin that version; `engines.bun` sets 1.4.2 as the supported minimum for the

@@ -1,7 +1,7 @@
 # Mandatory JustWeb compliance (#157)
 
 JustWeb compliance is a framework requirement, not a CI option. The rollout
-is breaking and is tracked in https://github.com/sweengineeringlabs/justjs/issues/157.
+is breaking and is tracked in https://github.com/sweengineeringlabs/justweb/issues/157.
 
 ## Mandatory DDAS validation
 
