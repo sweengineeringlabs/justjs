@@ -50,14 +50,14 @@ describe("DefaultScmConnectProvider", () => {
     adapter.queueResponse(async () => ({
       status: 200,
       headers: {},
-      data: [{ id: 123, name: "justjs", full_name: "sweengineeringlabs/justjs", private: false }],
+      data: [{ id: 123, name: "justweb", full_name: "sweengineeringlabs/justweb", private: false }],
     }));
     const provider = new DefaultScmConnectProvider(GITHUB_PROVIDER, { token: "tok" }, adapter);
     const resources = await provider.connect();
     expect(adapter.calls[0]!.url).toBe("https://api.github.com/user/repos");
     expect(adapter.calls[0]!.options?.headers?.Authorization).toBe("Bearer tok");
     expect(adapter.calls[0]!.options?.headers?.Accept).toBe("application/vnd.github+json");
-    expect(resources).toEqual([{ id: "123", name: "sweengineeringlabs/justjs", status: "public" }]);
+    expect(resources).toEqual([{ id: "123", name: "sweengineeringlabs/justweb", status: "public" }]);
   });
 
   it("test_connect_gitlab_parses_real_project_shape_including_visibility", async () => {

@@ -14,7 +14,7 @@ that is not a member of this bun workspace.** No registry is required.
 
 ## Why not a git dependency?
 
-`git+https://github.com/sweengineeringlabs/justjs.git#<commit>::path:<subdir>`
+`git+https://github.com/sweengineeringlabs/justweb.git#<commit>::path:<subdir>`
 looks like it should work, but doesn't, at least not with plain `npm`
 (confirmed by testing it directly): `npm`'s fetcher (`pacote`) parses the
 `path:` subdirectory suffix but never actually uses it to scope the
