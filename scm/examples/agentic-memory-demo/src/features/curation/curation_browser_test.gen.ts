@@ -1,8 +1,8 @@
 // curation — browser test (auto-generated)
 // Source: curation_component.yaml (v1)
-// Run:    justw test curation_browser_test.gen.ts --browser
+// Run:    mweb test curation_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component curation
+// DO NOT EDIT — regenerate with: mweb generate component curation
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

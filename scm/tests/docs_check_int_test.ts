@@ -71,6 +71,7 @@ test("a stale version inside a fenced command example is still reported", () => 
 })
 
 for (const [what, text, expected] of [
+  ["mweb", "Pinned: mweb `0.1.1`.", "docs/guide.md: says mweb 0.1.1 but the pin is 0.1.2"],
   ["justw", "Pinned: justw `0.1.1`.", "docs/guide.md: says justw 0.1.1 but the pin is 0.1.2"],
   ["Rust", "Built with Rust 1.85.0.", "docs/guide.md: says Rust 1.85.0 but the pin is 1.99.1"],
   ["Bun", "Needs Bun **1.3.0**.", "docs/guide.md: says Bun 1.3.0 but the pin is 1.4.2"],
@@ -97,9 +98,9 @@ test("history files keep old versions but their links are still checked", () => 
     expect(checkDocs(root)).toEqual(["docs/e2e-validation.md: broken link 'gone.md' (no such file: docs/gone.md)"]))
 })
 
-test("examples that disagree on the justw pin are reported", () => {
+test("examples that disagree on the generator pin are reported", () => {
   fixture({ "scm/examples/two/justjs.config.toml": config("0.1.1") }, (root) =>
-    expect(checkDocs(root).some((e) => e.startsWith("examples disagree on the justw pin"))).toBe(true))
+    expect(checkDocs(root).some((e) => e.startsWith("examples disagree on the generator pin"))).toBe(true))
 })
 
 test("a half-declared pin is reported", () => {
@@ -107,9 +108,9 @@ test("a half-declared pin is reported", () => {
     expect(checkDocs(root)).toContain("scm/examples/two/justjs.config.toml: generator_version and a 40-character generator_revision are both required"))
 })
 
-test("CI building justw from a different commit than the examples pin is reported", () => {
+test("CI building the generator from a different commit than the examples pin is reported", () => {
   fixture({ ".github/workflows/ci.yml": ci({ generatorRef: "0".repeat(40) }) }, (root) =>
-    expect(checkDocs(root)).toEqual([`ci.yml builds justw from ${"0".repeat(40)} but the examples pin generator_revision ${REV}`]))
+    expect(checkDocs(root)).toEqual([`ci.yml builds the generator from ${"0".repeat(40)} but the examples pin generator_revision ${REV}`]))
 })
 
 test("a floating Rust toolchain in CI is reported", () => {

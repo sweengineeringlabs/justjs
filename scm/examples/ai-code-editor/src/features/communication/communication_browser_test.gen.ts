@@ -1,8 +1,8 @@
 // communication — browser test (auto-generated)
 // Source: communication_component.yaml (v1)
-// Run:    justw test communication_browser_test.gen.ts --browser
+// Run:    mweb test communication_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component communication
+// DO NOT EDIT — regenerate with: mweb generate component communication
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

@@ -1,5 +1,10 @@
 # JustJS — Architecture
 
+Repository names: the framework is `sweengineeringlabs/justweb`, the MachineWeb
+generator (`mweb`) is `sweengineeringlabs/machineweb`, and the `justjs` CLI is
+`sweengineeringlabs/justweb-dev`. Package names and configuration filenames remain
+unchanged. See [pinned toolchain](#pinned-toolchain) for the current versions.
+
 ## Overview
 
 JustJS is the UI domain layer. The developer writes a `*_component.yaml` and places an HTML tag. Everything else flows — routing, auth, state, API transport, lifecycle, CSS, observability, platform delivery.
@@ -336,7 +341,7 @@ sequenceDiagram
     participant Cfg as justjs.config.toml
     participant GH as GitHub release of the tool
     participant Cache as ~/.justjs/toolchains
-    participant Justw as justw (cached)
+    participant Justw as mweb (cached)
 
     Dev->>CLI: justjs toolchain install
     CLI->>Cfg: read [justweb] generator_version + generator_revision
@@ -349,27 +354,27 @@ sequenceDiagram
         CLI->>Cache: store binary + receipt atomically
     end
     Dev->>CLI: justjs generate
-    CLI->>Cache: path of the verified justw (never one from PATH)
-    CLI->>Justw: justw generate app (once per workspace member)
+    CLI->>Cache: path of the verified mweb (never one from PATH)
+    CLI->>Justw: mweb generate app (once per workspace member)
 ```
 
 What is pinned, and where:
 
 | Pin | Value | Declared in | Enforced by |
 |---|---|---|---|
-| `justw` version and source commit | `0.1.2` @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` | `[justweb] generator_version` / `generator_revision` in each example's `justjs.config.toml` | `bun run check:docs`: all examples agree, CI builds the generator from that very commit, docs state the same |
+| `mweb` version and source commit | `0.5.0` @ `9035afa17bca513bcfd3e3081ae0fcba26df902e` | `[justweb] generator_version` / `generator_revision` in each example's `justjs.config.toml` | `bun run check:docs`: all examples agree, CI builds the generator from that very commit, docs state the same |
 | `csslense`, `browsectl` | optional `[csslense]` / `[browsectl]` sections, same `version` + `revision` form | `justjs.config.toml` | the CLI; not used by the examples here |
 | `justjs` CLI | built from source in CI at `sweengineeringlabs/justweb-dev` commit `0445fffadd71f69504d35a909d178994b08685dc` | `.github/workflows/ci.yml` (`ref:`) | `bun run check:docs`: docs that name a `justweb-dev` commit match it |
 | Rust (to build the CLI and the generator) | `1.99.1` | `dtolnay/rust-toolchain@1.99.1` in `ci.yml` | `bun run check:docs` |
 | Bun | `1.4.2` | `packageManager` and `bun-version` in `ci.yml` | CI verifies `bun --version`; `bun run check:docs` |
 
-The three tools are released from their own repositories (`justweb`, `csslense`, `browsectl`),
+The three tools are released from their own repositories (`machineweb`, `csslense`, `browsectl`),
 not from `justweb-dev` (ADR-0024 describes where the CLI crate lives). A tool release carries
 a `toolchain-manifest.json` listing each platform's binary and its SHA-256; the CLI refuses a
 manifest whose tool, version or revision differs from the pin, or that lacks the host platform.
-The `justw` 0.1.2 release currently carries a Windows x86_64 binary only, so CI validates
+The `mweb` 0.5.0 release currently carries a Windows x86_64 binary only, so CI validates
 regeneration from the pinned source on Linux, and on Windows builds the CLI and runs the
-downloaded `justw` release through the example workflows.
+downloaded `mweb` release through the example workflows.
 
 A commit used as a CI checkout ref must be on the other repository's `main`, not the tip of a
 branch that may later be deleted: a ref that no longer exists fails the checkout. The

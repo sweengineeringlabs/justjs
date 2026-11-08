@@ -1,8 +1,8 @@
 // cartoon — browser test (auto-generated)
 // Source: cartoon_component.yaml (v1)
-// Run:    justw test cartoon_browser_test.gen.ts --browser
+// Run:    mweb test cartoon_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component cartoon
+// DO NOT EDIT — regenerate with: mweb generate component cartoon
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

@@ -139,7 +139,7 @@ These are the verifiable conditions that must hold for every workspace before si
 
 `★` = hand-written input · `⚙` = generated output · `◎` = generated once, then owned by the developer.
 
-### Single package (`justw generate app --preset sea`)
+### Single package (`mweb generate app --preset sea`)
 
 One `main/` — all features colocated under a shared `api/`, `core/`, `saf/`.
 
@@ -178,7 +178,7 @@ src/
     └── browser-sdk/                       ⚙ browser automation SDK
 ```
 
-### Multi-package (`justw generate app --preset sea-multi` — planned)
+### Multi-package (`mweb generate app --preset sea-multi` — planned)
 
 Each feature is a self-contained package with its own `main/src/{api,core,saf}` —
 mirroring the domain package pattern used in the backend (e.g. `domain/llm/{agents,complete,prompt}`).
@@ -222,7 +222,7 @@ scm/
 
 ## DDAS — Deterministic DOM Addressing System
 
-`dom-address-map.json` is a `DdasMap` artifact produced by `justw generate app` via `@swelabs/ddas`. It assigns every addressable DOM element a stable four-segment ID: `app:feature:component:element`.
+`dom-address-map.json` is a `DdasMap` artifact produced by `mweb generate app` via `@swelabs/ddas`. It assigns every addressable DOM element a stable four-segment ID: `app:feature:component:element`.
 
 JustJS consumes `dom-address-map.json` at two points:
 

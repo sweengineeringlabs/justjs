@@ -1,8 +1,8 @@
 // review — browser test (auto-generated)
 // Source: review_component.yaml (v1)
-// Run:    justw test review_browser_test.gen.ts --browser
+// Run:    mweb test review_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component review
+// DO NOT EDIT — regenerate with: mweb generate component review
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

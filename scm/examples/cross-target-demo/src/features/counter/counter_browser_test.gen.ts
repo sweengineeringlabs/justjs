@@ -1,8 +1,8 @@
 // counter — browser test (auto-generated)
 // Source: counter_component.yaml (v1)
-// Run:    justw test counter_browser_test.gen.ts --browser
+// Run:    mweb test counter_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component counter
+// DO NOT EDIT — regenerate with: mweb generate component counter
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

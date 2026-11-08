@@ -22,13 +22,13 @@
       "kind": "registry",
       "path": "src/component-registry.gen.ts",
       "schema": "justweb.registry/1",
-      "sha256": "71f2a8fcdfedd7b88684b5c5c664a6c3c0fb1a2d71e4ef17ee77aed4543d29ba"
+      "sha256": "ff8942da57ff3440c9fd70ed56ccc0e466723ec7fab217a425e8676c87cb5572"
     },
     {
       "kind": "component-test",
       "path": "src/features/counter/counter_browser_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "90278c339a5c91f1c604c5b8411e381792f404fd95cbbc33f0961260781e0f2c"
+      "sha256": "85b6217312be4d58e131619655113def9b4ea778755b3b80129d9816891f6b65"
     },
     {
       "kind": "component-markup",
@@ -46,25 +46,25 @@
       "kind": "component-test",
       "path": "src/features/counter/counter_e2e_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "cf8b9e9a828b38f00b6e737b79153e4321c944fe7366aeb027311bd57d07b0ad"
+      "sha256": "26b494608dd9a3c5035a259e77b0a2ca6213fff99dc76a2ae4969317e4d1d7c4"
     },
     {
       "kind": "component-test",
       "path": "src/features/counter/counter_int_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "12a869de69052e252ab7e9d688c163c8e5c5f2c35ba8d907b75250189f0002bf"
+      "sha256": "272428f85758e18f6142db0641889cb3e2f0cf535b68454b0096d0a3c4072d51"
     },
     {
       "kind": "component-mock",
       "path": "src/features/counter/counter_mock.gen.ts",
       "schema": "justweb.component-mock/1",
-      "sha256": "ca6f2c3e25fd4eaa4de5c303520248e8275afafb52328a167b1b977b2c0a5135"
+      "sha256": "9fed6abde8ba4ff3e25b0f46a35723b30d6a478f7870b2cabecf012531861f34"
     },
     {
       "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_browser_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "2c9ce56a5b679aee19bf15cca6ec4a067cbd4d4370f8b63bc0836b7b061e9af8"
+      "sha256": "d31efae5adaa90d3e6477b8a33cdec8dd99f8244dc8d9bd943b5601db717e698"
     },
     {
       "kind": "component-markup",
@@ -82,25 +82,25 @@
       "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_e2e_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "7c7245dd5bf2c36fcf955349a1cc995e9d2e14d7da4a0cbebbd9a3bcc1923eaa"
+      "sha256": "2bc08948f0ac758c02882b22a05f18d935d946833b231df9c4e752596ab660bc"
     },
     {
       "kind": "component-test",
       "path": "src/features/fetch-demo/fetch_demo_int_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "e38b61fb36d6c559189184ce3fbd39579c05d86c59fb9350b9712dacf35576dc"
+      "sha256": "6d8ee4261d1a28ba1eb6b913ff61b492d2b33893d1075b70fa7c2b6dc3992236"
     },
     {
       "kind": "component-mock",
       "path": "src/features/fetch-demo/fetch_demo_mock.gen.ts",
       "schema": "justweb.component-mock/1",
-      "sha256": "2923789d481a72c9af107d45b6e71eb50c2c55758d7bfd3f70063901df35d6ed"
+      "sha256": "81e4d7bdb3f4d276ba15e1ec11937c20d5bd22d23d472fbcb58a29c325d1621b"
     },
     {
       "kind": "component-test",
       "path": "src/features/form-demo/form_demo_browser_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "1887632ba373340a425293e38530b3fbbce545f2a3c284b9d8d62698f03306c0"
+      "sha256": "92eebc066faeb4a62df3b38d6e2de4d4982beb64adceb820999c88d76d2a6796"
     },
     {
       "kind": "component-markup",
@@ -118,42 +118,42 @@
       "kind": "component-test",
       "path": "src/features/form-demo/form_demo_e2e_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "d031397b387aa0739a5664010c2955c957b2334d6de54a2e8d8e085ba3de1c6a"
+      "sha256": "f5121369100b49fa2e8190febd1a96797f5af40ba69970efa3fbce971b9713d7"
     },
     {
       "kind": "component-test",
       "path": "src/features/form-demo/form_demo_int_test.gen.ts",
       "schema": "justweb.component-test/1",
-      "sha256": "7032f14c1f398f76b830165a50e069b15577881b2697562d2248aba7d37c66a0"
+      "sha256": "e1bb70271908e8000f6a6e4072b9151e9e6c10e4428310846fe5f09d8d1934a6"
     },
     {
       "kind": "component-mock",
       "path": "src/features/form-demo/form_demo_mock.gen.ts",
       "schema": "justweb.component-mock/1",
-      "sha256": "6281d88544d87febc069f5243b5d8bd806ae0bb0514e4db6c26cac25a3cf47f1"
+      "sha256": "e1892a7f69b7881bbf9e6839048c8795acaaeac3eb3c38290e2fbfca6c8dd811"
     },
     {
       "kind": "mounts",
       "path": "src/mounts.gen.ts",
       "schema": "justweb.mounts/1",
-      "sha256": "ba3063354e01f0c2240bb7b0c5936f536a37a766507153cd94a84ff7ba740b7d"
+      "sha256": "cc3cd57c7ee048726fdf531ca65b33301e865f4bd76d5d42d6d65cadae367f8b"
     },
     {
       "kind": "registry",
       "path": "src/registry.gen.ts",
       "schema": "justweb.registry/1",
-      "sha256": "d89341610896aa60226c28283140d32a821a275b2aa069399de91dc1224e8061"
+      "sha256": "fc41f81afb3d576c88b71807bb936111a2a697a857e72ea27e26eafc784ac288"
     },
     {
       "kind": "routes",
       "path": "src/routes.gen.ts",
       "schema": "justweb.routes/1",
-      "sha256": "6257a90051508ca6fa0df683150e50d06d4e041dadbe2dad2d2d28a1bc53f53b"
+      "sha256": "8a0dc79a0333a9dc0863d11114cc20be70295aa334a7937a44af80ef9029215d"
     }
   ],
   "canonicalization": {
     "digest": "sha256, lowercase hex",
-    "digestInput": "the artifact's bytes exactly as justw wrote them (LF, no normalization); never a bundled or transformed form",
+    "digestInput": "the artifact's bytes exactly as mweb wrote them (LF, no normalization); never a bundled or transformed form",
     "ordering": "artifacts sorted by path, ascending byte order",
     "pathForm": "project-root-relative, '/'-separated, no leading '/', no '..'",
     "verification": "build-time only; a browser runtime must not recompute digests from bundled output"
@@ -176,10 +176,10 @@
       "routes": "justweb.routes/1",
       "service-worker": "justweb.service-worker/1"
     },
-    "name": "justw",
-    "revision": "4d2828d47ac0a5eac50677efa835994dfdee18a9",
+    "name": "mweb",
+    "revision": "9035afa17bca513bcfd3e3081ae0fcba26df902e",
     "sourceDirty": false,
-    "version": "0.1.2"
+    "version": "0.5.0"
   },
   "provenance": {
     "authenticated": false,

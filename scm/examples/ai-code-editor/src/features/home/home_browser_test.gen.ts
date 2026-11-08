@@ -1,8 +1,8 @@
 // home — browser test (auto-generated)
 // Source: home_component.yaml (v1)
-// Run:    justw test home_browser_test.gen.ts --browser
+// Run:    mweb test home_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component home
+// DO NOT EDIT — regenerate with: mweb generate component home
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

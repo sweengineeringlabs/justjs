@@ -1,4 +1,28 @@
-# Addendum - 2026-11-08: CLI pin uses machineweb directly
+# Addendum - 2026-11-08: framework consumers migrated to mweb 0.5.0
+
+- All four examples now pin `mweb` 0.5.0 at
+  `9035afa17bca513bcfd3e3081ae0fcba26df902e`, matching the CLI bundled pin.
+- Runtime boot validation, public contract types, Vite code generation, artifact checks,
+  CI source installation (`mweb_bin`, binary `mweb`), and current operational docs
+  use the new generator identity. Generated artifacts were regenerated with the release binary.
+- Local Windows validation completed at approximately 16:53 SAST using Bun 1.4.2,
+  Rust 1.99.1, and a CLI built directly from the clean sibling `../justweb-dev`
+  checkout at `0445fffadd71f69504d35a909d178994b08685dc` (`justjs` v0.1.4).
+- A fresh isolated tool cache downloaded and verified the published `mweb` release.
+  All four examples passed install twice, verified listing, generate, check, typecheck,
+  and build from their nested `src/` directories (28 successful command checks).
+- Real Chrome passed counter/form interactions, counter/login/logout, memory
+  add/browse/settings, and editor route mounts/navigation/edit persistence.
+  All four development servers stopped successfully; no browser runtime exceptions.
+- Workspace build, typecheck and tests passed, as did the sibling CLI's Rust workspace
+  tests, 15 documentation tests, the three config-to-browser pipeline tests, artifact
+  digests, and browser runtime boundary checks.
+- Repeated generation left all tracked example files byte-for-byte unchanged.
+- This section records local Windows verification; the migration pull request tracks
+  hosted CI separately. macOS was not verified. The mweb 0.5.0 release contains a
+  Windows x86_64 binary only.
+
+# Historical addendum - 2026-11-08, before the mweb re-pin: CLI uses machineweb directly
 
 - CI now builds `justjs` v0.1.4 from `sweengineeringlabs/justweb-dev` commit
   `0445fffadd71f69504d35a909d178994b08685dc` (#170).
@@ -9,10 +33,10 @@
   browser workflows. Run evidence is recorded in #170 after verification.
 - The dated status and validation runs below describe earlier toolchain pins.
 
-# Current status — 2026-11-05
+# Historical status — 2026-11-05
 
 This file records dated validation runs; the sections below say what was true on their dates.
-What is true now:
+What was verified on that date:
 
 - `justw` 0.1.2 @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` is pinned in all four generator
   examples, and CI builds the generator from that commit.

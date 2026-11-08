@@ -1,8 +1,8 @@
 // login — browser test (auto-generated)
 // Source: login_component.yaml (v1)
-// Run:    justw test login_browser_test.gen.ts --browser
+// Run:    mweb test login_browser_test.gen.ts --browser
 //
-// DO NOT EDIT — regenerate with: justw generate component login
+// DO NOT EDIT — regenerate with: mweb generate component login
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';

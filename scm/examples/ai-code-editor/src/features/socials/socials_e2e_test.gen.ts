@@ -1,9 +1,9 @@
 // socials — browser E2E test (auto-generated)
 // Source: styles/socials_component.yaml (v1)
-// Run:    justw test src/features/socials/socials_e2e_test.gen.ts --browser --e2e
+// Run:    mweb test src/features/socials/socials_e2e_test.gen.ts --browser --e2e
 //
-// Requires: justw serve running (auto-started when justweb.toml present)
-// DO NOT EDIT — regenerate with: justw generate component socials
+// Requires: mweb serve running (auto-started when justweb.toml present)
+// DO NOT EDIT — regenerate with: mweb generate component socials
 
 import { Browser, launchBrowser } from '@browser/browser';
 import { Page } from '@browser/page';
