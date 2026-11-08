@@ -144,7 +144,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: sweengineeringlabs/justweb-dev
-          ref: 5db7d42d2c62ce6053df5f2fb462693384c4816d
+          ref: 0445fffadd71f69504d35a909d178994b08685dc
           path: tools/justweb-dev
           token: ${{ secrets.JUSTWEB_READ_TOKEN }}
           persist-credentials: false

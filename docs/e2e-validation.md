@@ -1,3 +1,14 @@
+# Addendum - 2026-11-08: CLI pin uses machineweb directly
+
+- CI now builds `justjs` v0.1.4 from `sweengineeringlabs/justweb-dev` commit
+  `0445fffadd71f69504d35a909d178994b08685dc` (#170).
+- That revision registers both `mweb` and legacy `justw` against `sweengineeringlabs/machineweb`;
+  the CLI no longer depends on the generator's old repository-name redirect.
+- The four examples retain their existing `justw` 0.1.2 pins and generated artifacts.
+- Hosted Windows CI validates fresh toolchain installation, generation, checks, builds and
+  browser workflows. Run evidence is recorded in #170 after verification.
+- The dated status and validation runs below describe earlier toolchain pins.
+
 # Current status — 2026-11-05
 
 This file records dated validation runs; the sections below say what was true on their dates.

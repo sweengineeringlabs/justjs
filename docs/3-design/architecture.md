@@ -359,7 +359,7 @@ What is pinned, and where:
 |---|---|---|---|
 | `justw` version and source commit | `0.1.2` @ `4d2828d47ac0a5eac50677efa835994dfdee18a9` | `[justweb] generator_version` / `generator_revision` in each example's `justjs.config.toml` | `bun run check:docs`: all examples agree, CI builds the generator from that very commit, docs state the same |
 | `csslense`, `browsectl` | optional `[csslense]` / `[browsectl]` sections, same `version` + `revision` form | `justjs.config.toml` | the CLI; not used by the examples here |
-| `justjs` CLI | built from source in CI at `sweengineeringlabs/justweb-dev` commit `5db7d42d2c62ce6053df5f2fb462693384c4816d` | `.github/workflows/ci.yml` (`ref:`) | `bun run check:docs`: docs that name a `justweb-dev` commit match it |
+| `justjs` CLI | built from source in CI at `sweengineeringlabs/justweb-dev` commit `0445fffadd71f69504d35a909d178994b08685dc` | `.github/workflows/ci.yml` (`ref:`) | `bun run check:docs`: docs that name a `justweb-dev` commit match it |
 | Rust (to build the CLI and the generator) | `1.99.1` | `dtolnay/rust-toolchain@1.99.1` in `ci.yml` | `bun run check:docs` |
 | Bun | `1.4.2` | `packageManager` and `bun-version` in `ci.yml` | CI verifies `bun --version`; `bun run check:docs` |
 
