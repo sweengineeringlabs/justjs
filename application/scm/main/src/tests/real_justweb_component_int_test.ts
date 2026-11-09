@@ -2,9 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
-import type { ComponentContext } from "../api/component.js"
+import type { ComponentContext } from "../api/api_component.js"
 import type { DomAddressMap } from "../api/dom-address.js"
-import type { LazyCustomElementRegistry } from "../api/registry.js"
+import type { LazyCustomElementRegistry } from "../api/api_registry.js"
 import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "../api/justweb_contract.js"
 
 async function adaptWithContract(source: LazyCustomElementRegistry) {

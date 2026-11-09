@@ -4,9 +4,9 @@ import { createFeatureStore } from "@justjs/data"
 import { DefaultRouter } from "../core/registry/router.js"
 import { DefaultLifecycle } from "../core/lifecycle/lifecycle_pipeline.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
-import { RegistryError } from "../api/registry.js"
+import { RegistryError } from "../api/api_registry.js"
 import type { DomAddressMap } from "../api/dom-address.js"
-import type { Component } from "../api/component.js"
+import type { Component } from "../api/api_component.js"
 
 const DDAS = (...tags: string[]): DomAddressMap => ({
   elements: Object.fromEntries(tags.map((tag) => [`app:home:${tag}:root`, { component: tag, tag }])),

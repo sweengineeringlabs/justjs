@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { BootError } from "../api/boot.js"
+import { BootError } from "../api/api_boot.js"
 import { adaptCustomElementRegistry, createComponentRegistry, createLifecycle, createRouter, validateJustWebRuntimeMetadata } from "../saf/index.js"
 import { SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "../api/justweb_contract.js"
 

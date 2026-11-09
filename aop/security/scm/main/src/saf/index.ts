@@ -1,5 +1,5 @@
-export type { SecurityProviderConfig, SecurityAspect, SecurityProvider, UISecurityContext, Principal } from "../api/provider.js"
-export { NoopSecurityContext }    from "../api/provider.js"
+export type { SecurityProviderConfig, SecurityAspect, SecurityProvider, UISecurityContext, Principal } from "../api/api_provider.js"
+export { NoopSecurityContext }    from "../api/api_provider.js"
 
 // justjs#91 fix: importing this module's own spi/index.js for its side
 // effect means the common case (`import { createSecurityProvider } from
@@ -7,7 +7,7 @@ export { NoopSecurityContext }    from "../api/provider.js"
 // matching @justjs/memory's own saf/index.ts pattern.
 import "../spi/index.js"
 
-import type { SecurityProvider } from "../api/provider.js"
+import type { SecurityProvider } from "../api/api_provider.js"
 import { DefaultSecurityProvider } from "../core/default_security.js"
 import { BearerSecurityProvider, createBearerApiAdapter } from "../core/bearer_security.js"
 

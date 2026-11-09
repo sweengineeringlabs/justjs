@@ -9,7 +9,7 @@ import type {
   MountHandle,
   Component,
   ComponentProps,
-} from "../api/component.js"
+} from "../api/api_component.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 

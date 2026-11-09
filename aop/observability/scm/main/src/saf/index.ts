@@ -1,5 +1,5 @@
-export type { UIObserverContext, ObservabilityProviderConfig, ObservabilityAspect, ObservabilityProvider } from "../api/provider.js"
-export { NoopObserverContext } from "../api/provider.js"
+export type { UIObserverContext, ObservabilityProviderConfig, ObservabilityAspect, ObservabilityProvider } from "../api/api_provider.js"
+export { NoopObserverContext } from "../api/api_provider.js"
 
 // justjs#91 fix: importing this module's own spi/index.js for its side
 // effect means the common case (`import { createObservabilityProvider }
@@ -7,7 +7,7 @@ export { NoopObserverContext } from "../api/provider.js"
 // strategy, matching @justjs/memory's own saf/index.ts pattern.
 import "../spi/index.js"
 
-import type { ObservabilityProvider } from "../api/provider.js"
+import type { ObservabilityProvider } from "../api/api_provider.js"
 import { DefaultObservabilityProvider } from "../core/default_observability.js"
 
 // Factory, not a direct class re-export (core_not_exported_directly,

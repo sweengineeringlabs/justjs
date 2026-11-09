@@ -1,6 +1,6 @@
-import type { Component, ComponentProps } from "../../api/component.js"
-import type { ComponentRegistry } from "../../api/registry.js"
-import { RegistryError } from "../../api/registry.js"
+import type { Component, ComponentProps } from "../../api/api_component.js"
+import type { ComponentRegistry } from "../../api/api_registry.js"
+import { RegistryError } from "../../api/api_registry.js"
 import { assertValidatedJustWebContract, type ValidatedJustWebContract } from "../../api/justweb_contract.js"
 
 export class DefaultComponentRegistry implements ComponentRegistry {

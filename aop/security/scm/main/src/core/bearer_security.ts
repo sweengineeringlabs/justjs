@@ -1,6 +1,6 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
 import type { ApiAdapter, ApiRequest, ApiResponse } from "@justjs/transport"
-import type { Principal, SecurityProviderConfig, UISecurityContext } from "../api/provider.js"
+import type { Principal, SecurityProviderConfig, UISecurityContext } from "../api/api_provider.js"
 
 const DEFAULT_TOKEN_STORAGE_KEY = "justjs:bearer-token"
 

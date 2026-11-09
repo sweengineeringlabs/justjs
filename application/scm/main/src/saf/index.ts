@@ -5,15 +5,15 @@ export type {
   ComponentDataContext,
   MountHandle,
   RuntimeAdapter,
-} from "../api/component.js"
-export { ComponentError, NoopRuntimeAdapter } from "../api/component.js"
+} from "../api/api_component.js"
+export { ComponentError, NoopRuntimeAdapter } from "../api/api_component.js"
 
 export type {
   LifecycleEventType,
   LifecycleStep,
   Lifecycle,
-} from "../api/lifecycle.js"
-export { LifecycleError } from "../api/lifecycle.js"
+} from "../api/api_lifecycle.js"
+export { LifecycleError } from "../api/api_lifecycle.js"
 
 export type {
   BootConfig,
@@ -21,8 +21,8 @@ export type {
   JustJSInstance,
   JustJSProviderRegistry,
   AspectProviderSpec,
-} from "../api/boot.js"
-export { BootError } from "../api/boot.js"
+} from "../api/api_boot.js"
+export { BootError } from "../api/api_boot.js"
 
 export type {
   Router,
@@ -30,8 +30,8 @@ export type {
   MutableComponentRegistry,
   LazyCustomElementRegistry,
   RouteRegistryEntry,
-} from "../api/registry.js"
-export { RegistryError } from "../api/registry.js"
+} from "../api/api_registry.js"
+export { RegistryError } from "../api/api_registry.js"
 
 export type { DomAddressElement, DomAddressMap } from "../api/dom-address.js"
 export type { JustWebArtifactDigest, JustWebArtifactManifest, JustWebContractPin, JustWebRuntimeMetadata, ValidatedJustWebContract } from "../api/justweb_contract.js"
@@ -44,13 +44,13 @@ export type { ErrorBoundary } from "../api/error_boundary.js"
 export { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
 export { justjs } from "../core/boot.js"
 
-export type { AspectProvider, JustJSAspect, AspectTarget } from "../api/aspect.js"
+export type { AspectProvider, JustJSAspect, AspectTarget } from "../api/api_aspect.js"
 
-import { BootError } from "../api/boot.js"
+import { BootError } from "../api/api_boot.js"
 import { assertValidatedJustWebContract, type ValidatedJustWebContract } from "../api/justweb_contract.js"
-import type { Lifecycle } from "../api/lifecycle.js"
-import type { MutableComponentRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
-import type { RuntimeAdapter } from "../api/component.js"
+import type { Lifecycle } from "../api/api_lifecycle.js"
+import type { MutableComponentRegistry, RouteRegistryEntry, Router } from "../api/api_registry.js"
+import type { RuntimeAdapter } from "../api/api_component.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"

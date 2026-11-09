@@ -3,11 +3,11 @@ import { createHash } from "node:crypto"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { createFeatureStore, createUIEventBus } from "@justjs/data"
 import { configureTransportProxy } from "@justjs/network"
-import { BootError, type BootConfig } from "../api/boot.js"
+import { BootError, type BootConfig } from "../api/api_boot.js"
 import type { ErrorBoundary } from "../api/error_boundary.js"
 import { JustJS } from "../core/boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
-import type { Component } from "../api/component.js"
+import type { Component } from "../api/api_component.js"
 import { DefaultComponentRegistry } from "../core/registry/component_registry.js"
 
 const DDAS = (tags: string[]): DomAddressMap => ({

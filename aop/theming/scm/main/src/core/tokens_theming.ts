@@ -1,7 +1,7 @@
 import type { JustJSAspect, AspectTarget } from "@justjs/application"
 import type { WritableSignal } from "@justjs/data"
 import { createSignal } from "@justjs/data"
-import type { ThemingProviderConfig, UIThemingContext } from "../api/provider.js"
+import type { ThemingProviderConfig, UIThemingContext } from "../api/api_provider.js"
 
 class TokensThemingContext implements UIThemingContext {
   private readonly themeSignal: WritableSignal<string>

@@ -1,7 +1,7 @@
-import type { ComponentProps, Component, ComponentDataContext } from "../../api/component.js"
-import type { LazyCustomElementRegistry, MutableComponentRegistry } from "../../api/registry.js"
+import type { ComponentProps, Component, ComponentDataContext } from "../../api/api_component.js"
+import type { LazyCustomElementRegistry, MutableComponentRegistry } from "../../api/api_registry.js"
 import { assertValidatedJustWebContract, type ValidatedJustWebContract } from "../../api/justweb_contract.js"
-import { RegistryError } from "../../api/registry.js"
+import { RegistryError } from "../../api/api_registry.js"
 import { DefaultComponentRegistry } from "./component_registry.js"
 
 // Bridges justweb's generic COMPONENT_REGISTRY shape into @justjs/application's

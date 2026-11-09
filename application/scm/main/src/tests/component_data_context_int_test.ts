@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test"
 import { createFeatureStore, createUIEventBus } from "@justjs/data"
-import type { Component, ComponentDataContext } from "../api/component.js"
+import type { Component, ComponentDataContext } from "../api/api_component.js"
 
 // ADR-0003 D6: proves ComponentDataContext is genuinely usable with real
 // @justjs/data types, not just structurally compiling against `unknown`.

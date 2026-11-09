@@ -1,4 +1,4 @@
-import type { ComponentContext } from "./component.js"
+import type { ComponentContext } from "./api_component.js"
 
 export type LifecycleEventType =
   | "resolve_start"

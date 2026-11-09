@@ -1,11 +1,11 @@
-import type { AspectConfig, AspectProviderSpec, BootConfig, JustJSInstance, JustJSProviderRegistry } from "../api/boot.js"
-import { BootError } from "../api/boot.js"
+import type { AspectConfig, AspectProviderSpec, BootConfig, JustJSInstance, JustJSProviderRegistry } from "../api/api_boot.js"
+import { BootError } from "../api/api_boot.js"
 import type { DomAddressMap } from "../api/dom-address.js"
 import { resolveDdasKnownTags } from "../api/dom-address.js"
 import { assertValidatedJustWebContract, SUPPORTED_JUSTWEB_ARTIFACT_SCHEMA, SUPPORTED_JUSTWEB_GENERATOR_REVISION, SUPPORTED_JUSTWEB_GENERATOR_VERSION, validateJustWebRuntimeMetadata, type ValidatedJustWebContract } from "../api/justweb_contract.js"
-import type { JustJSAspect } from "../api/aspect.js"
-import type { ComponentRegistry, LazyCustomElementRegistry, RouteRegistryEntry, Router } from "../api/registry.js"
-import type { Lifecycle } from "../api/lifecycle.js"
+import type { JustJSAspect } from "../api/api_aspect.js"
+import type { ComponentRegistry, LazyCustomElementRegistry, RouteRegistryEntry, Router } from "../api/api_registry.js"
+import type { Lifecycle } from "../api/api_lifecycle.js"
 import { adaptCustomElementRegistry } from "./registry/component_registry_adapter.js"
 import { DefaultLifecycle } from "./lifecycle/lifecycle_pipeline.js"
 import { DefaultRouter } from "./registry/router.js"
@@ -14,8 +14,8 @@ import type { ApiAdapter } from "@justjs/transport"
 import { createApiAdapter } from "@justjs/transport"
 import { createFetchAdapter } from "@justjs/network"
 
-function isComponentRegistry(x: LazyCustomElementRegistry | import("../api/registry.js").MutableComponentRegistry): x is import("../api/registry.js").MutableComponentRegistry {
-  const registry = x as import("../api/registry.js").MutableComponentRegistry
+function isComponentRegistry(x: LazyCustomElementRegistry | import("../api/api_registry.js").MutableComponentRegistry): x is import("../api/api_registry.js").MutableComponentRegistry {
+  const registry = x as import("../api/api_registry.js").MutableComponentRegistry
   return typeof registry.get === "function" && typeof registry.list === "function" && typeof registry.register === "function" && typeof registry.seal === "function"
 }
 

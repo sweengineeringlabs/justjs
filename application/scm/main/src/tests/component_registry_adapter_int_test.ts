@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test"
 import { GlobalRegistrator } from "@happy-dom/global-registrator"
 import { adaptCustomElementRegistry } from "../core/registry/component_registry_adapter.js"
-import { RegistryError, type LazyCustomElementRegistry } from "../api/registry.js"
+import { RegistryError, type LazyCustomElementRegistry } from "../api/api_registry.js"
 import { validateJustWebRuntimeMetadata, SUPPORTED_JUSTWEB_GENERATOR_REVISION } from "../api/justweb_contract.js"
 
 async function adaptWithContract(source: LazyCustomElementRegistry) {

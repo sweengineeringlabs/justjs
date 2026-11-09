@@ -1,5 +1,5 @@
-export type { UIThemingContext, ThemingProviderConfig, ThemingAspect, ThemingProvider } from "../api/provider.js"
-export { NoopThemingContext } from "../api/provider.js"
+export type { UIThemingContext, ThemingProviderConfig, ThemingAspect, ThemingProvider } from "../api/api_provider.js"
+export { NoopThemingContext } from "../api/api_provider.js"
 
 // justjs#91 fix: importing this module's own spi/index.js for its side
 // effect means the common case (`import { createThemingProvider } from
@@ -7,7 +7,7 @@ export { NoopThemingContext } from "../api/provider.js"
 // matching @justjs/memory's own saf/index.ts pattern.
 import "../spi/index.js"
 
-import type { ThemingProvider } from "../api/provider.js"
+import type { ThemingProvider } from "../api/api_provider.js"
 import { DefaultThemingProvider } from "../core/default_theming.js"
 import { TokensThemingProvider } from "../core/tokens_theming.js"
 

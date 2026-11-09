@@ -403,18 +403,18 @@ Interfaces are organised by the workspace they belong to. Each workspace's `api/
 
 | Interface | File |
 |---|---|
-| `Component<Props, State, Events>` | `api/component.ts` |
-| `ComponentContext` | `api/component.ts` |
-| `MountHandle` | `api/component.ts` |
-| `LifecycleStep`, `Lifecycle` | `api/lifecycle.ts` |
-| `LifecycleEvent`, `LifecycleEventType` | `api/lifecycle.ts` |
+| `Component<Props, State, Events>` | `api/api_component.ts` |
+| `ComponentContext` | `api/api_component.ts` |
+| `MountHandle` | `api/api_component.ts` |
+| `LifecycleStep`, `Lifecycle` | `api/api_lifecycle.ts` |
+| `LifecycleEvent`, `LifecycleEventType` | `api/api_lifecycle.ts` |
 | `Route`, `RouteMatch`, `Router` | `api/router.ts` |
 | `ComponentRegistry` | `api/router.ts` |
 | `InteractionProxy`, `InteractionEvent` | `api/router.ts` |
-| `JustJSAspect`, `AspectProvider`, `AspectRegistry` | `api/aspect.ts` |
-| `AspectTarget`, `AspectConfig`, `AspectDeclaration` | `api/aspect.ts` |
-| `BootConfig`, `BootError` | `api/boot.ts` |
-| `RoutesManifest`, `RegistryManifest`, `ImportMap` | `api/boot.ts` |
+| `JustJSAspect`, `AspectProvider`, `AspectRegistry` | `api/api_aspect.ts` |
+| `AspectTarget`, `AspectConfig`, `AspectDeclaration` | `api/api_aspect.ts` |
+| `BootConfig`, `BootError` | `api/api_boot.ts` |
+| `RoutesManifest`, `RegistryManifest`, `ImportMap` | `api/api_boot.ts` |
 
 ### data/
 
@@ -459,4 +459,4 @@ Interfaces are organised by the workspace they belong to. Each workspace's `api/
 
 | Interface | File |
 |---|---|
-| `UIThemingContext`, `ThemingProviderConfig`, `ThemingAspect`, `ThemingProvider` | `api/provider.ts` |
+| `UIThemingContext`, `ThemingProviderConfig`, `ThemingAspect`, `ThemingProvider` | `api/api_provider.ts` |

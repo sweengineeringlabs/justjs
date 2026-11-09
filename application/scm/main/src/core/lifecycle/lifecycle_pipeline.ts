@@ -1,8 +1,8 @@
-import type { ComponentContext, ComponentDataContext, MountHandle, RuntimeAdapter } from "../../api/component.js"
-import { NoopRuntimeAdapter } from "../../api/component.js"
-import type { Lifecycle, LifecycleStep } from "../../api/lifecycle.js"
-import { LifecycleError } from "../../api/lifecycle.js"
-import type { ComponentRegistry } from "../../api/registry.js"
+import type { ComponentContext, ComponentDataContext, MountHandle, RuntimeAdapter } from "../../api/api_component.js"
+import { NoopRuntimeAdapter } from "../../api/api_component.js"
+import type { Lifecycle, LifecycleStep } from "../../api/api_lifecycle.js"
+import { LifecycleError } from "../../api/api_lifecycle.js"
+import type { ComponentRegistry } from "../../api/api_registry.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { resolveDdasAddressesForTag } from "../../api/dom-address.js"
 import type { ErrorBoundary } from "../../api/error_boundary.js"
@@ -115,7 +115,7 @@ export class UpdateStep implements LifecycleStep {
     return "update"
   }
 
-  // A component's `update` hook is optional (api/component.ts) — components that
+  // A component's `update` hook is optional (api/api_component.ts) — components that
   // only implement `render` have nothing distinct for this step to do, since
   // RenderStep already painted this pass with the current props. This step exists
   // for components that want a separate reaction alongside render() (e.g.

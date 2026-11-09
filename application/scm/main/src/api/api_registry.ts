@@ -1,4 +1,4 @@
-import type { Component, ComponentProps } from "./component.js"
+import type { Component, ComponentProps } from "./api_component.js"
 
 export interface Router {
   navigate(path: string): Promise<void>

@@ -1,4 +1,4 @@
-import type { ComponentContext } from "./component.js"
+import type { ComponentContext } from "./api_component.js"
 
 // Called when a component's render()/update() throws during a real
 // lifecycle.run() pass — the initial navigation, or a reactive re-render

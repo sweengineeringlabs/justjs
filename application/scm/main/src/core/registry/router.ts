@@ -1,9 +1,9 @@
-import type { Router, RouteRegistryEntry } from "../../api/registry.js"
-import { RegistryError } from "../../api/registry.js"
-import type { Lifecycle } from "../../api/lifecycle.js"
+import type { Router, RouteRegistryEntry } from "../../api/api_registry.js"
+import { RegistryError } from "../../api/api_registry.js"
+import type { Lifecycle } from "../../api/api_lifecycle.js"
 import type { DomAddressMap } from "../../api/dom-address.js"
 import { resolveDdasAddressesForTag } from "../../api/dom-address.js"
-import type { ComponentContext, ComponentProps } from "../../api/component.js"
+import type { ComponentContext, ComponentProps } from "../../api/api_component.js"
 import type { FeatureStore, UIEventBus } from "@justjs/data"
 
 // Matches a route pattern (e.g. "/order/:id") against a real navigated path
